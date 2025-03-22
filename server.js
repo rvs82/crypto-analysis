@@ -72,7 +72,7 @@ function calculateMACD(prices) {
 async function aiTradeDecision(symbol) {
   const klines = await fetchKlines(symbol);
   const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-  if (closes.length === 0) return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0 };
+  if (closes.length === 0) return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rsi: 0, macd: { histogram: 0 } };
 
   const price = lastPrices[symbol];
   const rsi = calculateRSI(closes);
@@ -83,8 +83,6 @@ async function aiTradeDecision(symbol) {
   const confidence = Math.min(95, Math.max(5, Math.abs(score) * 100));
 
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
-  if (rsi > 40 && rsi < 60 && Math.abs(score) < 0.5) direction = 'Нейтрально';
-
   const entry = price;
   const stopLoss = direction === 'Лонг' ? price * 0.99 : price * 1.01;
   const takeProfit = direction === 'Лонг' ? price * 1.03 : price * 0.97;
@@ -92,9 +90,10 @@ async function aiTradeDecision(symbol) {
   const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
   const rrr = profit / risk;
 
-  if (rrr < 3 || confidence < 60) direction = 'Нейтрально';
+  // Снижаем порог confidence до 20 для теста
+  if (rrr < 1 || confidence < 20) direction = 'Нейтрально';
 
-  return { direction, entry, stopLoss, takeProfit, confidence };
+  return { direction, entry, stopLoss, takeProfit, confidence, rsi, macd };
 }
 
 app.get('/data', async (req, res) => {
