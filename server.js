@@ -38,7 +38,9 @@ wss.on('message', (data) => {
 async function fetchKlines(symbol) {
   try {
     const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=1000`);
-    return await response.json();
+    const data = await response.json();
+    if (!Array.isArray(data)) throw new Error('Klines data is not an array');
+    return data;
   } catch (error) {
     console.error(`Ошибка получения свечей для ${symbol}:`, error);
     return [];
@@ -62,6 +64,7 @@ async function fetchNewsSentiment() {
   try {
     const response = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://coindesk.com/feed');
     const data = await response.json();
+    if (!data.items || !Array.isArray(data.items)) return 0;
     const sentimentScore = data.items.slice(0, 5).reduce((sum, item) => {
       const title = item.title.toLowerCase();
       return sum + (title.includes('bull') || title.includes('up') ? 0.1 : title.includes('bear') || title.includes('down') ? -0.1 : 0);
