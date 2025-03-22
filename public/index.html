@@ -31,6 +31,7 @@
             text-align: center;
             font-weight: bold;
         }
+        .indicators { font-size: 0.9em; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -41,21 +42,27 @@
 
     <h2>LDO/USDT</h2>
     <p class="recommendation" id="ldo_trade_rec">Загрузка...</p>
+    <div class="indicators" id="ldo_indicators">RSI: -, MACD: -</div>
 
     <h2>AVAX/USDT</h2>
     <p class="recommendation" id="avax_trade_rec">Загрузка...</p>
+    <div class="indicators" id="avax_indicators">RSI: -, MACD: -</div>
 
     <h2>XLM/USDT</h2>
     <p class="recommendation" id="xlm_trade_rec">Загрузка...</p>
+    <div class="indicators" id="xlm_indicators">RSI: -, MACD: -</div>
 
     <h2>HBAR/USDT</h2>
     <p class="recommendation" id="hbar_trade_rec">Загрузка...</p>
+    <div class="indicators" id="hbar_indicators">RSI: -, MACD: -</div>
 
     <h2>BAT/USDT</h2>
     <p class="recommendation" id="bat_trade_rec">Загрузка...</p>
+    <div class="indicators" id="bat_indicators">RSI: -, MACD: -</div>
 
     <h2>AAVE/USDT</h2>
     <p class="recommendation" id="aave_trade_rec">Загрузка...</p>
+    <div class="indicators" id="aave_indicators">RSI: -, MACD: -</div>
 
     <script>
         async function updateData() {
@@ -71,6 +78,9 @@
                         ? 'Нейтрально' 
                         : `${rec.direction}, Открытие: ${rec.entry.toFixed(4)}, Стоп-лосс: ${rec.stopLoss.toFixed(4)}, Фиксация: ${rec.takeProfit.toFixed(4)}, Вероятность: ${rec.confidence}%`;
                     element.className = `recommendation ${rec.direction.toLowerCase()}`;
+
+                    const indicators = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_indicators`);
+                    indicators.textContent = `RSI: ${rec.rsi ? rec.rsi.toFixed(2) : '-'}, MACD: ${rec.macd ? rec.macd.histogram.toFixed(4) : '-'}`;
                 });
 
                 document.getElementById('long-sentiment').textContent = `Лонги: ${(data.sentiment.long / 6 * 100).toFixed(2)}%`;
