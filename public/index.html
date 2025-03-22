@@ -76,6 +76,9 @@
         .recommendation.neutral { color: #ff0 !important; font-weight: bold; }
         .trade-long { color: #0f0; font-weight: bold; }
         .trade-short { color: #f00; font-weight: bold; }
+        .direction-long { color: #0f0; font-weight: bold; }
+        .direction-short { color: #f00; font-weight: bold; }
+        .trade-details { font-size: 0.8em; color: #ccc; }
         details {
             font-size: 0.8em;
             line-height: 1.1;
@@ -115,17 +118,17 @@
         <table>
             <tbody>
                 <tr><td class="recommendation" id="ldo_trade_rec">LDO/USDT: Загрузка...</td><td id="ldo_trade_stats"><span id="ldo_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="ldo_indicators">Загрузка...</div></details></td></tr>
+                <tr><td id="ldo_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="ldo_indicators">Загрузка...</div></details></td></tr>
                 <tr><td class="recommendation" id="avax_trade_rec">AVAX/USDT: Загрузка...</td><td id="avax_trade_stats"><span id="avax_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="avax_indicators">Загрузка...</div></details></td></tr>
+                <tr><td id="avax_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="avax_indicators">Загрузка...</div></details></td></tr>
                 <tr><td class="recommendation" id="xlm_trade_rec">XLM/USDT: Загрузка...</td><td id="xlm_trade_stats"><span id="xlm_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="xlm_indicators">Загрузка...</div></details></td></tr>
+                <tr><td id="xlm_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="xlm_indicators">Загрузка...</div></details></td></tr>
                 <tr><td class="recommendation" id="hbar_trade_rec">HBAR/USDT: Загрузка...</td><td id="hbar_trade_stats"><span id="hbar_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="hbar_indicators">Загрузка...</div></details></td></tr>
+                <tr><td id="hbar_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="hbar_indicators">Загрузка...</div></details></td></tr>
                 <tr><td class="recommendation" id="bat_trade_rec">BAT/USDT: Загрузка...</td><td id="bat_trade_stats"><span id="bat_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="bat_indicators">Загрузка...</div></details></td></tr>
+                <tr><td id="bat_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="bat_indicators">Загрузка...</div></details></td></tr>
                 <tr><td class="recommendation" id="aave_trade_rec">AAVE/USDT: Загрузка...</td><td id="aave_trade_stats"><span id="aave_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="aave_indicators">Загрузка...</div></details></td></tr>
+                <tr><td id="aave_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="aave_indicators">Загрузка...</div></details></td></tr>
             </tbody>
         </table>
     </div>
@@ -147,17 +150,23 @@
                     const recElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_rec`);
                     const statsElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_stats`);
                     const directionElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_direction`);
+                    const detailsElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_details`);
                     const indElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_indicators`);
 
+                    const directionClass = rec.direction === 'Лонг' ? 'direction-long' : rec.direction === 'Шорт' ? 'direction-short' : '';
                     recElement.innerHTML = `${symbol}: ${rec.direction === 'Нейтрально' 
                         ? 'Нейтрально' 
-                        : `${rec.direction}: ${rec.entry.toFixed(4)}, Стоп: ${rec.stopLoss.toFixed(4)}, Профит: ${rec.takeProfit.toFixed(4)} | ${Math.round(rec.confidence)}% | ${rec.rrr}`}`;
+                        : `<span class="${directionClass}">${rec.direction}</span>: ${rec.entry.toFixed(4)}, Стоп: ${rec.stopLoss.toFixed(4)}, Профит: ${rec.takeProfit.toFixed(4)} | ${Math.round(rec.confidence)}% | ${rec.rrr}`}`;
                     recElement.className = `recommendation ${rec.direction.toLowerCase()}`;
 
                     const tradeClass = trade.active ? (trade.active.direction === 'Лонг' ? 'trade-long' : 'trade-short') : '';
-                    directionElement.textContent = trade.active ? trade.active.direction : '-';
+                    directionElement.textContent = trade.active ? trade.active.direction : 'Нет';
                     directionElement.className = tradeClass;
-                    statsElement.innerHTML = `<span id="${symbol.toLowerCase().replace('usdt', '')}_trade_direction" class="${tradeClass}">${trade.active ? trade.active.direction : '-'}</span> | Закрыто: ${trade.closedCount} | Стоп: ${trade.stopCount} | Профит: ${trade.profitCount} | Прибыль: ${Math.round(trade.totalProfit)} USDT | Убыток: ${Math.round(trade.totalLoss)} USDT`;
+                    statsElement.innerHTML = `<span id="${symbol.toLowerCase().replace('usdt', '')}_trade_direction" class="${tradeClass}">${trade.active ? trade.active.direction : 'Нет'}</span> | Закрыто: ${trade.closedCount} | Стоп: ${trade.stopCount} | Профит: ${trade.profitCount} | Прибыль: ${Math.round(trade.totalProfit)} USDT | Убыток: ${Math.round(trade.totalLoss)} USDT`;
+
+                    detailsElement.textContent = trade.active 
+                        ? `Цена открытия: ${trade.active.entry.toFixed(4)}, Стоп: ${trade.active.stopLoss.toFixed(4)}, Профит: ${trade.active.takeProfit.toFixed(4)}` 
+                        : '';
 
                     indElement.textContent = `RSI: ${rec.rsi.toFixed(2)}, EMA50: ${rec.ema50.toFixed(4)}, EMA200: ${rec.ema200.toFixed(4)}, MACD: ${rec.macd.histogram.toFixed(4)}, VW-MACD: ${rec.vwmacd.histogram.toFixed(4)}, ` +
                         `Bollinger: ${rec.bollinger.upper.toFixed(4)}/${rec.bollinger.middle.toFixed(4)}/${rec.bollinger.lower.toFixed(4)}, VWAP: ${rec.vwap.toFixed(4)}, ATR: ${rec.atr.toFixed(4)}, ` +
