@@ -6,6 +6,16 @@ app.use(express.static('public'));
 
 let lastPrices = { LDOUSDT: 0, AVAXUSDT: 0, XLMUSDT: 0, HBARUSDT: 0, BATUSDT: 0, AAVEUSDT: 0 };
 let sentiment = { long: 0, short: 0 };
+let trades = {
+  LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  XLMUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  HBARUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  BATUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
+};
+const TRADE_AMOUNT = 100;
+const BINANCE_FEE = 0.001;
 
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
@@ -20,16 +30,30 @@ wss.on('message', (data) => {
   if (parsedData.s && lastPrices[parsedData.s]) {
     lastPrices[parsedData.s] = parseFloat(parsedData.c) || 0;
     console.log(`Обновлена цена для ${parsedData.s}: ${lastPrices[parsedData.s]}`);
+    checkTradeStatus(parsedData.s, lastPrices[parsedData.s]);
   }
 });
 
 async function fetchKlines(symbol) {
   try {
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=300`);
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=1000`);
     return await response.json();
   } catch (error) {
     console.error(`Ошибка получения свечей для ${symbol}:`, error);
     return [];
+  }
+}
+
+async function fetchOrderBook(symbol) {
+  try {
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/depth?symbol=${symbol}&limit=10`);
+    const data = await response.json();
+    const bidVolume = data.bids.reduce((sum, bid) => sum + parseFloat(bid[1]), 0);
+    const askVolume = data.asks.reduce((sum, ask) => sum + parseFloat(ask[1]), 0);
+    return { bidVolume, askVolume };
+  } catch (error) {
+    console.error(`Ошибка получения глубины рынка для ${symbol}:`, error);
+    return { bidVolume: 0, askVolume: 0 };
   }
 }
 
@@ -51,6 +75,16 @@ function calculateRSI(closes) {
 function calculateMACD(prices) {
   const ema12 = calculateEMA(12, prices.slice(-26));
   const ema26 = calculateEMA(26, prices.slice(-26));
+  const macd = ema12 - ema26;
+  const signal = calculateEMA(9, prices.slice(-9).map((_, i) => calculateEMA(12, prices.slice(-26 + i, -14 + i)) - calculateEMA(26, prices.slice(-26 + i))));
+  return { line: macd, signal: signal, histogram: macd - signal };
+}
+
+function calculateVWMACD(klines) {
+  const prices = klines.map(k => parseFloat(k[4]));
+  const volumes = klines.map(k => parseFloat(k[5]));
+  const ema12 = calculateEMA(12, prices.slice(-26).map((p, i) => p * volumes[i + klines.length - 26] / volumes.slice(-26).reduce((a, b) => a + b)));
+  const ema26 = calculateEMA(26, prices.slice(-26).map((p, i) => p * volumes[i + klines.length - 26] / volumes.slice(-26).reduce((a, b) => a + b)));
   const macd = ema12 - ema26;
   const signal = calculateEMA(9, prices.slice(-9).map((_, i) => calculateEMA(12, prices.slice(-26 + i, -14 + i)) - calculateEMA(26, prices.slice(-26 + i))));
   return { line: macd, signal: signal, histogram: macd - signal };
@@ -181,6 +215,81 @@ function calculateParabolicSAR(klines) {
   return sar;
 }
 
+function calculateCMO(klines) {
+  const period = 9;
+  const prices = klines.slice(-period).map(k => parseFloat(k[4]));
+  const gains = prices.slice(1).map((p, i) => p > prices[i] ? p - prices[i] : 0).reduce((a, b) => a + b, 0);
+  const losses = prices.slice(1).map((p, i) => p < prices[i] ? prices[i] - p : 0).reduce((a, b) => a + b, 0);
+  return (gains - losses) / (gains + losses) * 100 || 0;
+}
+
+function calculateHeikinAshi(klines) {
+  const last = klines[klines.length - 1];
+  const prev = klines[klines.length - 2] || last;
+  const haClose = (parseFloat(last[1]) + parseFloat(last[2]) + parseFloat(last[3]) + parseFloat(last[4])) / 4;
+  const haOpen = prev ? (parseFloat(prev[1]) + parseFloat(prev[4])) / 2 : parseFloat(last[1]);
+  const haHigh = Math.max(parseFloat(last[2]), haOpen, haClose);
+  const haLow = Math.min(parseFloat(last[3]), haOpen, haClose);
+  return { open: haOpen, high: haHigh, low: haLow, close: haClose };
+}
+
+function calculateMomentum(closes, period = 10) {
+  return closes[closes.length - 1] - closes[closes.length - 1 - period] || 0;
+}
+
+function calculateWilliamsR(klines) {
+  const period = 14;
+  const recent = klines.slice(-period);
+  const high = Math.max(...recent.map(k => parseFloat(k[2])));
+  const low = Math.min(...recent.map(k => parseFloat(k[3])));
+  const close = parseFloat(recent[recent.length - 1][4]);
+  return ((high - close) / (high - low)) * -100 || 0;
+}
+
+function calculateROC(closes, period = 12) {
+  const current = closes[closes.length - 1];
+  const past = closes[closes.length - 1 - period] || current;
+  return ((current - past) / past) * 100 || 0;
+}
+
+function calculateIchimoku(klines) {
+  const tenkanSen = (Math.max(...klines.slice(-9).map(k => parseFloat(k[2]))) + Math.min(...klines.slice(-9).map(k => parseFloat(k[3])))) / 2;
+  const kijunSen = (Math.max(...klines.slice(-26).map(k => parseFloat(k[2]))) + Math.min(...klines.slice(-26).map(k => parseFloat(k[3])))) / 2;
+  const senkouSpanA = (tenkanSen + kijunSen) / 2;
+  const senkouSpanB = (Math.max(...klines.slice(-52).map(k => parseFloat(k[2]))) + Math.min(...klines.slice(-52).map(k => parseFloat(k[3])))) / 2;
+  const chikouSpan = parseFloat(klines[klines.length - 1][4]);
+  return { tenkanSen, kijunSen, senkouSpanA, senkouSpanB, chikouSpan };
+}
+
+function calculatePivotPoints(klines) {
+  const last = klines[klines.length - 1];
+  const high = parseFloat(last[2]);
+  const low = parseFloat(last[3]);
+  const close = parseFloat(last[4]);
+  const pivot = (high + low + close) / 3;
+  const r1 = 2 * pivot - low;
+  const s1 = 2 * pivot - high;
+  const r2 = pivot + (high - low);
+  const s2 = pivot - (high - low);
+  return { pivot, r1, s1, r2, s2 };
+}
+
+function calculateFibonacci(klines) {
+  const period = 50;
+  const recent = klines.slice(-period);
+  const high = Math.max(...recent.map(k => parseFloat(k[2])));
+  const low = Math.min(...recent.map(k => parseFloat(k[3])));
+  const diff = high - low;
+  return {
+    level0: low,
+    level236: low + 0.236 * diff,
+    level382: low + 0.382 * diff,
+    level5: low + 0.5 * diff,
+    level618: low + 0.618 * diff,
+    level1: high
+  };
+}
+
 function detectCandlePattern(klines) {
   const last = klines[klines.length - 1];
   const prev = klines[klines.length - 2] || last;
@@ -205,52 +314,97 @@ function findLevels(prices) {
   return { support: sorted[Math.floor(sorted.length * 0.1)], resistance: sorted[Math.floor(sorted.length * 0.9)] };
 }
 
+function backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines) {
+  const recentKlines = klines.slice(-200); // Бэктестинг на 200 свечах
+  let wins = 0, losses = 0;
+  for (let i = 0; i < recentKlines.length - 1; i++) {
+    const high = parseFloat(recentKlines[i + 1][2]);
+    const low = parseFloat(recentKlines[i + 1][3]);
+    if (direction === 'Лонг') {
+      if (high >= takeProfit) wins++;
+      else if (low <= stopLoss) losses++;
+    } else if (direction === 'Шорт') {
+      if (low <= takeProfit) wins++;
+      else if (high >= stopLoss) losses++;
+    }
+  }
+  const winRate = wins / (wins + losses) || 0;
+  return winRate >= 0.6; // Требуем 60% успеха
+}
+
 async function aiTradeDecision(symbol) {
   const klines = await fetchKlines(symbol);
   const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
   if (closes.length === 0) return {
     direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0,
-    rsi: 0, ema50: 0, ema200: 0, macd: { histogram: 0 }, bollinger: { upper: 0, middle: 0, lower: 0 },
-    vwap: 0, atr: 0, stochastic: { k: 0, d: 0 }, adx: 0, cci: 0, obv: 0, sar: 0, pattern: 'Отсутствует', prediction: 0, levels: { support: 0, resistance: 0 }
+    rsi: 0, ema50: 0, ema200: 0, macd: { histogram: 0 }, vwmacd: { histogram: 0 }, bollinger: { upper: 0, middle: 0, lower: 0 },
+    vwap: 0, atr: 0, stochastic: { k: 0, d: 0 }, adx: 0, cci: 0, cmo: 0, obv: 0, sar: 0, heikin: { close: 0 },
+    momentum: 0, williamsR: 0, roc: 0, ichimoku: { tenkanSen: 0, kijunSen: 0 }, pivot: { pivot: 0, r1: 0, s1: 0 },
+    fibonacci: { level5: 0 }, orderBook: { bidVolume: 0, askVolume: 0 }, pattern: 'Отсутствует', prediction: 0, levels: { support: 0, resistance: 0 }
   };
 
-  const price = lastPrices[symbol] || closes[closes.length - 1]; // Исправлено: берём актуальную цену
+  const price = lastPrices[symbol] || closes[closes.length - 1];
   const rsi = calculateRSI(closes);
   const ema50 = calculateEMA(50, closes.slice(-50));
   const ema200 = calculateEMA(200, closes);
   const macd = calculateMACD(closes);
+  const vwmacd = calculateVWMACD(klines);
   const bollinger = calculateBollinger(closes);
   const vwap = calculateVWAP(klines);
   const atr = calculateATR(klines);
   const stochastic = calculateStochastic(klines);
   const adx = calculateADX(klines);
   const cci = calculateCCI(klines);
+  const cmo = calculateCMO(klines);
   const obv = calculateOBV(klines);
   const sar = calculateParabolicSAR(klines);
+  const heikin = calculateHeikinAshi(klines);
+  const momentum = calculateMomentum(closes);
+  const williamsR = calculateWilliamsR(klines);
+  const roc = calculateROC(closes);
+  const ichimoku = calculateIchimoku(klines);
+  const pivot = calculatePivotPoints(klines);
+  const fibonacci = calculateFibonacci(klines);
+  const orderBook = await fetchOrderBook(symbol);
   const pattern = detectCandlePattern(klines);
   const prediction = trainPredictionModel(klines);
   const levels = findLevels(closes);
 
   const rsiNorm = (rsi - 50) / 50;
   const macdNorm = macd.histogram / Math.abs(macd.line) || 0;
+  const vwmacdNorm = vwmacd.histogram / Math.abs(vwmacd.line) || 0;
   const bollingerPosition = (price - bollinger.middle) / (bollinger.upper - bollinger.lower);
   const vwapDistance = (price - vwap) / price;
   const atrNorm = atr / price;
   const stochNorm = (stochastic.k - 50) / 50;
   const adxNorm = (adx - 25) / 25;
   const cciNorm = cci / 100;
+  const cmoNorm = cmo / 50;
   const predNorm = (prediction - price) / price;
   const sarDirection = price > sar ? 1 : -1;
+  const heikinTrend = heikin.close > heikin.open ? 1 : -1;
+  const momNorm = momentum / price;
+  const williamsNorm = (williamsR + 50) / 50;
+  const rocNorm = roc / 100;
+  const ichimokuTrend = price > ichimoku.kijunSen ? 1 : -1;
+  const pivotPosition = (price - pivot.pivot) / (pivot.r1 - pivot.s1);
+  const fibPosition = (price - fibonacci.level0) / (fibonacci.level1 - fibonacci.level0);
+  const orderBookPressure = (orderBook.bidVolume - orderBook.askVolume) / (orderBook.bidVolume + orderBook.askVolume) || 0;
 
   const weights = {
-    rsi: -0.3, macd: 0.25, bollinger: -0.2, vwap: -0.1, atr: 0.1,
-    stochastic: -0.3, adx: 0.4, cci: -0.35, prediction: 0.6, sar: 0.15
+    rsi: -0.3, macd: 0.25, vwmacd: 0.3, bollinger: -0.2, vwap: -0.1, atr: 0.1,
+    stochastic: -0.3, adx: 0.4, cci: -0.35, cmo: -0.25, prediction: 0.6, sar: 0.15,
+    heikin: 0.2, momentum: 0.15, williamsR: -0.2, roc: 0.15, ichimoku: 0.25,
+    pivot: -0.15, fibonacci: -0.2, orderBook: 0.2
   };
 
-  const score = (weights.rsi * rsiNorm) + (weights.macd * macdNorm) + (weights.bollinger * bollingerPosition) +
-                (weights.vwap * vwapDistance) + (weights.atr * atrNorm) + (weights.stochastic * stochNorm) +
-                (weights.adx * adxNorm) + (weights.cci * cciNorm) + (weights.prediction * predNorm) +
-                (weights.sar * sarDirection);
+  const score = (weights.rsi * rsiNorm) + (weights.macd * macdNorm) + (weights.vwmacd * vwmacdNorm) +
+                (weights.bollinger * bollingerPosition) + (weights.vwap * vwapDistance) + (weights.atr * atrNorm) +
+                (weights.stochastic * stochNorm) + (weights.adx * adxNorm) + (weights.cci * cciNorm) +
+                (weights.cmo * cmoNorm) + (weights.prediction * predNorm) + (weights.sar * sarDirection) +
+                (weights.heikin * heikinTrend) + (weights.momentum * momNorm) + (weights.williamsR * williamsNorm) +
+                (weights.roc * rocNorm) + (weights.ichimoku * ichimokuTrend) + (weights.pivot * pivotPosition) +
+                (weights.fibonacci * fibPosition) + (weights.orderBook * orderBookPressure);
 
   const confidence = Math.min(95, Math.max(5, Math.abs(score) * 100));
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
@@ -258,12 +412,73 @@ async function aiTradeDecision(symbol) {
   const stopLoss = direction === 'Лонг' ? price - atr * 1.5 : price + atr * 1.5;
   const takeProfit = direction === 'Лонг' ? price + atr * 3 : price - atr * 3;
 
-  if (confidence < 5) direction = 'Нейтрально'; // Порог 5
+  // Фильтр ложных сигналов и бэктестинг
+  if (adx < 20 || (rsi > 40 && rsi < 60 && Math.abs(score) < 0.5) || !backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines)) {
+    direction = 'Нейтрально';
+  }
 
   return {
-    direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, bollinger,
-    vwap, atr, stochastic, adx, cci, obv, sar, pattern, prediction, levels
+    direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, vwmacd, bollinger,
+    vwap, atr, stochastic, adx, cci, cmo, obv, sar, heikin, momentum, williamsR, roc, ichimoku,
+    pivot, fibonacci, orderBook, pattern, prediction, levels
   };
+}
+
+function checkTradeStatus(symbol, currentPrice) {
+  const tradeData = trades[symbol];
+  if (tradeData && tradeData.active) {
+    const { entry, stopLoss, takeProfit, direction } = tradeData.active;
+    if (direction === 'Лонг') {
+      if (currentPrice <= stopLoss) {
+        const loss = TRADE_AMOUNT * (entry - stopLoss);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalLoss += loss + commission;
+        tradeData.stopCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} + комиссия: ${commission.toFixed(2)}`);
+      } else if (currentPrice >= takeProfit) {
+        const profit = TRADE_AMOUNT * (takeProfit - entry);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalProfit += profit - commission;
+        tradeData.profitCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} - комиссия: ${commission.toFixed(2)}`);
+      }
+    } else if (direction === 'Шорт') {
+      if (currentPrice >= stopLoss) {
+        const loss = TRADE_AMOUNT * (stopLoss - entry);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalLoss += loss + commission;
+        tradeData.stopCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} + комиссия: ${commission.toFixed(2)}`);
+      } else if (currentPrice <= takeProfit) {
+        const profit = TRADE_AMOUNT * (entry - takeProfit);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalProfit += profit - commission;
+        tradeData.profitCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} - комиссия: ${commission.toFixed(2)}`);
+      }
+    }
+  }
+}
+
+function manageTrades(symbol, entry, stopLoss, takeProfit, direction, confidence, klines) {
+  const tradeData = trades[symbol];
+  if (tradeData.active || confidence < 60 || !backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines)) return;
+  
+  tradeData.active = { direction, entry, stopLoss, takeProfit };
+  tradeData.openCount++;
+  console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
 }
 
 app.get('/data', async (req, res) => {
@@ -275,9 +490,10 @@ app.get('/data', async (req, res) => {
     recommendations[symbol] = await aiTradeDecision(symbol);
     if (recommendations[symbol].direction === 'Лонг') sentiment.long++;
     else if (recommendations[symbol].direction === 'Шорт') sentiment.short++;
+    manageTrades(symbol, recommendations[symbol].entry, recommendations[symbol].stopLoss, recommendations[symbol].takeProfit, recommendations[symbol].direction, recommendations[symbol].confidence, klines);
   }
 
-  res.json({ prices: lastPrices, recommendations, sentiment });
+  res.json({ prices: lastPrices, recommendations, sentiment, trades });
 });
 
 app.listen(3000, () => {
