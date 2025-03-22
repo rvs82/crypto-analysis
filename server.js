@@ -358,7 +358,7 @@ async function aiTradeDecision(symbol, newsSentiment) {
     vwap: 0, atr: 0, stochastic: { k: 0, d: 0 }, adx: 0, cci: 0, cmo: 0, obv: 0, sar: 0, heikin: { close: 0 },
     momentum: 0, williamsR: 0, roc: 0, ichimoku: { tenkanSen: 0, kijunSen: 0 }, pivot: { pivot: 0, r1: 0, s1: 0 },
     fibonacci: { level5: 0 }, orderBook: { bidVolume: 0, askVolume: 0 }, pattern: 'Отсутствует', prediction: 0, levels: { support: 0, resistance: 0 },
-    winRateLong: 0, winRateShort: 0
+    winRateLong: 0, winRateShort: 0, rrr: '0/0'
   };
 
   const price = lastPrices[symbol] || closes[closes.length - 1];
@@ -530,10 +530,11 @@ app.get('/data', async (req, res) => {
   await updateMarketSentiment();
 
   for (let symbol of symbols) {
+    const klines = await fetchKlines(symbol); // Получаем klines заранее
     const decision = await aiTradeDecision(symbol, newsSentiment);
     recommendations[symbol] = decision;
     if (decision.direction !== 'Нейтрально') {
-      manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, await fetchKlines(symbol));
+      manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, klines);
     }
   }
 
