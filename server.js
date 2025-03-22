@@ -503,7 +503,7 @@ function manageTrades(symbol, entry, stopLoss, takeProfit, direction, confidence
 }
 
 async function updateMarketSentiment() {
-  const topPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'TRXUSDT', 'SHIBUSDT',
+  const topPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'TRXUSDT',
                     'MATICUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'AVAXUSDT', 'LDOUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   const newsSentiment = await fetchNewsSentiment();
   sentiment = { long: 0, short: 0, total: topPairs.length };
