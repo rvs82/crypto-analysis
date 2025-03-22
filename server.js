@@ -214,7 +214,7 @@ async function aiTradeDecision(symbol) {
     vwap: 0, atr: 0, stochastic: { k: 0, d: 0 }, adx: 0, cci: 0, obv: 0, sar: 0, pattern: 'Отсутствует', prediction: 0, levels: { support: 0, resistance: 0 }
   };
 
-  const price = lastPrices[symbol];
+  const price = lastPrices[symbol] || closes[closes.length - 1]; // Исправлено: берём актуальную цену
   const rsi = calculateRSI(closes);
   const ema50 = calculateEMA(50, closes.slice(-50));
   const ema200 = calculateEMA(200, closes);
@@ -258,7 +258,7 @@ async function aiTradeDecision(symbol) {
   const stopLoss = direction === 'Лонг' ? price - atr * 1.5 : price + atr * 1.5;
   const takeProfit = direction === 'Лонг' ? price + atr * 3 : price - atr * 3;
 
-  if (confidence < 5) direction = 'Нейтрально'; // Порог снижен до 5
+  if (confidence < 5) direction = 'Нейтрально'; // Порог 5
 
   return {
     direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, bollinger,
