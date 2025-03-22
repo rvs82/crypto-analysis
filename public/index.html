@@ -74,8 +74,8 @@
         .recommendation.long { color: #0f0 !important; font-weight: bold; }
         .recommendation.short { color: #f00 !important; font-weight: bold; }
         .recommendation.neutral { color: #ff0 !important; font-weight: bold; }
-        .win-rate-long { color: #0f0; }
-        .win-rate-short { color: #f00; }
+        .trade-long { color: #0f0; font-weight: bold; }
+        .trade-short { color: #f00; font-weight: bold; }
         details {
             font-size: 0.8em;
             line-height: 1.1;
@@ -114,17 +114,17 @@
         </div>
         <table>
             <tbody>
-                <tr><td class="recommendation" id="ldo_trade_rec">LDO/USDT: Загрузка...</td><td id="ldo_trade_stats">Открыто: Нет | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
+                <tr><td class="recommendation" id="ldo_trade_rec">LDO/USDT: Загрузка...</td><td id="ldo_trade_stats"><span id="ldo_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
                 <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="ldo_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="avax_trade_rec">AVAX/USDT: Загрузка...</td><td id="avax_trade_stats">Открыто: Нет | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
+                <tr><td class="recommendation" id="avax_trade_rec">AVAX/USDT: Загрузка...</td><td id="avax_trade_stats"><span id="avax_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
                 <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="avax_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="xlm_trade_rec">XLM/USDT: Загрузка...</td><td id="xlm_trade_stats">Открыто: Нет | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
+                <tr><td class="recommendation" id="xlm_trade_rec">XLM/USDT: Загрузка...</td><td id="xlm_trade_stats"><span id="xlm_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
                 <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="xlm_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="hbar_trade_rec">HBAR/USDT: Загрузка...</td><td id="hbar_trade_stats">Открыто: Нет | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
+                <tr><td class="recommendation" id="hbar_trade_rec">HBAR/USDT: Загрузка...</td><td id="hbar_trade_stats"><span id="hbar_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
                 <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="hbar_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="bat_trade_rec">BAT/USDT: Загрузка...</td><td id="bat_trade_stats">Открыто: Нет | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
+                <tr><td class="recommendation" id="bat_trade_rec">BAT/USDT: Загрузка...</td><td id="bat_trade_stats"><span id="bat_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
                 <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="bat_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="aave_trade_rec">AAVE/USDT: Загрузка...</td><td id="aave_trade_stats">Открыто: Нет | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
+                <tr><td class="recommendation" id="aave_trade_rec">AAVE/USDT: Загрузка...</td><td id="aave_trade_stats"><span id="aave_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
                 <tr><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="aave_indicators">Загрузка...</div></details></td></tr>
             </tbody>
         </table>
@@ -136,45 +136,48 @@
         let previousActive = {};
 
         async function updateData() {
-    try {
-        const response = await fetch('/data');
-        const data = await response.json();
+            try {
+                const response = await fetch('/data');
+                const data = await response.json();
 
-        const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
-        symbols.forEach(symbol => {
-            const rec = data.recommendations[symbol];
-            const trade = data.trades[symbol];
-            const recElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_rec`);
-            const statsElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_stats`);
-            const indElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_indicators`);
+                const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
+                symbols.forEach(symbol => {
+                    const rec = data.recommendations[symbol];
+                    const trade = data.trades[symbol];
+                    const recElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_rec`);
+                    const statsElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_stats`);
+                    const directionElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_direction`);
+                    const indElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_indicators`);
 
-            recElement.innerHTML = `${symbol}: ${rec.direction === 'Нейтрально' 
-                ? `Нейтрально <span class="win-rate-long">| ${Math.round(rec.winRateLong)}%</span> <span class="win-rate-short">| ${Math.round(rec.winRateShort)}%</span>` 
-                : `${rec.direction}, Открытие: ${rec.entry.toFixed(4)}, Стоп: ${rec.stopLoss.toFixed(4)}, Профит: ${rec.takeProfit.toFixed(4)}, Вероятность: ${Math.round(rec.confidence)}%`}`;
-            recElement.className = `recommendation ${rec.direction.toLowerCase()}`;
+                    recElement.innerHTML = `${symbol}: ${rec.direction === 'Нейтрально' 
+                        ? 'Нейтрально' 
+                        : `${rec.direction}: ${rec.entry.toFixed(4)}, Стоп: ${rec.stopLoss.toFixed(4)}, Профит: ${rec.takeProfit.toFixed(4)} | ${Math.round(rec.confidence)}% | ${rec.rrr}`}`;
+                    recElement.className = `recommendation ${rec.direction.toLowerCase()}`;
 
-            const openText = trade.active ? trade.active.direction : 'Нет';
-            statsElement.textContent = `Открыто: ${openText} | Закрыто: ${trade.closedCount} | Стоп: ${trade.stopCount} | Профит: ${trade.profitCount} | Прибыль: ${Math.round(trade.totalProfit)} USDT | Убыток: ${Math.round(trade.totalLoss)} USDT`;
+                    const tradeClass = trade.active ? (trade.active.direction === 'Лонг' ? 'trade-long' : 'trade-short') : '';
+                    directionElement.textContent = trade.active ? trade.active.direction : '-';
+                    directionElement.className = tradeClass;
+                    statsElement.innerHTML = `<span id="${symbol.toLowerCase().replace('usdt', '')}_trade_direction" class="${tradeClass}">${trade.active ? trade.active.direction : '-'}</span> | Закрыто: ${trade.closedCount} | Стоп: ${trade.stopCount} | Профит: ${trade.profitCount} | Прибыль: ${Math.round(trade.totalProfit)} USDT | Убыток: ${Math.round(trade.totalLoss)} USDT`;
 
-            indElement.textContent = `RSI: ${rec.rsi.toFixed(2)}, EMA50: ${rec.ema50.toFixed(4)}, EMA200: ${rec.ema200.toFixed(4)}, MACD: ${rec.macd.histogram.toFixed(4)}, VW-MACD: ${rec.vwmacd.histogram.toFixed(4)}, ` +
-                `Bollinger: ${rec.bollinger.upper.toFixed(4)}/${rec.bollinger.middle.toFixed(4)}/${rec.bollinger.lower.toFixed(4)}, VWAP: ${rec.vwap.toFixed(4)}, ATR: ${rec.atr.toFixed(4)}, ` +
-                `Stochastic: ${rec.stochastic.k.toFixed(2)}/${rec.stochastic.d.toFixed(2)}, ADX: ${rec.adx.toFixed(2)}, CCI: ${rec.cci.toFixed(2)}, CMO: ${rec.cmo.toFixed(2)}, OBV: ${rec.obv.toFixed(0)}, ` +
-                `SAR: ${rec.sar.toFixed(4)}, Heikin: ${rec.heikin.close.toFixed(4)}, Momentum: ${rec.momentum.toFixed(4)}, Williams %R: ${rec.williamsR.toFixed(2)}, ROC: ${rec.roc.toFixed(2)}, ` +
-                `Ichimoku: ${rec.ichimoku.tenkanSen.toFixed(4)}/${rec.ichimoku.kijunSen.toFixed(4)}, Pivot: ${rec.pivot.pivot.toFixed(4)}, Fibonacci: ${rec.fibonacci.level5.toFixed(4)}, ` +
-                `Order Book: ${rec.orderBook.bidVolume.toFixed(2)}/${rec.orderBook.askVolume.toFixed(2)}, Pattern: ${rec.pattern}, Prediction: ${rec.prediction.toFixed(4)}, Levels: ${rec.levels.support.toFixed(4)}/${rec.levels.resistance.toFixed(4)}`;
+                    indElement.textContent = `RSI: ${rec.rsi.toFixed(2)}, EMA50: ${rec.ema50.toFixed(4)}, EMA200: ${rec.ema200.toFixed(4)}, MACD: ${rec.macd.histogram.toFixed(4)}, VW-MACD: ${rec.vwmacd.histogram.toFixed(4)}, ` +
+                        `Bollinger: ${rec.bollinger.upper.toFixed(4)}/${rec.bollinger.middle.toFixed(4)}/${rec.bollinger.lower.toFixed(4)}, VWAP: ${rec.vwap.toFixed(4)}, ATR: ${rec.atr.toFixed(4)}, ` +
+                        `Stochastic: ${rec.stochastic.k.toFixed(2)}/${rec.stochastic.d.toFixed(2)}, ADX: ${rec.adx.toFixed(2)}, CCI: ${rec.cci.toFixed(2)}, CMO: ${rec.cmo.toFixed(2)}, OBV: ${rec.obv.toFixed(0)}, ` +
+                        `SAR: ${rec.sar.toFixed(4)}, Heikin: ${rec.heikin.close.toFixed(4)}, Momentum: ${rec.momentum.toFixed(4)}, Williams %R: ${rec.williamsR.toFixed(2)}, ROC: ${rec.roc.toFixed(2)}, ` +
+                        `Ichimoku: ${rec.ichimoku.tenkanSen.toFixed(4)}/${rec.ichimoku.kijunSen.toFixed(4)}, Pivot: ${rec.pivot.pivot.toFixed(4)}, Fibonacci: ${rec.fibonacci.level5.toFixed(4)}, ` +
+                        `Order Book: ${rec.orderBook.bidVolume.toFixed(2)}/${rec.orderBook.askVolume.toFixed(2)}, Pattern: ${rec.pattern}, Prediction: ${rec.prediction.toFixed(4)}, Levels: ${rec.levels.support.toFixed(4)}/${rec.levels.resistance.toFixed(4)}`;
 
-            if (trade.active && !previousActive[symbol] && soundSwitch.checked) {
-                tradeSound.play();
+                    if (trade.active && !previousActive[symbol] && soundSwitch.checked) {
+                        tradeSound.play();
+                    }
+                    previousActive[symbol] = trade.active;
+                });
+
+                document.getElementById('long-sentiment').textContent = `Лонги: ${(data.sentiment.long / data.sentiment.total * 100).toFixed(2)}%`;
+                document.getElementById('short-sentiment').textContent = `Шорты: ${(data.sentiment.short / data.sentiment.total * 100).toFixed(2)}%`;
+            } catch (error) {
+                console.error('Ошибка получения данных:', error);
             }
-            previousActive[symbol] = trade.active;
-        });
-
-        document.getElementById('long-sentiment').textContent = `Лонги: ${(data.sentiment.long / data.sentiment.total * 100).toFixed(2)}%`;
-        document.getElementById('short-sentiment').textContent = `Шорты: ${(data.sentiment.short / data.sentiment.total * 100).toFixed(2)}%`;
-    } catch (error) {
-        console.error('Ошибка получения данных:', error);
-    }
-}
+        }
 
         updateData();
         setInterval(updateData, 5000);
