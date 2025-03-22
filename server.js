@@ -505,6 +505,7 @@ async function updateMarketSentiment() {
 
   for (const symbol of topPairs) {
     const klines = await fetchKlines(symbol);
+    if (klines.length === 0) continue; // Пропускаем пары с ошибками
     const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
     if (closes.length === 0) continue;
 
