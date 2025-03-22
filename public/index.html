@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Криптоданные (M5) - Анализ</title>
+    <style>
+        body { background-color: black; color: #fff; font-family: Arial, sans-serif; }
+        h2 { color: #fff; }
+        p { color: #fff; }
+        .recommendation.long { color: #0f0; }
+        .recommendation.short { color: #f00; }
+        .recommendation.neutral { color: #ff0; }
+        .market-sentiment {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .long-sentiment {
+            background-color: #0f0;
+            color: black;
+            padding: 10px;
+            width: 48%;
+            text-align: center;
+            font-weight: bold;
+        }
+        .short-sentiment {
+            background-color: #f00;
+            color: white;
+            padding: 10px;
+            width: 48%;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="market-sentiment">
+        <div class="long-sentiment" id="long-sentiment">Лонги: 0%</div>
+        <div class="short-sentiment" id="short-sentiment">Шорты: 0%</div>
+    </div>
+
+    <h2>LDO/USDT</h2>
+    <p class="recommendation" id="ldo_trade_rec">Загрузка...</p>
+
+    <h2>AVAX/USDT</h2>
+    <p class="recommendation" id="avax_trade_rec">Загрузка...</p>
+
+    <h2>XLM/USDT</h2>
+    <p class="recommendation" id="xlm_trade_rec">Загрузка...</p>
+
+    <h2>HBAR/USDT</h2>
+    <p class="recommendation" id="hbar_trade_rec">Загрузка...</p>
+
+    <h2>BAT/USDT</h2>
+    <p class="recommendation" id="bat_trade_rec">Загрузка...</p>
+
+    <h2>AAVE/USDT</h2>
+    <p class="recommendation" id="aave_trade_rec">Загрузка...</p>
+
+    <script>
+        async function updateData() {
+            try {
+                const response = await fetch('/data');
+                const data = await response.json();
+
+                const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
+                symbols.forEach(symbol => {
+                    const rec = data.recommendations[symbol];
+                    const element = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_rec`);
+                    element.textContent = rec.direction === 'Нейтрально' 
+                        ? 'Нейтрально' 
+                        : `${rec.direction}, Открытие: ${rec.entry.toFixed(4)}, Стоп-лосс: ${rec.stopLoss.toFixed(4)}, Фиксация: ${rec.takeProfit.toFixed(4)}, Вероятность: ${rec.confidence}%`;
+                    element.className = `recommendation ${rec.direction.toLowerCase()}`;
+                });
+
+                document.getElementById('long-sentiment').textContent = `Лонги: ${(data.sentiment.long / 6 * 100).toFixed(2)}%`;
+                document.getElementById('short-sentiment').textContent = `Шорты: ${(data.sentiment.short / 6 * 100).toFixed(2)}%`;
+            } catch (error) {
+                console.error('Ошибка получения данных:', error);
+            }
+        }
+
+        updateData();
+        setInterval(updateData, 5000); // Обновление каждые 5 секунд
+    </script>
+</body>
+</html>
