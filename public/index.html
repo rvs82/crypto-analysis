@@ -31,7 +31,7 @@
             text-align: center;
             font-weight: bold;
         }
-        .indicators { font-size: 0.9em; margin-top: 5px; }
+        .indicators { font-size: 0.9em; margin-top: 5px; line-height: 1.2; }
     </style>
 </head>
 <body>
@@ -42,27 +42,27 @@
 
     <h2>LDO/USDT</h2>
     <p class="recommendation" id="ldo_trade_rec">Загрузка...</p>
-    <div class="indicators" id="ldo_indicators">RSI: -, MACD: -</div>
+    <div class="indicators" id="ldo_indicators">RSI: -, EMA50: -, EMA200: -, MACD: -, Bollinger: - / - / -, VWAP: -, ATR: -, Stochastic: - / -, ADX: -, CCI: -, OBV: -, SAR: -, Pattern: -, Prediction: -, Levels: - / -</div>
 
     <h2>AVAX/USDT</h2>
     <p class="recommendation" id="avax_trade_rec">Загрузка...</p>
-    <div class="indicators" id="avax_indicators">RSI: -, MACD: -</div>
+    <div class="indicators" id="avax_indicators">RSI: -, EMA50: -, EMA200: -, MACD: -, Bollinger: - / - / -, VWAP: -, ATR: -, Stochastic: - / -, ADX: -, CCI: -, OBV: -, SAR: -, Pattern: -, Prediction: -, Levels: - / -</div>
 
     <h2>XLM/USDT</h2>
     <p class="recommendation" id="xlm_trade_rec">Загрузка...</p>
-    <div class="indicators" id="xlm_indicators">RSI: -, MACD: -</div>
+    <div class="indicators" id="xlm_indicators">RSI: -, EMA50: -, EMA200: -, MACD: -, Bollinger: - / - / -, VWAP: -, ATR: -, Stochastic: - / -, ADX: -, CCI: -, OBV: -, SAR: -, Pattern: -, Prediction: -, Levels: - / -</div>
 
     <h2>HBAR/USDT</h2>
     <p class="recommendation" id="hbar_trade_rec">Загрузка...</p>
-    <div class="indicators" id="hbar_indicators">RSI: -, MACD: -</div>
+    <div class="indicators" id="hbar_indicators">RSI: -, EMA50: -, EMA200: -, MACD: -, Bollinger: - / - / -, VWAP: -, ATR: -, Stochastic: - / -, ADX: -, CCI: -, OBV: -, SAR: -, Pattern: -, Prediction: -, Levels: - / -</div>
 
     <h2>BAT/USDT</h2>
     <p class="recommendation" id="bat_trade_rec">Загрузка...</p>
-    <div class="indicators" id="bat_indicators">RSI: -, MACD: -</div>
+    <div class="indicators" id="bat_indicators">RSI: -, EMA50: -, EMA200: -, MACD: -, Bollinger: - / - / -, VWAP: -, ATR: -, Stochastic: - / -, ADX: -, CCI: -, OBV: -, SAR: -, Pattern: -, Prediction: -, Levels: - / -</div>
 
     <h2>AAVE/USDT</h2>
     <p class="recommendation" id="aave_trade_rec">Загрузка...</p>
-    <div class="indicators" id="aave_indicators">RSI: -, MACD: -</div>
+    <div class="indicators" id="aave_indicators">RSI: -, EMA50: -, EMA200: -, MACD: -, Bollinger: - / - / -, VWAP: -, ATR: -, Stochastic: - / -, ADX: -, CCI: -, OBV: -, SAR: -, Pattern: -, Prediction: -, Levels: - / -</div>
 
     <script>
         async function updateData() {
@@ -76,11 +76,15 @@
                     const element = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_rec`);
                     element.textContent = rec.direction === 'Нейтрально' 
                         ? 'Нейтрально' 
-                        : `${rec.direction}, Открытие: ${rec.entry.toFixed(4)}, Стоп-лосс: ${rec.stopLoss.toFixed(4)}, Фиксация: ${rec.takeProfit.toFixed(4)}, Вероятность: ${rec.confidence}%`;
+                        : `${rec.direction}, Открытие: ${rec.entry.toFixed(4)}, Стоп-лосс: ${rec.stopLoss.toFixed(4)}, Фиксация: ${rec.takeProfit.toFixed(4)}, Вероятность: ${rec.confidence.toFixed(2)}%`;
                     element.className = `recommendation ${rec.direction.toLowerCase()}`;
 
                     const indicators = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_indicators`);
-                    indicators.textContent = `RSI: ${rec.rsi ? rec.rsi.toFixed(2) : '-'}, MACD: ${rec.macd ? rec.macd.histogram.toFixed(4) : '-'}`;
+                    indicators.textContent = `RSI: ${rec.rsi.toFixed(2)}, EMA50: ${rec.ema50.toFixed(4)}, EMA200: ${rec.ema200.toFixed(4)}, ` +
+                        `MACD: ${rec.macd.histogram.toFixed(4)}, Bollinger: ${rec.bollinger.upper.toFixed(4)} / ${rec.bollinger.middle.toFixed(4)} / ${rec.bollinger.lower.toFixed(4)}, ` +
+                        `VWAP: ${rec.vwap.toFixed(4)}, ATR: ${rec.atr.toFixed(4)}, Stochastic: ${rec.stochastic.k.toFixed(2)} / ${rec.stochastic.d.toFixed(2)}, ` +
+                        `ADX: ${rec.adx.toFixed(2)}, CCI: ${rec.cci.toFixed(2)}, OBV: ${rec.obv.toFixed(0)}, SAR: ${rec.sar.toFixed(4)}, ` +
+                        `Pattern: ${rec.pattern}, Prediction: ${rec.prediction.toFixed(4)}, Levels: ${rec.levels.support.toFixed(4)} / ${rec.levels.resistance.toFixed(4)}`;
                 });
 
                 document.getElementById('long-sentiment').textContent = `Лонги: ${(data.sentiment.long / 6 * 100).toFixed(2)}%`;
