@@ -335,20 +335,18 @@ function findLevels(prices) {
 
 function backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines) {
   const recentKlines = klines.slice(-200);
-  let wins = 0, losses = 0;
+  let longWins = 0, longLosses = 0, shortWins = 0, shortLosses = 0;
   for (let i = 0; i < recentKlines.length - 1; i++) {
     const high = parseFloat(recentKlines[i + 1][2]);
     const low = parseFloat(recentKlines[i + 1][3]);
-    if (direction === 'Лонг') {
-      if (high >= takeProfit) wins++;
-      else if (low <= stopLoss) losses++;
-    } else if (direction === 'Шорт') {
-      if (low <= takeProfit) wins++;
-      else if (high >= stopLoss) losses++;
-    }
+    if (high >= takeProfit) longWins++;
+    else if (low <= stopLoss) longLosses++;
+    if (low <= takeProfit) shortWins++;
+    else if (high >= stopLoss) shortLosses++;
   }
-  const winRate = wins / (wins + losses) || 0;
-  return { winRateLong: direction === 'Лонг' ? winRate : 0, winRateShort: direction === 'Шорт' ? winRate : 0 };
+  const winRateLong = longWins / (longWins + longLosses) || 0;
+  const winRateShort = shortWins / (shortWins + shortLosses) || 0;
+  return { winRateLong, winRateShort };
 }
 
 async function aiTradeDecision(symbol, newsSentiment) {
@@ -492,8 +490,7 @@ function checkTradeStatus(symbol, currentPrice) {
 
 function manageTrades(symbol, entry, stopLoss, takeProfit, direction, confidence, klines) {
   const tradeData = trades[symbol];
-  const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
-  if (tradeData.active || confidence < 50 || (backtest.winRateLong < 0.5 && backtest.winRateShort < 0.5)) return;
+  if (tradeData.active || confidence < 50) return;
 
   tradeData.active = { direction, entry, stopLoss, takeProfit };
   tradeData.openCount++;
