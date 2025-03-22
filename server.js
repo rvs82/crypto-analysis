@@ -1,11 +1,12 @@
 const express = require('express');
 const WebSocket = require('ws');
+const fetch = require('node-fetch'); // Добавим для парсинга новостей
 const app = express();
 
 app.use(express.static('public'));
 
 let lastPrices = { LDOUSDT: 0, AVAXUSDT: 0, XLMUSDT: 0, HBARUSDT: 0, BATUSDT: 0, AAVEUSDT: 0 };
-let sentiment = { long: 0, short: 0 };
+let sentiment = { long: 0, short: 0, total: 0 };
 let trades = {
   LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
   AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
@@ -54,6 +55,21 @@ async function fetchOrderBook(symbol) {
   } catch (error) {
     console.error(`Ошибка получения глубины рынка для ${symbol}:`, error);
     return { bidVolume: 0, askVolume: 0 };
+  }
+}
+
+async function fetchNewsSentiment() {
+  try {
+    const response = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://coindesk.com/feed');
+    const data = await response.json();
+    const sentimentScore = data.items.slice(0, 5).reduce((sum, item) => {
+      const title = item.title.toLowerCase();
+      return sum + (title.includes('bull') || title.includes('up') ? 0.1 : title.includes('bear') || title.includes('down') ? -0.1 : 0);
+    }, 0) / 5;
+    return sentimentScore;
+  } catch (error) {
+    console.error('Ошибка получения новостей:', error);
+    return 0;
   }
 }
 
@@ -315,7 +331,7 @@ function findLevels(prices) {
 }
 
 function backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines) {
-  const recentKlines = klines.slice(-200); // Бэктестинг на 200 свечах
+  const recentKlines = klines.slice(-200);
   let wins = 0, losses = 0;
   for (let i = 0; i < recentKlines.length - 1; i++) {
     const high = parseFloat(recentKlines[i + 1][2]);
@@ -329,10 +345,10 @@ function backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines) 
     }
   }
   const winRate = wins / (wins + losses) || 0;
-  return winRate >= 0.6; // Требуем 60% успеха
+  return { winRateLong: direction === 'Лонг' ? winRate : 0, winRateShort: direction === 'Шорт' ? winRate : 0 };
 }
 
-async function aiTradeDecision(symbol) {
+async function aiTradeDecision(symbol, newsSentiment) {
   const klines = await fetchKlines(symbol);
   const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
   if (closes.length === 0) return {
@@ -340,7 +356,8 @@ async function aiTradeDecision(symbol) {
     rsi: 0, ema50: 0, ema200: 0, macd: { histogram: 0 }, vwmacd: { histogram: 0 }, bollinger: { upper: 0, middle: 0, lower: 0 },
     vwap: 0, atr: 0, stochastic: { k: 0, d: 0 }, adx: 0, cci: 0, cmo: 0, obv: 0, sar: 0, heikin: { close: 0 },
     momentum: 0, williamsR: 0, roc: 0, ichimoku: { tenkanSen: 0, kijunSen: 0 }, pivot: { pivot: 0, r1: 0, s1: 0 },
-    fibonacci: { level5: 0 }, orderBook: { bidVolume: 0, askVolume: 0 }, pattern: 'Отсутствует', prediction: 0, levels: { support: 0, resistance: 0 }
+    fibonacci: { level5: 0 }, orderBook: { bidVolume: 0, askVolume: 0 }, pattern: 'Отсутствует', prediction: 0, levels: { support: 0, resistance: 0 },
+    winRateLong: 0, winRateShort: 0
   };
 
   const price = lastPrices[symbol] || closes[closes.length - 1];
@@ -395,7 +412,7 @@ async function aiTradeDecision(symbol) {
     rsi: -0.3, macd: 0.25, vwmacd: 0.3, bollinger: -0.2, vwap: -0.1, atr: 0.1,
     stochastic: -0.3, adx: 0.4, cci: -0.35, cmo: -0.25, prediction: 0.6, sar: 0.15,
     heikin: 0.2, momentum: 0.15, williamsR: -0.2, roc: 0.15, ichimoku: 0.25,
-    pivot: -0.15, fibonacci: -0.2, orderBook: 0.2
+    pivot: -0.15, fibonacci: -0.2, orderBook: 0.2, news: 0.3
   };
 
   const score = (weights.rsi * rsiNorm) + (weights.macd * macdNorm) + (weights.vwmacd * vwmacdNorm) +
@@ -404,7 +421,7 @@ async function aiTradeDecision(symbol) {
                 (weights.cmo * cmoNorm) + (weights.prediction * predNorm) + (weights.sar * sarDirection) +
                 (weights.heikin * heikinTrend) + (weights.momentum * momNorm) + (weights.williamsR * williamsNorm) +
                 (weights.roc * rocNorm) + (weights.ichimoku * ichimokuTrend) + (weights.pivot * pivotPosition) +
-                (weights.fibonacci * fibPosition) + (weights.orderBook * orderBookPressure);
+                (weights.fibonacci * fibPosition) + (weights.orderBook * orderBookPressure) + (weights.news * newsSentiment);
 
   const confidence = Math.min(95, Math.max(5, Math.abs(score) * 100));
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
@@ -412,15 +429,13 @@ async function aiTradeDecision(symbol) {
   const stopLoss = direction === 'Лонг' ? price - atr * 1.5 : price + atr * 1.5;
   const takeProfit = direction === 'Лонг' ? price + atr * 3 : price - atr * 3;
 
-  // Фильтр ложных сигналов и бэктестинг
-  if (adx < 20 || (rsi > 40 && rsi < 60 && Math.abs(score) < 0.5) || !backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines)) {
-    direction = 'Нейтрально';
-  }
+  const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
+  if (confidence < 50 || (rsi > 40 && rsi < 60 && Math.abs(score) < 0.5)) direction = 'Нейтрально';
 
   return {
     direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, vwmacd, bollinger,
     vwap, atr, stochastic, adx, cci, cmo, obv, sar, heikin, momentum, williamsR, roc, ichimoku,
-    pivot, fibonacci, orderBook, pattern, prediction, levels
+    pivot, fibonacci, orderBook, pattern, prediction, levels, winRateLong: backtest.winRateLong * 100, winRateShort: backtest.winRateShort * 100
   };
 }
 
@@ -474,23 +489,43 @@ function checkTradeStatus(symbol, currentPrice) {
 
 function manageTrades(symbol, entry, stopLoss, takeProfit, direction, confidence, klines) {
   const tradeData = trades[symbol];
-  if (tradeData.active || confidence < 60 || !backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines)) return;
-  
+  const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
+  if (tradeData.active || confidence < 50 || (backtest.winRateLong < 0.5 && backtest.winRateShort < 0.5)) return;
+
   tradeData.active = { direction, entry, stopLoss, takeProfit };
   tradeData.openCount++;
   console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
 }
 
+async function updateMarketSentiment() {
+  const topPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'TRXUSDT', 'SHIBUSDT',
+                    'MATICUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'AVAXUSDT', 'LDOUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
+  const newsSentiment = await fetchNewsSentiment();
+  sentiment = { long: 0, short: 0, total: topPairs.length };
+
+  for (const symbol of topPairs) {
+    const klines = await fetchKlines(symbol);
+    const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
+    if (closes.length === 0) continue;
+
+    const price = closes[closes.length - 1];
+    const rsi = calculateRSI(closes);
+    const macd = calculateMACD(closes);
+    const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
+    if (score > 0) sentiment.long++;
+    else if (score < 0) sentiment.short++;
+  }
+}
+
 app.get('/data', async (req, res) => {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   let recommendations = {};
-  sentiment = { long: 0, short: 0 };
+  const newsSentiment = await fetchNewsSentiment();
+  await updateMarketSentiment();
 
   for (let symbol of symbols) {
-    const decision = await aiTradeDecision(symbol);
+    const decision = await aiTradeDecision(symbol, newsSentiment);
     recommendations[symbol] = decision;
-    if (recommendations[symbol].direction === 'Лонг') sentiment.long++;
-    else if (recommendations[symbol].direction === 'Шорт') sentiment.short++;
     manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, await fetchKlines(symbol));
   }
 
