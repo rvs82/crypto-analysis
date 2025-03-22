@@ -349,8 +349,7 @@ function backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines) 
   return { winRateLong, winRateShort };
 }
 
-async function aiTradeDecision(symbol, newsSentiment) {
-  const klines = await fetchKlines(symbol);
+async function aiTradeDecision(symbol, newsSentiment, klines) {
   const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
   if (closes.length === 0) return {
     direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0,
@@ -428,14 +427,24 @@ async function aiTradeDecision(symbol, newsSentiment) {
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
   const entry = price;
   const stopLoss = direction === 'Лонг' ? price - atr * 1.5 : price + atr * 1.5;
-  const takeProfit = direction === 'Лонг' ? price + atr * 3 : price - atr * 3;
+  // Динамический RRR: минимум 1/3, увеличивается с ADX (тренд)
+  const rrrFactor = Math.max(3, Math.min(6, adx / 10)); // ADX > 30 увеличивает RRR до 1/6
+  const takeProfit = direction === 'Лонг' ? price + atr * rrrFactor : price - atr * rrrFactor;
 
   const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
-  if (confidence < 50 || (rsi > 40 && rsi < 60 && Math.abs(score) < 0.5)) direction = 'Нейтрально';
+  if (confidence < 50) direction = 'Нейтрально'; // Убрано rsi > 40 && rsi < 60 для сильных сигналов
 
   const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
   const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
   const rrr = risk > 0 ? Math.round(profit / risk) : 0;
+
+  // Открываем сделку после всех фильтров
+  const tradeData = trades[symbol];
+  if (direction !== 'Нейтрально' && !tradeData.active && confidence >= 50) {
+    tradeData.active = { direction, entry, stopLoss, takeProfit };
+    tradeData.openCount++;
+    console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
+  }
 
   return {
     direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, vwmacd, bollinger,
@@ -493,15 +502,6 @@ function checkTradeStatus(symbol, currentPrice) {
   }
 }
 
-function manageTrades(symbol, entry, stopLoss, takeProfit, direction, confidence, klines) {
-  const tradeData = trades[symbol];
-  if (tradeData.active || confidence < 50) return;
-
-  tradeData.active = { direction, entry, stopLoss, takeProfit };
-  tradeData.openCount++;
-  console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
-}
-
 async function updateMarketSentiment() {
   const topPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'TRXUSDT',
                     'MATICUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'AVAXUSDT', 'LDOUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
@@ -529,13 +529,20 @@ app.get('/data', async (req, res) => {
   const newsSentiment = await fetchNewsSentiment();
   await updateMarketSentiment();
 
+  // Сбрасываем trades перед каждым запросом
+  trades = {
+    LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+    AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+    XLMUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+    HBARUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+    BATUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+    AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
+  };
+
   for (let symbol of symbols) {
-    const klines = await fetchKlines(symbol); // Получаем klines заранее
-    const decision = await aiTradeDecision(symbol, newsSentiment);
+    const klines = await fetchKlines(symbol);
+    const decision = await aiTradeDecision(symbol, newsSentiment, klines);
     recommendations[symbol] = decision;
-    if (decision.direction !== 'Нейтрально') {
-      manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, klines);
-    }
   }
 
   res.json({ prices: lastPrices, recommendations, sentiment, trades });
