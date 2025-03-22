@@ -433,10 +433,15 @@ async function aiTradeDecision(symbol, newsSentiment) {
   const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
   if (confidence < 50 || (rsi > 40 && rsi < 60 && Math.abs(score) < 0.5)) direction = 'Нейтрально';
 
+  const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
+  const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
+  const rrr = risk > 0 ? Math.round(profit / risk) : 0;
+
   return {
     direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, vwmacd, bollinger,
     vwap, atr, stochastic, adx, cci, cmo, obv, sar, heikin, momentum, williamsR, roc, ichimoku,
-    pivot, fibonacci, orderBook, pattern, prediction, levels, winRateLong: backtest.winRateLong * 100, winRateShort: backtest.winRateShort * 100
+    pivot, fibonacci, orderBook, pattern, prediction, levels, winRateLong: backtest.winRateLong * 100, winRateShort: backtest.winRateShort * 100,
+    rrr: rrr > 0 ? `1/${rrr}` : '0/0'
   };
 }
 
@@ -505,7 +510,7 @@ async function updateMarketSentiment() {
 
   for (const symbol of topPairs) {
     const klines = await fetchKlines(symbol);
-    if (klines.length === 0) continue; // Пропускаем пары с ошибками
+    if (klines.length === 0) continue;
     const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
     if (closes.length === 0) continue;
 
@@ -527,7 +532,9 @@ app.get('/data', async (req, res) => {
   for (let symbol of symbols) {
     const decision = await aiTradeDecision(symbol, newsSentiment);
     recommendations[symbol] = decision;
-    manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, await fetchKlines(symbol));
+    if (decision.direction !== 'Нейтрально') {
+      manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, await fetchKlines(symbol));
+    }
   }
 
   res.json({ prices: lastPrices, recommendations, sentiment, trades });
