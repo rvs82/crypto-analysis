@@ -487,10 +487,11 @@ app.get('/data', async (req, res) => {
   sentiment = { long: 0, short: 0 };
 
   for (let symbol of symbols) {
-    recommendations[symbol] = await aiTradeDecision(symbol);
+    const decision = await aiTradeDecision(symbol);
+    recommendations[symbol] = decision;
     if (recommendations[symbol].direction === 'Лонг') sentiment.long++;
     else if (recommendations[symbol].direction === 'Шорт') sentiment.short++;
-    manageTrades(symbol, recommendations[symbol].entry, recommendations[symbol].stopLoss, recommendations[symbol].takeProfit, recommendations[symbol].direction, recommendations[symbol].confidence, klines);
+    manageTrades(symbol, decision.entry, decision.stopLoss, decision.takeProfit, decision.direction, decision.confidence, await fetchKlines(symbol));
   }
 
   res.json({ prices: lastPrices, recommendations, sentiment, trades });
