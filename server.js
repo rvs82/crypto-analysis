@@ -1,6 +1,6 @@
 const express = require('express');
 const WebSocket = require('ws');
-const fetch = require('node-fetch'); // Добавим для парсинга новостей
+const fetch = require('node-fetch');
 const app = express();
 
 app.use(express.static('public'));
