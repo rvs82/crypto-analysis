@@ -29,7 +29,6 @@ wss.on('open', () => {
 wss.on('message', (data) => {
   try {
     const parsedData = JSON.parse(data);
-    console.log('WebSocket data:', parsedData);
     const symbol = parsedData.s;
     if (symbol && lastPrices.hasOwnProperty(symbol)) {
       lastPrices[symbol] = parseFloat(parsedData.c) || 0;
@@ -106,6 +105,28 @@ function calculateATR(klines) {
   return trs.reduce((a, b) => a + b, 0) / 14;
 }
 
+function calculateADX(klines) {
+  const period = 14;
+  const tr = [], plusDM = [], minusDM = [];
+  for (let i = 1; i < klines.length; i++) {
+    const high = parseFloat(klines[i][2]);
+    const low = parseFloat(klines[i][3]);
+    const prevHigh = parseFloat(klines[i - 1][2]);
+    const prevLow = parseFloat(klines[i - 1][3]);
+    const prevClose = parseFloat(klines[i - 1][4]);
+    tr.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+    const plus = high - prevHigh;
+    const minus = prevLow - low;
+    plusDM.push(plus > minus && plus > 0 ? plus : 0);
+    minusDM.push(minus > plus && minus > 0 ? minus : 0);
+  }
+  const atr = calculateEMA(period, tr.slice(-period));
+  const plusDI = 100 * calculateEMA(period, plusDM.slice(-period)) / atr;
+  const minusDI = 100 * calculateEMA(period, minusDM.slice(-period)) / atr;
+  const dx = Math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100 || 0;
+  return calculateEMA(14, [dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx]);
+}
+
 function findLevels(klines) {
   const closes = klines.map(k => parseFloat(k[4]));
   const priceRange = Math.max(...closes) - Math.min(...closes);
@@ -129,22 +150,29 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const rsi = calculateRSI(closes);
   const macd = calculateMACD(closes);
   const atr = calculateATR(klines);
+  const adx = calculateADX(klines);
   const levels = findLevels(klines);
 
-  const recentCloses = closes.slice(-5);
+  // Фильтры ложных сигналов
+  if (rsi > 70 || rsi < 30 || adx < 25 || atr / price > 0.05 || macd.line < macd.signal) {
+    return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0' };
+  }
+
+  const recentCloses = closes.slice(-10);
   let confidences = [];
   for (let i = 0; i < recentCloses.length; i++) {
-    const subCloses = closes.slice(0, closes.length - 5 + i + 1);
+    const subCloses = closes.slice(0, closes.length - 10 + i + 1);
     const subRsi = calculateRSI(subCloses);
     const subMacd = calculateMACD(subCloses);
-    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + newsSentiment;
-    confidences.push(Math.abs(subScore) * 100);
+    const subAdx = calculateADX(klines.slice(0, klines.length - 10 + i + 1));
+    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + (subAdx - 25) / 25 + newsSentiment;
+    confidences.push(Math.abs(subScore) * 50);
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
   const rawConfidence = confidences[confidences.length - 1];
-  const confidence = Math.min(95, Math.max(5, rawConfidence * (1 - confidenceStability / 50)));
+  const confidence = Math.round(rawConfidence * (1 - confidenceStability / 50));
 
-  const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
+  const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + (adx - 25) / 25 + newsSentiment;
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
 
   const tradeData = trades[symbol];
@@ -173,7 +201,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
       stopLoss = takeProfit = entry;
     }
 
-    if (direction !== 'Нейтрально' && confidence >= 75 && confidenceStability <= 25) {
+    if (direction !== 'Нейтрально' && confidence >= 95 && confidenceStability <= 15) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
@@ -239,7 +267,7 @@ async function updateMarketSentiment() {
   const topPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'TRXUSDT',
                     'MATICUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'AVAXUSDT', 'LDOUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   const newsSentiment = await fetchNewsSentiment();
-  sentiment = { long: 0, short: 0, total: topPairs.length };
+  sentiment = { long: 0, short: 0, total: 0 };
 
   for (const symbol of topPairs) {
     const klines = await fetchKlines(symbol);
@@ -247,6 +275,7 @@ async function updateMarketSentiment() {
     const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
     if (closes.length === 0) continue;
 
+    sentiment.total++;
     const rsi = calculateRSI(closes);
     const macd = calculateMACD(closes);
     const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
@@ -254,8 +283,8 @@ async function updateMarketSentiment() {
     else if (score < 0) sentiment.short++;
   }
 
-  sentiment.long = (sentiment.long / sentiment.total) * 100;
-  sentiment.short = (sentiment.short / sentiment.total) * 100;
+  sentiment.long = Math.round((sentiment.long / sentiment.total) * 100);
+  sentiment.short = Math.round((sentiment.short / sentiment.total) * 100);
   console.log('Sentiment updated:', sentiment);
 }
 
