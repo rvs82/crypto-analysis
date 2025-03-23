@@ -450,7 +450,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     resistance: levels.resistance.toFixed(4)
   };
 
-  // Фильтры для качественных сигналов
+  // Фильтры для исключения слабых сигналов
   if (rsi > 80 || rsi < 20 || adx < 25 || atr / price > 0.05 ||
       stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
       price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
@@ -472,16 +472,15 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const rawConfidence = confidences[confidences.length - 1];
   const confidence = Math.max(0, Math.round(rawConfidence * (1 - confidenceStability / 50) + (predictedPrice > price ? 15 : 0)));
 
-  // Проверка стабильности сигнала на двух свечах
-  const prevRsi = calculateRSI(closes.slice(0, -1));
+  // Упрощённые условия для "Лонг" и "Шорт"
+  let direction = 'Нейтрально';
   const prevMacd = calculateMACD(closes.slice(0, -1));
   const prevAdx = calculateADX(klines.slice(0, -1));
-  const prevPredictedPrice = predictPrice(klines.slice(0, -1), prevRsi, prevMacd);
+  const prevPredictedPrice = predictPrice(klines.slice(0, -1), rsi, macd);
 
-  let direction = 'Нейтрально';
-  if (rsi > 40 && rsi < 60 && macd.line > macd.signal && prevMacd.line > prevMacd.signal && adx > 25 && prevAdx > 25 && predictedPrice > price && prevPredictedPrice > closes[closes.length - 2]) {
+  if (macd.line > macd.signal && prevMacd.line > prevMacd.signal && adx > 25 && prevAdx > 25 && predictedPrice > price && prevPredictedPrice > closes[closes.length - 2]) {
     direction = 'Лонг';
-  } else if (rsi > 40 && rsi < 60 && macd.line < macd.signal && prevMacd.line < prevMacd.signal && adx > 25 && prevAdx > 25 && predictedPrice < price && prevPredictedPrice < closes[closes.length - 2]) {
+  } else if (macd.line < macd.signal && prevMacd.line < prevMacd.signal && adx > 25 && prevAdx > 25 && predictedPrice < price && prevPredictedPrice < closes[closes.length - 2]) {
     direction = 'Шорт';
   }
 
@@ -495,7 +494,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    if (direction === 'Лонг' && confidence >= 40 && confidenceStability <= 25) {
+    if (direction === 'Лонг' && confidence >= 30 && confidenceStability <= 25) {
       stopLoss = Math.min(entry - atr * 0.2, levels.support - atr * 0.2);
       takeProfit = Math.max(entry + atr * 1, levels.resistance - atr * 0.5);
       const risk = entry - stopLoss;
@@ -504,7 +503,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
-    } else if (direction === 'Шорт' && confidence >= 40 && confidenceStability <= 25) {
+    } else if (direction === 'Шорт' && confidence >= 30 && confidenceStability <= 25) {
       stopLoss = Math.max(entry + atr * 0.2, levels.resistance + atr * 0.2);
       takeProfit = Math.min(entry - atr * 1, levels.support + atr * 0.5);
       const risk = stopLoss - entry;
@@ -514,14 +513,23 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
     } else {
-      stopLoss = price;
-      takeProfit = price;
+      // Потенциальные значения для "Нейтрально"
+      if (macd.line > macd.signal) {
+        stopLoss = entry - atr * 0.2;
+        takeProfit = entry + atr * 1;
+      } else {
+        stopLoss = entry + atr * 0.2;
+        takeProfit = entry - atr * 1;
+      }
     }
   }
 
-  const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
-  const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
+  const profit = direction === 'Лонг' || macd.line > macd.signal ? takeProfit - entry : entry - takeProfit;
+  const risk = direction === 'Лонг' || macd.line > macd.signal ? entry - stopLoss : stopLoss - entry;
   const rrr = risk > 0 ? Math.round(profit / risk) : 0;
+
+  // Логирование для отладки
+  console.log(`${symbol}: RSI=${rsi}, MACD=${macd.line}/${macd.signal}, ADX=${adx}, Confidence=${confidence}, Stability=${confidenceStability}, Direction=${direction}`);
 
   return { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', indicators };
 }
