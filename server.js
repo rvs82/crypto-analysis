@@ -44,7 +44,7 @@ async function fetchKlines(symbol) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=1000`, { signal: controller.signal });
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=15m&limit=1000`, { signal: controller.signal });
     clearTimeout(timeout);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
@@ -393,7 +393,7 @@ function predictPrice(klines, rsi, macd) {
 
 async function aiTradeDecision(symbol, newsSentiment, klines) {
   const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-  if (closes.length === 0) return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators: {} };
+  if (closes.length < 2) return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators: {} };
 
   const price = lastPrices[symbol] || closes[closes.length - 1];
   const rsi = calculateRSI(closes);
@@ -446,10 +446,12 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     chaikin: chaikin.toFixed(2),
     ultimate: ultimate.toFixed(2),
     linRegSlope: linRegSlope.toFixed(4),
-    support: levels.support.toFixed(4), resistance: levels.resistance.toFixed(4)
+    support: levels.support.toFixed(4),
+    resistance: levels.resistance.toFixed(4)
   };
 
-  if (rsi > 80 || rsi < 20 || adx < 20 || atr / price > 0.05 ||
+  // Фильтры для качественных сигналов
+  if (rsi > 80 || rsi < 20 || adx < 25 || atr / price > 0.05 ||
       stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
       price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
     return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators };
@@ -463,43 +465,25 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     const subRsi = calculateRSI(subCloses);
     const subMacd = calculateMACD(subCloses);
     const subAdx = calculateADX(subKlines);
-    const subStoch = calculateStochastic(subKlines);
-    const subCci = calculateCCI(subKlines);
-    const subWilliamsR = calculateWilliamsR(subKlines);
-    const subRoc = calculateROC(subCloses);
-    const subMomentum = calculateMomentum(subCloses);
-    const subObv = calculateOBV(subKlines);
-    const subSar = calculateParabolicSAR(subKlines);
-    const subIchimoku = calculateIchimoku(subKlines);
-    const subVwap = calculateVWAP(subKlines);
-    const subCmo = calculateCMO(subKlines);
-    const subMfi = calculateMFI(subKlines);
-    const subTrix = calculateTRIX(subCloses);
-    const subKeltner = calculateKeltnerChannels(subKlines);
-    const subDonchian = calculateDonchianChannels(subKlines);
-    const subAroon = calculateAroon(subKlines);
-    const subChaikin = calculateChaikinOscillator(subKlines);
-    const subUltimate = calculateUltimateOscillator(subKlines);
-    const subLinRegSlope = calculateLinearRegressionSlope(subCloses);
-    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + (subAdx - 25) / 25 +
-                     (subStoch.k - 50) / 50 + subCci / 100 + (subWilliamsR + 50) / 50 + subRoc / 100 + subMomentum / price +
-                     (price > subSar ? 0.1 : -0.1) + (price > subIchimoku.kijunSen ? 0.1 : -0.1) + (price - subVwap) / price +
-                     subCmo / 50 + (subMfi - 50) / 50 + subTrix / 100 + (price > subKeltner.middle ? 0.1 : -0.1) +
-                     (price > subDonchian.middle ? 0.1 : -0.1) + (subAroon.up - subAroon.down) / 100 + subChaikin / 1000 +
-                     (subUltimate - 50) / 50 + subLinRegSlope + newsSentiment;
+    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + (subAdx - 25) / 25 + newsSentiment;
     confidences.push(Math.abs(subScore) * 10);
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
   const rawConfidence = confidences[confidences.length - 1];
-  const confidence = Math.round(rawConfidence * (1 - confidenceStability / 50) + (predictedPrice > price ? 15 : -15));
+  const confidence = Math.max(0, Math.round(rawConfidence * (1 - confidenceStability / 50) + (predictedPrice > price ? 15 : 0)));
 
-  const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + (adx - 25) / 25 +
-                (stochastic.k - 50) / 50 + cci / 100 + (williamsR + 50) / 50 + roc / 100 + momentum / price +
-                (price > sar ? 0.1 : -0.1) + (price > ichimoku.kijunSen ? 0.1 : -0.1) + (price - vwap) / price +
-                cmo / 50 + (mfi - 50) / 50 + trix / 100 + (price > keltner.middle ? 0.1 : -0.1) +
-                (price > donchian.middle ? 0.1 : -0.1) + (aroon.up - aroon.down) / 100 + chaikin / 1000 +
-                (ultimate - 50) / 50 + linRegSlope + (predictedPrice > price ? 0.1 : -0.1) + newsSentiment;
-  let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
+  // Проверка стабильности сигнала на двух свечах
+  const prevRsi = calculateRSI(closes.slice(0, -1));
+  const prevMacd = calculateMACD(closes.slice(0, -1));
+  const prevAdx = calculateADX(klines.slice(0, -1));
+  const prevPredictedPrice = predictPrice(klines.slice(0, -1), prevRsi, prevMacd);
+
+  let direction = 'Нейтрально';
+  if (rsi > 40 && rsi < 60 && macd.line > macd.signal && prevMacd.line > prevMacd.signal && adx > 25 && prevAdx > 25 && predictedPrice > price && prevPredictedPrice > closes[closes.length - 2]) {
+    direction = 'Лонг';
+  } else if (rsi > 40 && rsi < 60 && macd.line < macd.signal && prevMacd.line < prevMacd.signal && adx > 25 && prevAdx > 25 && predictedPrice < price && prevPredictedPrice < closes[closes.length - 2]) {
+    direction = 'Шорт';
+  }
 
   const tradeData = trades[symbol];
   let entry, stopLoss, takeProfit;
@@ -511,29 +495,27 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    if (direction === 'Лонг') {
+    if (direction === 'Лонг' && confidence >= 60 && confidenceStability <= 25) {
       stopLoss = Math.min(entry - atr * 0.2, levels.support - atr * 0.2);
       takeProfit = Math.max(entry + atr * 1, levels.resistance - atr * 0.5);
       const risk = entry - stopLoss;
       const minProfit = entry + 4 * risk;
       if (takeProfit < minProfit) takeProfit = minProfit;
-    } else if (direction === 'Шорт') {
+      tradeData.active = { direction, entry, stopLoss, takeProfit };
+      tradeData.openCount++;
+      console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
+    } else if (direction === 'Шорт' && confidence >= 60 && confidenceStability <= 25) {
       stopLoss = Math.max(entry + atr * 0.2, levels.resistance + atr * 0.2);
       takeProfit = Math.min(entry - atr * 1, levels.support + atr * 0.5);
       const risk = stopLoss - entry;
       const minProfit = entry - 4 * risk;
       if (takeProfit > minProfit) takeProfit = minProfit;
-    } else {
-      stopLoss = takeProfit = entry;
-    }
-
-    if (direction !== 'Нейтрально' && (
-        (confidence >= 50 && confidenceStability <= 25) || 
-        (confidence >= 45 && adx > 30 && ((direction === 'Лонг' && predictedPrice > price) || (direction === 'Шорт' && predictedPrice < price)))
-    )) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
+    } else {
+      stopLoss = takeProfit = entry;
+      direction = 'Нейтрально';
     }
   }
 
@@ -592,7 +574,13 @@ function checkTradeStatus(symbol, currentPrice) {
   }
 }
 
+let lastSentimentUpdate = 0;
 async function updateMarketSentiment() {
+  const now = Date.now();
+  // Обновляем раз в 15 минут (900 секунд)
+  if (now - lastSentimentUpdate < 900000) return; // 900000 мс = 15 минут
+  lastSentimentUpdate = now;
+
   const topPairs = [
     'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'SHIBUSDT', 'TRXUSDT',
     'MATICUSDT', 'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT', 'BCHUSDT', 'ALGOUSDT', 'VETUSDT', 'XMRUSDT', 'ETCUSDT'
@@ -639,7 +627,6 @@ app.get('/data', async (req, res) => {
   res.json({ prices: lastPrices, recommendations, sentiment, trades });
 });
 
-// Используем порт от Render или 3000 локально
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Сервер запущен на порту ${port}`);
