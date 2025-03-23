@@ -1,109 +1,313 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Crypto Trading</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; }
-        th, td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 15px; }
-        th { background-color: #4CAF50; color: white; }
-        .long { color: green; }
-        .short { color: red; }
-        .neutral { color: black; }
-        #trade, #reasoning, #stats, #indicators, #techSpec { margin-top: 20px; font-size: 15px; }
-        details { margin-top: 5px; }
-        summary { cursor: pointer; }
-        #sound { margin-bottom: 10px; }
-    </style>
-</head>
-<body>
-    <div id="sound">Звук: <input type="checkbox" id="soundCheckbox" checked></div>
-    <table>
-        <thead>
-            <tr>
-                <th>Пара</th>
-                <th>15м</th>
-                <th>30м</th>
-                <th>1ч</th>
-                <th>4ч</th>
-                <th>1д</th>
-                <th>1н</th>
-            </tr>
-        </thead>
-        <tbody id="data"></tbody>
-    </table>
-    <div id="trade"><strong>Сделка:</strong> Нет</div>
-    <div id="reasoning"></div>
-    <div id="stats"></div>
-    <div id="indicators">
-        <details>
-            <summary>Индикаторы и фильтры</summary>
-            <div id="indicators-content"></div>
-        </details>
-    </div>
-    <div id="techSpec">
-        <strong>Техническое задание:</strong><br>
-        <strong>Новый вариант:</strong><br>
-        Сайт использует индикатор Nadaraya-Watson Envelope [LuxAlgo] с режимом Repainting Smoothing, bandwidth 8, multiplier 3, данными закрытия на таймфреймах 15м, 30м, 1ч, 4ч, 1д, 1н. Для точности сигналов добавлены RSI, MACD, ADX, EMA 50, 100, 200. Обработка данных — ИИ с учётом динамики рынка, цен BTC и ETH. Данные в горизонтальной таблице с рекомендациями: "Нет" (чёрный), "Лонг" (зелёный), "Шорт" (красный), рядом вероятность успеха в %. Одновременно открыта 1 сделка размером 100 USDT. Поле "Сделка" показывает криптовалюту, таймфрейм, направление (цветное), вероятность успеха (пересчитывается ИИ в реальном времени), цены открытия, стоп-лосс, тейк-профит (не 0 и не ниже, неизменны до закрытия). Сделки открываются при вероятности ≥ 50% с оптимальным RRR (ИИ). Звуковые оповещения при сигнале на открытие (чекбокс, приятный звук). Под сделкой — рассуждения ИИ о причинах открытия. ИИ рассчитывает уровни поддержки/сопротивления для решений. Убраны лишние запросы и настроение рынка. Под статистикой — выпадающее меню с индикаторами и значениями. Добавлена вертикальная прокрутка.
-    </div>
+const express = require('express');
+const WebSocket = require('ws');
+const fetch = require('node-fetch');
+const app = express();
 
-    <script>
-        const tbody = document.getElementById('data');
-        const tradeDiv = document.getElementById('trade');
-        const reasoningDiv = document.getElementById('reasoning');
-        const statsDiv = document.getElementById('stats');
-        const indicatorsContent = document.getElementById('indicators-content');
-        const soundCheckbox = document.getElementById('soundCheckbox');
-        let lastSignal = null;
+app.use(express.static('public'));
 
-        function updateData() {
-            fetch('/data')
-                .then(response => response.json())
-                .then(data => {
-                    tbody.innerHTML = '';
-                    let indicatorsHtml = '';
+let lastPrices = { LDOUSDT: 0, AVAXUSDT: 0, XLMUSDT: 0, HBARUSDT: 0, BATUSDT: 0, AAVEUSDT: 0, BTCUSDT: 0, ETHUSDT: 0 };
+let trades = {
+  LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  XLMUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  HBARUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  BATUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
+};
+const TRADE_AMOUNT = 100;
+const BINANCE_FEE = 0.001;
+const TIMEFRAMES = ['15m', '30m', '1h', '4h', '1d', '1w'];
+let activeTradeSymbol = null;
 
-                    for (const symbol in data.recommendations) {
-                        const row = document.createElement('tr');
-                        const rec = data.recommendations[symbol];
-                        const trade = data.trades[symbol];
-                        row.innerHTML = `
-                            <td>${symbol}</td>
-                            ${TIMEFRAMES.map(tf => {
-                                const r = rec[tf];
-                                const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
-                                if (r.direction !== 'Нет' && r.confidence >= 50 && lastSignal !== `${symbol}-${tf}-${r.direction}` && soundCheckbox.checked) {
-                                    new Audio('https://www.myinstants.com/media/sounds/ding.mp3').play();
-                                    lastSignal = `${symbol}-${tf}-${r.direction}`;
-                                }
-                                if (tf === '15m') {
-                                    indicatorsHtml += `<strong>${symbol} (${tf}):</strong> NW Upper: ${r.indicators.nw_upper}, NW Lower: ${r.indicators.nw_lower}, NW Smooth: ${r.indicators.nw_smooth}, RSI: ${r.indicators.rsi}, MACD: ${r.indicators.macd}/${r.indicators.signal}, ADX: ${r.indicators.adx}, ATR: ${r.indicators.atr}, Support: ${r.indicators.support}, Resistance: ${r.indicators.resistance}, EMA50: ${r.indicators.ema50}, EMA100: ${r.indicators.ema100}, EMA200: ${r.indicators.ema200}<br>`;
-                                }
-                                return `<td class="${cls}">${r.direction} (${r.confidence}%)</td>`;
-                            }).join('')}
-                        `;
-                        tbody.appendChild(row);
+const wss = new WebSocket('wss://fstream.binance.com/ws');
+wss.on('open', () => {
+  console.log('WebSocket подключён');
+  ['ldousdt', 'avaxusdt', 'xlmusdt', 'hbarusdt', 'batusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
+    wss.send(JSON.stringify({ method: "SUBSCRIBE", params: [`${symbol}@ticker`], id: 1 }));
+  });
+});
 
-                        if (trade.active) {
-                            const cls = trade.active.direction === 'Лонг' ? 'long' : 'short';
-                            tradeDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${trade.active.timeframe}) <span class="${cls}">${trade.active.direction}</span> (${rec[trade.active.timeframe].confidence}%), Открытие: ${trade.active.entry.toFixed(4)}, Стоп: ${trade.active.stopLoss.toFixed(4)}, Профит: ${trade.active.takeProfit.toFixed(4)}`;
-                            reasoningDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[trade.active.timeframe].reasoning}`;
-                        } else {
-                            tradeDiv.innerHTML = '<strong>Сделка:</strong> Нет';
-                            reasoningDiv.innerHTML = '';
-                        }
-                        statsDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${trade.openCount}, Закрыто: ${trade.closedCount}, Стоп: ${trade.stopCount}, Профит: ${trade.profitCount}, Прибыль: ${trade.totalProfit.toFixed(2)} USDT, Убыток: ${trade.totalLoss.toFixed(2)} USDT`;
-                    }
+wss.on('message', (data) => {
+  try {
+    const parsedData = JSON.parse(data);
+    const symbol = parsedData.s;
+    if (symbol && lastPrices.hasOwnProperty(symbol)) {
+      lastPrices[symbol] = parseFloat(parsedData.c) || 0;
+      console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
+      checkTradeStatus(symbol, lastPrices[symbol]);
+    }
+  } catch (error) {
+    console.error('Ошибка парсинга WebSocket:', error);
+  }
+});
 
-                    indicatorsContent.innerHTML = indicatorsHtml;
-                })
-                .catch(error => console.error('Ошибка получения данных:', error));
-        }
+async function fetchKlines(symbol, timeframe) {
+  try {
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+    const data = await response.json();
+    if (!Array.isArray(data)) throw new Error('Klines data is not an array');
+    console.log(`Получены свечи для ${symbol} на ${timeframe}: ${data.length} свечей`);
+    return data;
+  } catch (error) {
+    console.error(`Ошибка получения свечей для ${symbol} на ${timeframe}:`, error.message);
+    return [];
+  }
+}
 
-        const TIMEFRAMES = ['15m', '30m', '1h', '4h', '1d', '1w'];
-        updateData();
-        setInterval(updateData, 5000);
-    </script>
-</body>
-</html>
+function calculateNadarayaWatsonEnvelope(closes, bandwidth = 8, multiplier = 3) {
+  const n = closes.length;
+  let upper = new Array(n).fill(0);
+  let lower = new Array(n).fill(0);
+  let smooth = new Array(n).fill(0);
+
+  for (let i = 0; i < n; i++) {
+    let sumWeights = 0;
+    let sumWeightedValues = 0;
+    for (let j = 0; j < n; j++) {
+      const weight = Math.exp(-Math.pow(i - j, 2) / (2 * bandwidth * bandwidth));
+      sumWeights += weight;
+      sumWeightedValues += weight * closes[j];
+    }
+    smooth[i] = sumWeightedValues / sumWeights;
+  }
+
+  const residuals = closes.map((c, i) => Math.abs(c - smooth[i]));
+  const mad = calculateMedian(residuals);
+  upper = smooth.map(s => s + multiplier * mad);
+  lower = smooth.map(s => s - multiplier * mad);
+
+  return { upper: upper[n - 1], lower: lower[n - 1], smooth: smooth[n - 1] };
+}
+
+function calculateMedian(arr) {
+  const sorted = arr.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+function calculateRSI(closes) {
+  const deltas = closes.slice(-15).slice(1).map((c, i) => c - closes[closes.length - 15 + i]);
+  const gains = deltas.map(d => d > 0 ? d : 0).reduce((a, b) => a + b, 0) / 14;
+  const losses = deltas.map(d => d < 0 ? -d : 0).reduce((a, b) => a + b, 0) / 14;
+  const rs = gains / losses || Infinity;
+  return 100 - (100 / (1 + rs));
+}
+
+function calculateMACD(prices) {
+  const ema12 = calculateEMA(12, prices.slice(-26));
+  const ema26 = calculateEMA(26, prices.slice(-26));
+  const macd = ema12 - ema26;
+  const signal = calculateEMA(9, prices.slice(-9).map((_, i) => calculateEMA(12, prices.slice(-26 + i, -14 + i)) - calculateEMA(26, prices.slice(-26 + i))));
+  return { line: macd, signal: signal, histogram: macd - signal };
+}
+
+function calculateEMA(period, prices) {
+  const k = 2 / (period + 1);
+  let ema = prices[0];
+  for (let i = 1; i < prices.length; i++) ema = prices[i] * k + ema * (1 - k);
+  return ema;
+}
+
+function calculateADX(klines) {
+  const period = 14;
+  const tr = [], plusDM = [], minusDM = [];
+  for (let i = 1; i < klines.length; i++) {
+    const high = parseFloat(klines[i][2]);
+    const low = parseFloat(klines[i][3]);
+    const prevHigh = parseFloat(klines[i - 1][2]);
+    const prevLow = parseFloat(klines[i - 1][3]);
+    const prevClose = parseFloat(klines[i - 1][4]);
+    tr.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+    const plus = high - prevHigh;
+    const minus = prevLow - low;
+    plusDM.push(plus > minus && plus > 0 ? plus : 0);
+    minusDM.push(minus > plus && minus > 0 ? minus : 0);
+  }
+  const atr = calculateEMA(period, tr.slice(-period));
+  const plusDI = 100 * calculateEMA(period, plusDM.slice(-period)) / atr;
+  const minusDI = 100 * calculateEMA(period, minusDM.slice(-period)) / atr;
+  const dx = Math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100 || 0;
+  return calculateEMA(14, [dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx]);
+}
+
+function calculateLevels(klines) {
+  const closes = klines.map(k => parseFloat(k[4]));
+  const priceRange = Math.max(...closes) - Math.min(...closes);
+  const bins = 50;
+  const binSize = priceRange / bins;
+  const density = Array(bins).fill(0);
+  closes.forEach(price => {
+    const bin = Math.min(bins - 1, Math.floor((price - Math.min(...closes)) / binSize));
+    density[bin] += 1;
+  });
+  const sortedBins = density.map((d, i) => ({ density: d, price: Math.min(...closes) + i * binSize }))
+    .sort((a, b) => b.density - a.density);
+  return { support: sortedBins[Math.floor(sortedBins.length * 0.75)].price, resistance: sortedBins[Math.floor(sortedBins.length * 0.25)].price };
+}
+
+async function aiTradeDecision(symbol, klinesByTimeframe) {
+  const price = lastPrices[symbol] || 0;
+  const btcPrice = lastPrices['BTCUSDT'] || 0;
+  const ethPrice = lastPrices['ETHUSDT'] || 0;
+  let recommendations = {};
+
+  for (const tf of TIMEFRAMES) {
+    const klines = klinesByTimeframe[tf];
+    const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
+    if (closes.length < 200) {
+      recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Недостаточно данных' };
+      continue;
+    }
+
+    const nw = calculateNadarayaWatsonEnvelope(closes);
+    const rsi = calculateRSI(closes);
+    const macd = calculateMACD(closes);
+    const adx = calculateADX(klines);
+    const atr = calculateATR(klines);
+    const levels = calculateLevels(klines);
+    const ema50 = calculateEMA(50, closes);
+    const ema100 = calculateEMA(100, closes);
+    const ema200 = calculateEMA(200, closes);
+    const indicators = { 
+      nw_upper: nw.upper.toFixed(4), 
+      nw_lower: nw.lower.toFixed(4), 
+      nw_smooth: nw.smooth.toFixed(4), 
+      rsi: rsi.toFixed(2), 
+      macd: macd.line.toFixed(4), 
+      signal: macd.signal.toFixed(4), 
+      adx: adx.toFixed(2), 
+      atr: atr.toFixed(4), 
+      support: levels.support.toFixed(4), 
+      resistance: levels.resistance.toFixed(4), 
+      ema50: ema50.toFixed(4), 
+      ema100: ema100.toFixed(4), 
+      ema200: ema200.toFixed(4) 
+    };
+
+    let direction = 'Нет';
+    let confidence = 0;
+    let reasoning = '';
+    if (price > nw.upper && macd.line > macd.signal && price > ema50 && price > ema100 && price > ema200) {
+      direction = 'Лонг';
+      confidence = Math.min(100, Math.round(50 + (price - nw.upper) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
+      reasoning = `Цена (${price}) выше верхней границы Nadaraya-Watson (${nw.upper}), MACD подтверждает рост (${macd.line} > ${macd.signal}), цена выше EMA50 (${ema50}), EMA100 (${ema100}), EMA200 (${ema200}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают бычий рынок.`;
+    } else if (price < nw.lower && macd.line < macd.signal && price < ema50 && price < ema100 && price < ema200) {
+      direction = 'Шорт';
+      confidence = Math.min(100, Math.round(50 + (nw.lower - price) / atr * 10 + (btcPrice < lastPrices['BTCUSDT'] * 1.01 ? 10 : 0) + (ethPrice < lastPrices['ETHUSDT'] * 1.01 ? 10 : 0)));
+      reasoning = `Цена (${price}) ниже нижней границы Nadaraya-Watson (${nw.lower}), MACD подтверждает падение (${macd.line} < ${macd.signal}), цена ниже EMA50 (${ema50}), EMA100 (${ema100}), EMA200 (${ema200}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают медвежий рынок.`;
+    } else {
+      reasoning = `Цена (${price}) внутри Nadaraya-Watson (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}), EMA50 (${ema50}), EMA100 (${ema100}), EMA200 (${ema200}) не дают чёткого сигнала.`;
+    }
+
+    const entry = price;
+    let stopLoss = direction === 'Лонг' ? Math.max(levels.support, entry - atr * 0.5) : direction === 'Шорт' ? Math.min(levels.resistance, entry + atr * 0.5) : entry;
+    let takeProfit = direction === 'Лонг' ? Math.max(levels.resistance, entry + atr * 2) : direction === 'Шорт' ? Math.max(levels.support, entry - atr * 2) : entry;
+    stopLoss = stopLoss > 0 ? stopLoss : entry * 0.99;
+    takeProfit = takeProfit > 0 ? takeProfit : entry * 1.01;
+
+    const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
+    const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
+    const rrr = risk > 0 ? Math.round(profit / risk) : 0;
+
+    const tradeData = trades[symbol];
+    if (!activeTradeSymbol && direction !== 'Нет' && confidence >= 50) {
+      tradeData.active = { direction, entry, stopLoss, takeProfit, timeframe: tf };
+      tradeData.openCount++;
+      activeTradeSymbol = symbol;
+      console.log(`${symbol} (${tf}): Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}`);
+    } else if (direction !== 'Нет' && confidence >= 50) {
+      console.log(`${symbol} (${tf}): Сигнал ${direction} с confidence=${confidence}, но уже есть активная сделка на ${activeTradeSymbol}`);
+    }
+
+    if (tradeData.active && tradeData.active.timeframe === tf) {
+      confidence = Math.min(100, Math.round(50 + (direction === 'Лонг' ? (price - nw.upper) : (nw.lower - price)) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
+    }
+
+    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', indicators, reasoning };
+  }
+
+  return recommendations;
+}
+
+function calculateATR(klines) {
+  const trs = klines.slice(-15).map((kline, i) => {
+    if (i === 0) return parseFloat(kline[2]) - parseFloat(kline[3]);
+    const high = parseFloat(kline[2]);
+    const low = parseFloat(kline[3]);
+    const prevClose = parseFloat(klines[i - 1][4]);
+    return Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+  });
+  return trs.reduce((a, b) => a + b, 0) / 14;
+}
+
+function checkTradeStatus(symbol, currentPrice) {
+  const tradeData = trades[symbol];
+  if (tradeData && tradeData.active) {
+    const { entry, stopLoss, takeProfit, direction } = tradeData.active;
+    if (direction === 'Лонг') {
+      if (currentPrice <= stopLoss) {
+        const loss = TRADE_AMOUNT * (entry - stopLoss);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalLoss += loss + commission;
+        tradeData.stopCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        activeTradeSymbol = null;
+        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} + комиссия: ${commission.toFixed(2)}`);
+      } else if (currentPrice >= takeProfit) {
+        const profit = TRADE_AMOUNT * (takeProfit - entry);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalProfit += profit - commission;
+        tradeData.profitCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        activeTradeSymbol = null;
+        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} - комиссия: ${commission.toFixed(2)}`);
+      }
+    } else if (direction === 'Шорт') {
+      if (currentPrice >= stopLoss) {
+        const loss = TRADE_AMOUNT * (stopLoss - entry);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalLoss += loss + commission;
+        tradeData.stopCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        activeTradeSymbol = null;
+        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} + комиссия: ${commission.toFixed(2)}`);
+      } else if (currentPrice <= takeProfit) {
+        const profit = TRADE_AMOUNT * (entry - takeProfit);
+        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+        tradeData.totalProfit += profit - commission;
+        tradeData.profitCount++;
+        tradeData.closedCount++;
+        tradeData.openCount--;
+        tradeData.active = null;
+        activeTradeSymbol = null;
+        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} - комиссия: ${commission.toFixed(2)}`);
+      }
+    }
+  }
+}
+
+app.get('/data', async (req, res) => {
+  const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
+  let recommendations = {};
+
+  for (const symbol of symbols) {
+    let klinesByTimeframe = {};
+    for (const tf of TIMEFRAMES) {
+      klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
+    }
+    recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+  }
+
+  res.json({ prices: lastPrices, recommendations, trades, activeTradeSymbol });
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Сервер запущен на порту ${port}`);
+});
