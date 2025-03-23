@@ -27,11 +27,15 @@ wss.on('open', () => {
 });
 
 wss.on('message', (data) => {
-  const parsedData = JSON.parse(data);
-  if (parsedData.s && lastPrices[parsedData.s]) {
-    lastPrices[parsedData.s] = parseFloat(parsedData.c) || 0;
-    console.log(`Обновлена цена для ${parsedData.s}: ${lastPrices[parsedData.s]}`);
-    checkTradeStatus(parsedData.s, lastPrices[parsedData.s]);
+  try {
+    const parsedData = JSON.parse(data);
+    if (parsedData.s && lastPrices[parsedData.s]) {
+      lastPrices[parsedData.s] = parseFloat(parsedData.c) || 0;
+      console.log(`Обновлена цена для ${parsedData.s}: ${lastPrices[parsedData.s]}`);
+      checkTradeStatus(parsedData.s, lastPrices[parsedData.s]);
+    }
+  } catch (error) {
+    console.error('Ошибка парсинга WebSocket:', error);
   }
 });
 
@@ -125,8 +129,19 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const atr = calculateATR(klines);
   const levels = findLevels(klines);
 
+  const recentCloses = closes.slice(-5);
+  let confidences = [];
+  for (let i = 0; i < recentCloses.length; i++) {
+    const subCloses = closes.slice(0, closes.length - 5 + i + 1);
+    const subRsi = calculateRSI(subCloses);
+    const subMacd = calculateMACD(subCloses);
+    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + newsSentiment;
+    confidences.push(Math.min(95, Math.max(5, Math.abs(subScore) * 100)));
+  }
+  const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
+  const confidence = confidences[confidences.length - 1];
+
   const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
-  const confidence = Math.min(95, Math.max(5, Math.abs(score) * 100));
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
 
   const tradeData = trades[symbol];
@@ -146,7 +161,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     if (direction === 'Лонг' && takeProfit < minProfit) takeProfit = minProfit;
     if (direction === 'Шорт' && takeProfit > minProfit) takeProfit = minProfit;
 
-    if (direction !== 'Нейтрально' && confidence >= 75) {
+    if (direction !== 'Нейтрально' && confidence >= 75 && confidenceStability <= 10) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
