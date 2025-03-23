@@ -169,14 +169,14 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     let direction = 'Нет';
     let confidence = 0;
     let reasoning = '';
-    if (price > nw.upper && macd.line > macd.signal && adx > 25) {
+    if (price > nw.upper && macd.line > macd.signal) {
       direction = 'Лонг';
       confidence = Math.min(100, Math.round(50 + (price - nw.upper) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
-      reasoning = `Цена (${price}) выше верхней границы Nadaraya-Watson (${nw.upper}), MACD подтверждает рост (${macd.line} > ${macd.signal}), ADX (${adx}) указывает на сильный тренд. BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают бычий рынок.`;
-    } else if (price < nw.lower && macd.line < macd.signal && adx > 25) {
+      reasoning = `Цена (${price}) выше верхней границы Nadaraya-Watson (${nw.upper}), MACD подтверждает рост (${macd.line} > ${macd.signal}), ADX (${adx}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают бычий рынок.`;
+    } else if (price < nw.lower && macd.line < macd.signal) {
       direction = 'Шорт';
       confidence = Math.min(100, Math.round(50 + (nw.lower - price) / atr * 10 + (btcPrice < lastPrices['BTCUSDT'] * 1.01 ? 10 : 0) + (ethPrice < lastPrices['ETHUSDT'] * 1.01 ? 10 : 0)));
-      reasoning = `Цена (${price}) ниже нижней границы Nadaraya-Watson (${nw.lower}), MACD подтверждает падение (${macd.line} < ${macd.signal}), ADX (${adx}) указывает на сильный тренд. BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают медвежий рынок.`;
+      reasoning = `Цена (${price}) ниже нижней границы Nadaraya-Watson (${nw.lower}), MACD подтверждает падение (${macd.line} < ${macd.signal}), ADX (${adx}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают медвежий рынок.`;
     } else {
       reasoning = `Цена (${price}) внутри Nadaraya-Watson (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}) и ADX (${adx}) не дают чёткого сигнала.`;
     }
@@ -184,7 +184,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const entry = price;
     let stopLoss = direction === 'Лонг' ? Math.max(levels.support, entry - atr * 0.5) : direction === 'Шорт' ? Math.min(levels.resistance, entry + atr * 0.5) : entry;
     let takeProfit = direction === 'Лонг' ? Math.max(levels.resistance, entry + atr * 2) : direction === 'Шорт' ? Math.max(levels.support, entry - atr * 2) : entry;
-    stopLoss = stopLoss > 0 ? stopLoss : entry * 0.99; // Не ниже 0
+    stopLoss = stopLoss > 0 ? stopLoss : entry * 0.99;
     takeProfit = takeProfit > 0 ? takeProfit : entry * 1.01;
 
     const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
@@ -197,8 +197,12 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       tradeData.openCount++;
       activeTradeSymbol = symbol;
       console.log(`${symbol} (${tf}): Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}`);
-    } else if (activeTradeSymbol && activeTradeSymbol !== symbol) {
-      direction = 'Нет';
+    } else if (direction !== 'Нет' && confidence >= 50) {
+      console.log(`${symbol} (${tf}): Сигнал ${direction} с confidence=${confidence}, но уже есть активная сделка на ${activeTradeSymbol}`);
+    }
+
+    if (tradeData.active && tradeData.active.timeframe === tf) {
+      confidence = Math.min(100, Math.round(50 + (direction === 'Лонг' ? (price - nw.upper) : (nw.lower - price)) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
     }
 
     recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', indicators, reasoning };
