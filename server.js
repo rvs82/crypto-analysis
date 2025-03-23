@@ -29,6 +29,7 @@ wss.on('open', () => {
 wss.on('message', (data) => {
   try {
     const parsedData = JSON.parse(data);
+    console.log('WebSocket data:', parsedData); // Отладка
     if (parsedData.s && lastPrices[parsedData.s]) {
       lastPrices[parsedData.s] = parseFloat(parsedData.c) || 0;
       console.log(`Обновлена цена для ${parsedData.s}: ${lastPrices[parsedData.s]}`);
@@ -136,10 +137,10 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     const subRsi = calculateRSI(subCloses);
     const subMacd = calculateMACD(subCloses);
     const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + newsSentiment;
-    confidences.push(Math.min(95, Math.max(5, Math.abs(subScore) * 100)));
+    confidences.push(Math.abs(subScore) * 100);
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
-  const confidence = confidences[confidences.length - 1];
+  const confidence = Math.min(95, Math.max(5, confidences[confidences.length - 1] - confidenceStability));
 
   const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
@@ -154,12 +155,19 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    stopLoss = direction === 'Лонг' ? levels.support - atr * 0.2 : levels.resistance + atr * 0.2;
-    const offset = atr * 0.5;
-    takeProfit = direction === 'Лонг' ? levels.resistance - offset : levels.support + offset;
-    const minProfit = direction === 'Лонг' ? entry + 4 * (entry - stopLoss) : entry - 4 * (stopLoss - entry);
-    if (direction === 'Лонг' && takeProfit < minProfit) takeProfit = minProfit;
-    if (direction === 'Шорт' && takeProfit > minProfit) takeProfit = minProfit;
+    if (direction === 'Лонг') {
+      stopLoss = levels.support - atr * 0.2;
+      takeProfit = levels.resistance - atr * 0.5;
+      const minProfit = entry + 4 * (entry - stopLoss);
+      if (takeProfit < minProfit) takeProfit = minProfit;
+    } else if (direction === 'Шорт') {
+      stopLoss = levels.resistance + atr * 0.2;
+      takeProfit = levels.support + atr * 0.5;
+      const minProfit = entry - 4 * (stopLoss - entry);
+      if (takeProfit > minProfit) takeProfit = minProfit;
+    } else {
+      stopLoss = takeProfit = entry;
+    }
 
     if (direction !== 'Нейтрально' && confidence >= 75 && confidenceStability <= 10) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
