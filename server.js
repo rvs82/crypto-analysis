@@ -400,7 +400,6 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const macd = calculateMACD(closes);
   const atr = calculateATR(klines);
   const adx = calculateADX(klines);
-  const sma20 = calculateSMA(20, closes);
   const bollinger = calculateBollingerBands(closes);
   const stochastic = calculateStochastic(klines);
   const cci = calculateCCI(klines);
@@ -428,7 +427,6 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     macd_line: macd.line.toFixed(4), macd_signal: macd.signal.toFixed(4), macd_histogram: macd.histogram.toFixed(4),
     atr: atr.toFixed(4),
     adx: adx.toFixed(2),
-    sma20: sma20.toFixed(4),
     bollinger_upper: bollinger.upper.toFixed(4), bollinger_middle: bollinger.middle.toFixed(4), bollinger_lower: bollinger.lower.toFixed(4),
     stochastic_k: stochastic.k.toFixed(2), stochastic_d: stochastic.d.toFixed(2),
     cci: cci.toFixed(2),
@@ -451,8 +449,9 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     support: levels.support.toFixed(4), resistance: levels.resistance.toFixed(4)
   };
 
-  // Фильтры для исключения слабых сигналов
-  if (adx < 20 || atr / price > 0.05 || stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 || price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
+  if (rsi > 80 || rsi < 20 || adx < 20 || atr / price > 0.05 ||
+      stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
+      price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
     return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators };
   }
 
@@ -464,14 +463,43 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     const subRsi = calculateRSI(subCloses);
     const subMacd = calculateMACD(subCloses);
     const subAdx = calculateADX(subKlines);
-    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + (subAdx - 25) / 25 + newsSentiment;
+    const subStoch = calculateStochastic(subKlines);
+    const subCci = calculateCCI(subKlines);
+    const subWilliamsR = calculateWilliamsR(subKlines);
+    const subRoc = calculateROC(subCloses);
+    const subMomentum = calculateMomentum(subCloses);
+    const subObv = calculateOBV(subKlines);
+    const subSar = calculateParabolicSAR(subKlines);
+    const subIchimoku = calculateIchimoku(subKlines);
+    const subVwap = calculateVWAP(subKlines);
+    const subCmo = calculateCMO(subKlines);
+    const subMfi = calculateMFI(subKlines);
+    const subTrix = calculateTRIX(subCloses);
+    const subKeltner = calculateKeltnerChannels(subKlines);
+    const subDonchian = calculateDonchianChannels(subKlines);
+    const subAroon = calculateAroon(subKlines);
+    const subChaikin = calculateChaikinOscillator(subKlines);
+    const subUltimate = calculateUltimateOscillator(subKlines);
+    const subLinRegSlope = calculateLinearRegressionSlope(subCloses);
+    const subScore = (subRsi - 50) / 50 + subMacd.histogram / Math.abs(subMacd.line) + (subAdx - 25) / 25 +
+                     (subStoch.k - 50) / 50 + subCci / 100 + (subWilliamsR + 50) / 50 + subRoc / 100 + subMomentum / price +
+                     (price > subSar ? 0.1 : -0.1) + (price > subIchimoku.kijunSen ? 0.1 : -0.1) + (price - subVwap) / price +
+                     subCmo / 50 + (subMfi - 50) / 50 + subTrix / 100 + (price > subKeltner.middle ? 0.1 : -0.1) +
+                     (price > subDonchian.middle ? 0.1 : -0.1) + (subAroon.up - subAroon.down) / 100 + subChaikin / 1000 +
+                     (subUltimate - 50) / 50 + subLinRegSlope + newsSentiment;
     confidences.push(Math.abs(subScore) * 10);
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
   const rawConfidence = confidences[confidences.length - 1];
   const confidence = Math.round(rawConfidence * (1 - confidenceStability / 50) + (predictedPrice > price ? 15 : -15));
 
-  let direction = rsi > 45 && macd.line > macd.signal && price > sma20 ? 'Лонг' : rsi < 55 && macd.line < macd.signal && price < sma20 ? 'Шорт' : 'Нейтрально';
+  const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + (adx - 25) / 25 +
+                (stochastic.k - 50) / 50 + cci / 100 + (williamsR + 50) / 50 + roc / 100 + momentum / price +
+                (price > sar ? 0.1 : -0.1) + (price > ichimoku.kijunSen ? 0.1 : -0.1) + (price - vwap) / price +
+                cmo / 50 + (mfi - 50) / 50 + trix / 100 + (price > keltner.middle ? 0.1 : -0.1) +
+                (price > donchian.middle ? 0.1 : -0.1) + (aroon.up - aroon.down) / 100 + chaikin / 1000 +
+                (ultimate - 50) / 50 + linRegSlope + (predictedPrice > price ? 0.1 : -0.1) + newsSentiment;
+  let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
 
   const tradeData = trades[symbol];
   let entry, stopLoss, takeProfit;
@@ -483,21 +511,29 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    if (direction === 'Лонг' && confidence >= 50 && confidenceStability <= 25) {
-      stopLoss = entry - atr; // Риск = 1 ATR
-      takeProfit = entry + atr * 2; // Прибыль = 2 ATR
-      tradeData.active = { direction, entry, stopLoss, takeProfit };
-      tradeData.openCount++;
-      console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
-    } else if (direction === 'Шорт' && confidence >= 50 && confidenceStability <= 25) {
-      stopLoss = entry + atr; // Риск = 1 ATR
-      takeProfit = entry - atr * 2; // Прибыль = 2 ATR
-      tradeData.active = { direction, entry, stopLoss, takeProfit };
-      tradeData.openCount++;
-      console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
+    if (direction === 'Лонг') {
+      stopLoss = Math.min(entry - atr * 0.2, levels.support - atr * 0.2);
+      takeProfit = Math.max(entry + atr * 1, levels.resistance - atr * 0.5);
+      const risk = entry - stopLoss;
+      const minProfit = entry + 4 * risk;
+      if (takeProfit < minProfit) takeProfit = minProfit;
+    } else if (direction === 'Шорт') {
+      stopLoss = Math.max(entry + atr * 0.2, levels.resistance + atr * 0.2);
+      takeProfit = Math.min(entry - atr * 1, levels.support + atr * 0.5);
+      const risk = stopLoss - entry;
+      const minProfit = entry - 4 * risk;
+      if (takeProfit > minProfit) takeProfit = minProfit;
     } else {
       stopLoss = takeProfit = entry;
-      direction = 'Нейтрально';
+    }
+
+    if (direction !== 'Нейтрально' && (
+        (confidence >= 50 && confidenceStability <= 25) || 
+        (confidence >= 45 && adx > 30 && ((direction === 'Лонг' && predictedPrice > price) || (direction === 'Шорт' && predictedPrice < price)))
+    )) {
+      tradeData.active = { direction, entry, stopLoss, takeProfit };
+      tradeData.openCount++;
+      console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}, stability=${confidenceStability}, adx=${adx}`);
     }
   }
 
