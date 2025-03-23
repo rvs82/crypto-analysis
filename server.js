@@ -154,7 +154,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
   for (const tf of TIMEFRAMES) {
     const klines = klinesByTimeframe[tf];
     const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-    if (closes.length < 200) {
+    if (closes.length < 26) {
       recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Недостаточно данных' };
       continue;
     }
@@ -165,9 +165,6 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const adx = calculateADX(klines);
     const atr = calculateATR(klines);
     const levels = calculateLevels(klines);
-    const ema50 = calculateEMA(50, closes);
-    const ema100 = calculateEMA(100, closes);
-    const ema200 = calculateEMA(200, closes);
     const indicators = { 
       nw_upper: nw.upper.toFixed(4), 
       nw_lower: nw.lower.toFixed(4), 
@@ -178,25 +175,22 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       adx: adx.toFixed(2), 
       atr: atr.toFixed(4), 
       support: levels.support.toFixed(4), 
-      resistance: levels.resistance.toFixed(4), 
-      ema50: ema50.toFixed(4), 
-      ema100: ema100.toFixed(4), 
-      ema200: ema200.toFixed(4) 
+      resistance: levels.resistance.toFixed(4)
     };
 
     let direction = 'Нет';
     let confidence = 0;
     let reasoning = '';
-    if (price > nw.upper && macd.line > macd.signal && price > ema50 && price > ema100 && price > ema200) {
+    if (price > nw.upper && macd.line > macd.signal) {
       direction = 'Лонг';
       confidence = Math.min(100, Math.round(50 + (price - nw.upper) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
-      reasoning = `Цена (${price}) выше верхней границы Nadaraya-Watson (${nw.upper}), MACD подтверждает рост (${macd.line} > ${macd.signal}), цена выше EMA50 (${ema50}), EMA100 (${ema100}), EMA200 (${ema200}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают бычий рынок.`;
-    } else if (price < nw.lower && macd.line < macd.signal && price < ema50 && price < ema100 && price < ema200) {
+      reasoning = `Цена (${price}) выше верхней границы Nadaraya-Watson (${nw.upper}), MACD подтверждает рост (${macd.line} > ${macd.signal}), ADX (${adx}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают бычий рынок.`;
+    } else if (price < nw.lower && macd.line < macd.signal) {
       direction = 'Шорт';
       confidence = Math.min(100, Math.round(50 + (nw.lower - price) / atr * 10 + (btcPrice < lastPrices['BTCUSDT'] * 1.01 ? 10 : 0) + (ethPrice < lastPrices['ETHUSDT'] * 1.01 ? 10 : 0)));
-      reasoning = `Цена (${price}) ниже нижней границы Nadaraya-Watson (${nw.lower}), MACD подтверждает падение (${macd.line} < ${macd.signal}), цена ниже EMA50 (${ema50}), EMA100 (${ema100}), EMA200 (${ema200}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают медвежий рынок.`;
+      reasoning = `Цена (${price}) ниже нижней границы Nadaraya-Watson (${nw.lower}), MACD подтверждает падение (${macd.line} < ${macd.signal}), ADX (${adx}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают медвежий рынок.`;
     } else {
-      reasoning = `Цена (${price}) внутри Nadaraya-Watson (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}), EMA50 (${ema50}), EMA100 (${ema100}), EMA200 (${ema200}) не дают чёткого сигнала.`;
+      reasoning = `Цена (${price}) внутри Nadaraya-Watson (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}) не даёт чёткого сигнала.`;
     }
 
     const entry = price;
