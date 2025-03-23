@@ -426,24 +426,23 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const confidence = Math.min(95, Math.max(5, Math.abs(score) * 100));
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
   const entry = price;
-  const stopLoss = direction === 'Лонг' ? price - atr * 1.5 : price + atr * 1.5;
-  // Динамический RRR: минимум 1/3, увеличивается с ADX (тренд)
-  const rrrFactor = Math.max(3, Math.min(6, adx / 10)); // ADX > 30 увеличивает RRR до 1/6
+  const stopLoss = direction === 'Лонг' ? price - atr * 1 : price + atr * 1; // Уменьшено для теста
+  const rrrFactor = Math.max(4.5, Math.min(6, adx / 10));
   const takeProfit = direction === 'Лонг' ? price + atr * rrrFactor : price - atr * rrrFactor;
 
   const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
-  if (confidence < 50) direction = 'Нейтрально'; // Убрано rsi > 40 && rsi < 60 для сильных сигналов
 
   const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
   const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
   const rrr = risk > 0 ? Math.round(profit / risk) : 0;
 
-  // Открываем сделку после всех фильтров
   const tradeData = trades[symbol];
-  if (direction !== 'Нейтрально' && !tradeData.active && confidence >= 50) {
+  if (direction !== 'Нейтрально' && !tradeData.active && confidence >= 75) {
     tradeData.active = { direction, entry, stopLoss, takeProfit };
     tradeData.openCount++;
     console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
+  } else if (tradeData.active) {
+    direction = tradeData.active.direction;
   }
 
   return {
@@ -528,16 +527,6 @@ app.get('/data', async (req, res) => {
   let recommendations = {};
   const newsSentiment = await fetchNewsSentiment();
   await updateMarketSentiment();
-
-  // Сбрасываем trades перед каждым запросом
-  trades = {
-    LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-    AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-    XLMUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-    HBARUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-    BATUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-    AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
-  };
 
   for (let symbol of symbols) {
     const klines = await fetchKlines(symbol);
