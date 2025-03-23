@@ -436,9 +436,9 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    stopLoss = direction === 'Лонг' ? price - atr * 0.5 : price + atr * 0.5;
+    stopLoss = direction === 'Лонг' ? price - atr * 0.2 : price + atr * 0.2;
     const rrrFactor = Math.max(4.5, Math.min(6, adx / 10));
-    takeProfit = direction === 'Лонг' ? price + atr * 2 : price - atr * 2;
+    takeProfit = direction === 'Лонг' ? price + atr * 1 : price - atr * 1;
 
     if (direction !== 'Нейтрально' && confidence >= 75) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
