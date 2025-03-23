@@ -422,7 +422,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const levels = findLevels(klines);
   const predictedPrice = predictPrice(klines, rsi, macd);
 
-  if (rsi > 70 || rsi < 30 || adx < 25 || atr / price > 0.05 || macd.line < macd.signal ||
+  if (rsi > 80 || rsi < 20 || adx < 20 || atr / price > 0.05 ||
       stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
       price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
     return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0' };
@@ -464,7 +464,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
   const rawConfidence = confidences[confidences.length - 1];
-  const confidence = Math.round(rawConfidence * (1 - confidenceStability / 50) + (predictedPrice > price ? 10 : -10));
+  const confidence = Math.round(rawConfidence * (1 - confidenceStability / 50) + (predictedPrice > price ? 15 : -15));
 
   const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + (adx - 25) / 25 +
                 (stochastic.k - 50) / 50 + cci / 100 + (williamsR + 50) / 50 + roc / 100 + momentum / price +
@@ -501,7 +501,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     }
 
     if (direction !== 'Нейтрально' && (
-        (confidence >= 50 && confidenceStability <= 20) || 
+        (confidence >= 50 && confidenceStability <= 25) || 
         (confidence >= 45 && adx > 30 && ((direction === 'Лонг' && predictedPrice > price) || (direction === 'Шорт' && predictedPrice < price)))
     )) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
