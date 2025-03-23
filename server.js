@@ -141,7 +141,8 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     confidences.push(Math.abs(subScore) * 100);
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
-  const confidence = Math.min(95, Math.max(5, confidences[confidences.length - 1] - confidenceStability));
+  const rawConfidence = confidences[confidences.length - 1];
+  const confidence = Math.min(95, Math.max(5, rawConfidence * (1 - confidenceStability / 100)));
 
   const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
