@@ -142,7 +142,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   }
   const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
   const rawConfidence = confidences[confidences.length - 1];
-  const confidence = Math.min(95, Math.max(5, rawConfidence * (1 - confidenceStability / 50))); // Увеличим влияние стабильности
+  const confidence = Math.min(95, Math.max(5, rawConfidence * (1 - confidenceStability / 50)));
 
   const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
@@ -173,7 +173,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
       stopLoss = takeProfit = entry;
     }
 
-    if (direction !== 'Нейтрально' && confidence >= 75 && confidenceStability <= 20) { // Увеличим порог до 20
+    if (direction !== 'Нейтрально' && confidence >= 75 && confidenceStability <= 25) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
