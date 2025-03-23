@@ -2,194 +2,90 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Криптоданные (M5) - Анализ</title>
+    <title>Crypto Trading</title>
     <style>
-        body {
-            background-color: #1a1a1a;
-            color: #fff;
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
-        .container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            max-height: 100%;
-        }
-        .market-sentiment {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 0.9em;
-        }
-        .long-sentiment {
-            background-color: #0f0;
-            color: #000;
-            padding: 3px 8px;
-            width: 48%;
-            text-align: center;
-            font-weight: bold;
-            border-radius: 5px;
-        }
-        .short-sentiment {
-            background-color: #f00;
-            color: #fff;
-            padding: 3px 8px;
-            width: 48%;
-            text-align: center;
-            font-weight: bold;
-            border-radius: 5px;
-        }
-        .sound-toggle {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            align-items: center;
-            font-size: 0.9em;
-        }
-        .sound-toggle label {
-            margin-right: 5px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-            color: #fff;
-        }
-        td {
-            padding: 3px 5px;
-            text-align: left;
-            border-bottom: 1px solid #333;
-            vertical-align: top;
-        }
-        .recommendation.long { color: #0f0 !important; font-weight: bold; }
-        .recommendation.short { color: #f00 !important; font-weight: bold; }
-        .recommendation.neutral { color: #ff0 !important; font-weight: bold; }
-        .trade-long { color: #0f0; font-weight: bold; }
-        .trade-short { color: #f00; font-weight: bold; }
-        .direction-long { color: #0f0; font-weight: bold; }
-        .direction-short { color: #f00; font-weight: bold; }
-        .trade-details { font-size: 0.8em; color: #ccc; }
-        details {
-            font-size: 0.8em;
-            line-height: 1.1;
-        }
-        summary {
-            cursor: pointer;
-            color: #999;
-        }
-        details[open] summary {
-            color: #fff;
-        }
-        .indicators-content {
-            background-color: #222;
-            padding: 3px;
-            border-radius: 3px;
-            max-height: 100px;
-            overflow-y: auto;
-        }
-        @media (max-width: 768px) {
-            body { padding: 5px; }
-            .market-sentiment { font-size: 0.8em; }
-            table { font-size: 0.8em; }
-            .sound-toggle { font-size: 0.8em; }
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #4CAF50; color: white; }
+        .sentiment { margin-bottom: 20px; font-size: 18px; }
+        .long { color: green; }
+        .short { color: red; }
+        .trade-long { color: green; }
+        .trade-short { color: red; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="market-sentiment">
-            <div class="long-sentiment" id="long-sentiment">Лонги: 0%</div>
-            <div class="short-sentiment" id="short-sentiment">Шорты: 0%</div>
-        </div>
-        <div class="sound-toggle">
-            <label for="soundSwitch">Звук:</label>
-            <input type="checkbox" id="soundSwitch" checked>
-        </div>
-        <table>
-            <tbody>
-                <tr><td class="recommendation" id="ldo_trade_rec">LDO/USDT: Загрузка...</td><td id="ldo_trade_stats"><span id="ldo_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td id="ldo_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="ldo_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="avax_trade_rec">AVAX/USDT: Загрузка...</td><td id="avax_trade_stats"><span id="avax_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td id="avax_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="avax_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="xlm_trade_rec">XLM/USDT: Загрузка...</td><td id="xlm_trade_stats"><span id="xlm_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td id="xlm_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="xlm_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="hbar_trade_rec">HBAR/USDT: Загрузка...</td><td id="hbar_trade_stats"><span id="hbar_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td id="hbar_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="hbar_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="bat_trade_rec">BAT/USDT: Загрузка...</td><td id="bat_trade_stats"><span id="bat_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td id="bat_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="bat_indicators">Загрузка...</div></details></td></tr>
-                <tr><td class="recommendation" id="aave_trade_rec">AAVE/USDT: Загрузка...</td><td id="aave_trade_stats"><span id="aave_trade_direction">-</span> | Закрыто: 0 | Стоп: 0 | Профит: 0 | Прибыль: 0 USDT | Убыток: 0 USDT</td></tr>
-                <tr><td id="aave_trade_details" class="trade-details"></td><td colspan="2"><details><summary>Индикаторы</summary><div class="indicators-content" id="aave_indicators">Загрузка...</div></details></td></tr>
-            </tbody>
-        </table>
+    <div class="sentiment">
+        Лонги: <span id="long">0%</span><br>
+        Шорты: <span id="short">0%</span><br>
+        Звук: <input type="checkbox" id="sound">
     </div>
-    <audio id="tradeSound" src="https://www.soundjay.com/buttons/beep-01a.mp3"></audio>
+    <table>
+        <thead>
+            <tr>
+                <th>Пара</th>
+                <th>Рекомендация</th>
+                <th>Сделка</th>
+                <th>Закрыто</th>
+                <th>Стоп</th>
+                <th>Профит</th>
+                <th>Прибыль</th>
+                <th>Убыток</th>
+            </tr>
+        </thead>
+        <tbody id="data"></tbody>
+    </table>
+
     <script>
-        const soundSwitch = document.getElementById('soundSwitch');
-        const tradeSound = document.getElementById('tradeSound');
-        let previousActive = {};
+        const tbody = document.getElementById('data');
+        const soundCheckbox = document.getElementById('sound');
+        let previousTrades = {};
 
-        async function updateData() {
-            try {
-                const response = await fetch('/data');
-                const data = await response.json();
+        function updateData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Получены данные:', data); // Отладка
+                    document.getElementById('long').textContent = `${data.sentiment.long.toFixed(2)}%`;
+                    document.getElementById('short').textContent = `${data.sentiment.short.toFixed(2)}%`;
+                    tbody.innerHTML = '';
 
-                const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
-                symbols.forEach(symbol => {
-                    const rec = data.recommendations[symbol];
-                    const trade = data.trades[symbol];
-                    const recElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_rec`);
-                    const statsElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_stats`);
-                    const directionElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_direction`);
-                    const detailsElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_trade_details`);
-                    const indElement = document.getElementById(`${symbol.toLowerCase().replace('usdt', '')}_indicators`);
+                    for (const symbol in data.recommendations) {
+                        const rec = data.recommendations[symbol];
+                        const trade = data.trades[symbol];
+                        const row = document.createElement('tr');
 
-                    const directionClass = rec.direction === 'Лонг' ? 'direction-long' : rec.direction === 'Шорт' ? 'direction-short' : '';
-                    recElement.innerHTML = `${symbol}: ${rec.direction === 'Нейтрально' 
-                        ? 'Нейтрально' 
-                        : `<span class="${directionClass}">${rec.direction}</span>: ${rec.entry.toFixed(4)}, Стоп: ${rec.stopLoss.toFixed(4)}, Профит: ${rec.takeProfit.toFixed(4)} | ${Math.round(rec.confidence)}% | ${rec.rrr}`}`;
-                    recElement.className = `recommendation ${rec.direction.toLowerCase()}`;
+                        const cells = [
+                            symbol,
+                            rec.direction === 'Нейтрально' ? 'Нейтрально' : `${rec.direction}: ${rec.entry.toFixed(4)}, Стоп: ${rec.stopLoss.toFixed(4)}, Профит: ${rec.takeProfit.toFixed(4)} | ${rec.confidence}% | ${rec.rrr}`,
+                            trade.active ? `<span class="${trade.active.direction === 'Лонг' ? 'trade-long' : 'trade-short'}">${trade.active.direction}</span>` : 'Нет',
+                            trade.closedCount,
+                            trade.stopCount,
+                            trade.profitCount,
+                            `${trade.totalProfit.toFixed(2)} USDT`,
+                            `${trade.totalLoss.toFixed(2)} USDT`
+                        ];
 
-                    const tradeClass = trade.active ? (trade.active.direction === 'Лонг' ? 'trade-long' : 'trade-short') : '';
-                    directionElement.textContent = trade.active ? trade.active.direction : 'Нет';
-                    directionElement.className = tradeClass;
-                    statsElement.innerHTML = `<span id="${symbol.toLowerCase().replace('usdt', '')}_trade_direction" class="${tradeClass}">${trade.active ? trade.active.direction : 'Нет'}</span> | Закрыто: ${trade.closedCount} | Стоп: ${trade.stopCount} | Профит: ${trade.profitCount} | Прибыль: ${Math.round(trade.totalProfit)} USDT | Убыток: ${Math.round(trade.totalLoss)} USDT`;
+                        cells.forEach(text => {
+                            const td = document.createElement('td');
+                            td.innerHTML = text;
+                            row.appendChild(td);
+                        });
 
-                    detailsElement.textContent = trade.active 
-                        ? `Цена открытия: ${trade.active.entry.toFixed(4)}, Стоп: ${trade.active.stopLoss.toFixed(4)}, Профит: ${trade.active.takeProfit.toFixed(4)}` 
-                        : '';
+                        tbody.appendChild(row);
 
-                    indElement.textContent = `RSI: ${rec.rsi.toFixed(2)}, EMA50: ${rec.ema50.toFixed(4)}, EMA200: ${rec.ema200.toFixed(4)}, MACD: ${rec.macd.histogram.toFixed(4)}, VW-MACD: ${rec.vwmacd.histogram.toFixed(4)}, ` +
-                        `Bollinger: ${rec.bollinger.upper.toFixed(4)}/${rec.bollinger.middle.toFixed(4)}/${rec.bollinger.lower.toFixed(4)}, VWAP: ${rec.vwap.toFixed(4)}, ATR: ${rec.atr.toFixed(4)}, ` +
-                        `Stochastic: ${rec.stochastic.k.toFixed(2)}/${rec.stochastic.d.toFixed(2)}, ADX: ${rec.adx.toFixed(2)}, CCI: ${rec.cci.toFixed(2)}, CMO: ${rec.cmo.toFixed(2)}, OBV: ${rec.obv.toFixed(0)}, ` +
-                        `SAR: ${rec.sar.toFixed(4)}, Heikin: ${rec.heikin.close.toFixed(4)}, Momentum: ${rec.momentum.toFixed(4)}, Williams %R: ${rec.williamsR.toFixed(2)}, ROC: ${rec.roc.toFixed(2)}, ` +
-                        `Ichimoku: ${rec.ichimoku.tenkanSen.toFixed(4)}/${rec.ichimoku.kijunSen.toFixed(4)}, Pivot: ${rec.pivot.pivot.toFixed(4)}, Fibonacci: ${rec.fibonacci.level5.toFixed(4)}, ` +
-                        `Order Book: ${rec.orderBook.bidVolume.toFixed(2)}/${rec.orderBook.askVolume.toFixed(2)}, Pattern: ${rec.pattern}, Prediction: ${rec.prediction.toFixed(4)}, Levels: ${rec.levels.support.toFixed(4)}/${rec.levels.resistance.toFixed(4)}`;
-
-                    if (trade.active && !previousActive[symbol] && soundSwitch.checked) {
-                        tradeSound.play();
+                        if (soundCheckbox.checked && previousTrades[symbol] !== trade.active?.direction && trade.active) {
+                            new Audio('https://www.myinstants.com/media/sounds/tada.mp3').play();
+                        }
+                        previousTrades[symbol] = trade.active?.direction;
                     }
-                    previousActive[symbol] = trade.active;
-                });
-
-                document.getElementById('long-sentiment').textContent = `Лонги: ${(data.sentiment.long / data.sentiment.total * 100).toFixed(2)}%`;
-                document.getElementById('short-sentiment').textContent = `Шорты: ${(data.sentiment.short / data.sentiment.total * 100).toFixed(2)}%`;
-            } catch (error) {
-                console.error('Ошибка получения данных:', error);
-            }
+                })
+                .catch(error => console.error('Ошибка получения данных:', error));
         }
 
         updateData();
-        setInterval(updateData, 5000);
+        setInterval(updateData, 5000); // Обновление каждые 5 секунд
     </script>
 </body>
 </html>
