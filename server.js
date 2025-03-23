@@ -44,7 +44,7 @@ async function fetchKlines(symbol) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=1000`, { signal: controller.signal });
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=1m&limit=1000`, { signal: controller.signal });
     clearTimeout(timeout);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
@@ -393,7 +393,7 @@ function predictPrice(klines, rsi, macd) {
 
 async function aiTradeDecision(symbol, newsSentiment, klines) {
   const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-  if (closes.length === 0) return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0' };
+  if (closes.length === 0) return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators: {} };
 
   const price = lastPrices[symbol] || closes[closes.length - 1];
   const rsi = calculateRSI(closes);
@@ -422,10 +422,37 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const levels = findLevels(klines);
   const predictedPrice = predictPrice(klines, rsi, macd);
 
+  const indicators = {
+    rsi: rsi.toFixed(2),
+    macd_line: macd.line.toFixed(4), macd_signal: macd.signal.toFixed(4), macd_histogram: macd.histogram.toFixed(4),
+    atr: atr.toFixed(4),
+    adx: adx.toFixed(2),
+    bollinger_upper: bollinger.upper.toFixed(4), bollinger_middle: bollinger.middle.toFixed(4), bollinger_lower: bollinger.lower.toFixed(4),
+    stochastic_k: stochastic.k.toFixed(2), stochastic_d: stochastic.d.toFixed(2),
+    cci: cci.toFixed(2),
+    williamsR: williamsR.toFixed(2),
+    roc: roc.toFixed(2),
+    momentum: momentum.toFixed(4),
+    obv: obv.toFixed(0),
+    sar: sar.toFixed(4),
+    ichimoku_tenkan: ichimoku.tenkanSen.toFixed(4), ichimoku_kijun: ichimoku.kijunSen.toFixed(4), ichimoku_senkouA: ichimoku.senkouSpanA.toFixed(4), ichimoku_senkouB: ichimoku.senkouSpanB.toFixed(4), ichimoku_chikou: ichimoku.chikouSpan.toFixed(4),
+    vwap: vwap.toFixed(4),
+    cmo: cmo.toFixed(2),
+    mfi: mfi.toFixed(2),
+    trix: trix.toFixed(2),
+    keltner_upper: keltner.upper.toFixed(4), keltner_middle: keltner.middle.toFixed(4), keltner_lower: keltner.lower.toFixed(4),
+    donchian_upper: donchian.upper.toFixed(4), donchian_middle: donchian.middle.toFixed(4), donchian_lower: donchian.lower.toFixed(4),
+    aroon_up: aroon.up.toFixed(2), aroon_down: aroon.down.toFixed(2),
+    chaikin: chaikin.toFixed(2),
+    ultimate: ultimate.toFixed(2),
+    linRegSlope: linRegSlope.toFixed(4),
+    support: levels.support.toFixed(4), resistance: levels.resistance.toFixed(4)
+  };
+
   if (rsi > 80 || rsi < 20 || adx < 20 || atr / price > 0.05 ||
       stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
       price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
-    return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0' };
+    return { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators };
   }
 
   const recentCloses = closes.slice(-10);
@@ -514,7 +541,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
   const rrr = risk > 0 ? Math.round(profit / risk) : 0;
 
-  return { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0' };
+  return { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', indicators };
 }
 
 function checkTradeStatus(symbol, currentPrice) {
@@ -566,9 +593,10 @@ function checkTradeStatus(symbol, currentPrice) {
 }
 
 async function updateMarketSentiment() {
-  const topPairs = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'TRXUSDT',
-                    'MATICUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'AVAXUSDT', 'LDOUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
-  const newsSentiment = await fetchNewsSentiment();
+  const topPairs = [
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'SOLUSDT', 'DOGEUSDT', 'DOTUSDT', 'SHIBUSDT', 'TRXUSDT',
+    'MATICUSDT', 'AVAXUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT', 'BCHUSDT', 'ALGOUSDT', 'VETUSDT', 'XMRUSDT', 'ETCUSDT'
+  ];
   sentiment = { long: 0, short: 0, total: 0 };
 
   for (const symbol of topPairs) {
@@ -580,7 +608,8 @@ async function updateMarketSentiment() {
     sentiment.total++;
     const rsi = calculateRSI(closes);
     const macd = calculateMACD(closes);
-    const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
+    const adx = calculateADX(klines);
+    const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + (adx - 25) / 25;
     if (score > 0) sentiment.long++;
     else if (score < 0) sentiment.short++;
   }
@@ -602,7 +631,7 @@ app.get('/data', async (req, res) => {
       recommendations[symbol] = await aiTradeDecision(symbol, newsSentiment, klines);
     } catch (error) {
       console.error(`Ошибка обработки ${symbol}:`, error);
-      recommendations[symbol] = { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0' };
+      recommendations[symbol] = { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0', indicators: {} };
     }
   }
 
