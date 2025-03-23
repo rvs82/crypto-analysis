@@ -328,9 +328,44 @@ function trainPredictionModel(klines) {
   return Math.max(closes[closes.length - 1] * 0.8, Math.min(closes[closes.length - 1] * 1.2, prediction));
 }
 
-function findLevels(prices) {
-  const sorted = [...prices].sort((a, b) => a - b);
-  return { support: sorted[Math.floor(sorted.length * 0.1)], resistance: sorted[Math.floor(sorted.length * 0.9)] };
+function findLevels(klines, rsi, macd, adx) {
+  const closes = klines.map(k => parseFloat(k[4]));
+  const volumes = klines.map(k => parseFloat(k[5]));
+  const obv = calculateOBV(klines);
+  const pattern = detectCandlePattern(klines);
+
+  const priceRange = Math.max(...closes) - Math.min(...closes);
+  const bins = 50;
+  const binSize = priceRange / bins;
+  const density = Array(bins).fill(0);
+  closes.forEach(price => {
+    const bin = Math.min(bins - 1, Math.floor((price - Math.min(...closes)) / binSize));
+    density[bin] += 1;
+  });
+
+  const obvFactor = obv / Math.max(...volumes);
+  const patternFactor = (pattern !== 'Отсутствует') ? 1.5 : 1;
+  for (let i = 0; i < bins; i++) {
+    density[i] *= (1 + obvFactor * 0.1) * patternFactor;
+  }
+
+  const sortedBins = density.map((d, i) => ({ density: d, price: Math.min(...closes) + i * binSize }))
+    .sort((a, b) => b.density - a.density);
+  let support = sortedBins[Math.floor(sortedBins.length * 0.75)].price;
+  let resistance = sortedBins[Math.floor(sortedBins.length * 0.25)].price;
+
+  const rsiFactor = (rsi - 50) / 50;
+  const macdFactor = macd.histogram / Math.abs(macd.line) || 0;
+  const adxFactor = (adx - 25) / 25;
+
+  if (rsi > 70 || macdFactor > 0.5) resistance = resistance * (1 - 0.05 * Math.max(rsiFactor, macdFactor));
+  if (rsi < 30 || macdFactor < -0.5) support = support * (1 + 0.05 * Math.abs(Math.min(rsiFactor, macdFactor)));
+  if (adx > 25) {
+    support = support * (1 - 0.02 * adxFactor);
+    resistance = resistance * (1 + 0.02 * adxFactor);
+  }
+
+  return { support, resistance };
 }
 
 function backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines) {
@@ -385,7 +420,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const orderBook = await fetchOrderBook(symbol);
   const pattern = detectCandlePattern(klines);
   const prediction = trainPredictionModel(klines);
-  const levels = findLevels(closes);
+  const levels = findLevels(klines, rsi, macd, adx);
 
   const rsiNorm = (rsi - 50) / 50;
   const macdNorm = macd.histogram / Math.abs(macd.line) || 0;
@@ -436,9 +471,18 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    stopLoss = direction === 'Лонг' ? price - atr * 0.2 : price + atr * 0.2;
-    const rrrFactor = Math.max(4.5, Math.min(6, adx / 10));
-    takeProfit = direction === 'Лонг' ? price + atr * 1 : price - atr * 1;
+    stopLoss = direction === 'Лонг' 
+      ? levels.support - atr * 0.2 
+      : levels.resistance + atr * 0.2;
+    const offset = atr * 0.5;
+    takeProfit = direction === 'Лонг' 
+      ? levels.resistance - offset 
+      : levels.support + offset;
+    const minProfit = direction === 'Лонг' 
+      ? entry + 4 * (entry - stopLoss) 
+      : entry - 4 * (stopLoss - entry);
+    if (direction === 'Лонг' && takeProfit < minProfit) takeProfit = minProfit;
+    if (direction === 'Шорт' && takeProfit > minProfit) takeProfit = minProfit;
 
     if (direction !== 'Нейтрально' && confidence >= 75) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
