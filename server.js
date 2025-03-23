@@ -365,10 +365,16 @@ function findLevels(klines) {
   return { support: sortedBins[Math.floor(sortedBins.length * 0.75)].price, resistance: sortedBins[Math.floor(sortedBins.length * 0.25)].price };
 }
 
-function predictPrice(klines) {
+function predictPrice(klines, rsi, macd) {
   const period = 20;
   const recent = klines.slice(-period);
-  const x = recent.map((_, i) => [i, parseFloat(_[4]), parseFloat(_[5]), calculateRSI(recent.map(k => parseFloat(k[4])).slice(0, i + 1)), calculateMACD(recent.map(k => parseFloat(k[4])).slice(0, i + 1)).histogram]);
+  const x = recent.map((_, i) => [
+    i,
+    parseFloat(_[4]),
+    parseFloat(_[5]),
+    i === period - 1 ? rsi : calculateRSI(recent.map(k => parseFloat(k[4])).slice(0, i + 1)),
+    i === period - 1 ? macd.histogram : calculateMACD(recent.map(k => parseFloat(k[4])).slice(0, i + 1)).histogram
+  ]);
   const y = recent.map(k => parseFloat(k[4]));
   const xMean = x[0].map((_, col) => x.reduce((sum, row) => sum + row[col], 0) / period);
   const yMean = y.reduce((a, b) => a + b, 0) / period;
@@ -414,9 +420,8 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const ultimate = calculateUltimateOscillator(klines);
   const linRegSlope = calculateLinearRegressionSlope(closes);
   const levels = findLevels(klines);
-  const predictedPrice = predictPrice(klines);
+  const predictedPrice = predictPrice(klines, rsi, macd);
 
-  // Фильтры ложных сигналов
   if (rsi > 70 || rsi < 30 || adx < 25 || atr / price > 0.05 || macd.line < macd.signal ||
       stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
       price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
