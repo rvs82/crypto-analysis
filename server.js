@@ -422,6 +422,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const levels = findLevels(klines);
   const predictedPrice = predictPrice(klines, rsi, macd);
 
+  // Фильтры ложных сигналов
   if (rsi > 70 || rsi < 30 || adx < 25 || atr / price > 0.05 || macd.line < macd.signal ||
       stochastic.k > 80 || stochastic.k < 20 || cci > 100 || cci < -100 || williamsR > -20 || williamsR < -80 ||
       price > bollinger.upper || price < bollinger.lower || mfi > 80 || mfi < 20 || price > keltner.upper || price < keltner.lower) {
@@ -500,7 +501,8 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
       stopLoss = takeProfit = entry;
     }
 
-    if (direction !== 'Нейтрально' && confidence >= 95 && confidenceStability <= 15) {
+    // Открытие сделок только после обработки всех индикаторов с ИИ при confidence >= 50
+    if (direction !== 'Нейтрально' && confidence >= 50 && confidenceStability <= 15) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
