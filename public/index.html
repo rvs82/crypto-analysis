@@ -45,7 +45,7 @@
     <div id="techSpec">
         <strong>Техническое задание:</strong><br>
         <strong>Новый вариант:</strong><br>
-        Сайт использует индикатор Nadaraya-Watson Envelope [LuxAlgo] с режимом Repainting Smoothing, bandwidth 8, multiplier 3, данными закрытия на таймфреймах 15м, 30м, 1ч, 4ч, 1д, 1н. Для точности сигналов добавлены RSI, MACD, ADX, EMA 50, 100, 200. Обработка данных — ИИ с учётом динамики рынка, цен BTC и ETH. Данные в горизонтальной таблице с рекомендациями: "Нет" (чёрный), "Лонг" (зелёный), "Шорт" (красный), рядом вероятность успеха в %. Одновременно открыта 1 сделка размером 100 USDT. Поле "Сделка" показывает криптовалюту, таймфрейм, направление (цветное), вероятность успеха (пересчитывается ИИ в реальном времени), цены открытия, стоп-лосс, тейк-профит (не 0 и не ниже, неизменны до закрытия). Сделки открываются при вероятности ≥ 50% с оптимальным RRR (ИИ). Звуковые оповещения при сигнале на открытие (чекбокс, приятный звук). Под сделкой — рассуждения ИИ о причинах открытия. ИИ рассчитывает уровни поддержки/сопротивления для решений. Убраны лишние запросы и настроение рынка. Под статистикой — выпадающее меню с индикаторами и значениями. Добавлена вертикальная прокрутка.
+        Сайт использует индикатор Nadaraya-Watson Envelope [LuxAlgo] с режимом Repainting Smoothing, bandwidth 8, multiplier 3, данными закрытия на таймфреймах 15м, 30м, 1ч, 4ч, 1д, 1н. Для точности сигналов добавлены RSI, MACD, ADX, EMA 50, 100, 200. Обработка данных — ИИ с учётом динамики рынка, цен BTC и ETH. Данные в горизонтальной таблице с рекомендациями: "Нет" (чёрный), "Лонг" (зелёный), "Шорт" (красный), рядом вероятность успеха в % (только если > 0). Одновременно открыта 1 сделка размером 100 USDT. Поле "Сделка" показывает криптовалюту, таймфрейм, направление (цветное), вероятность успеха (пересчитывается ИИ в реальном времени), цены открытия, стоп-лосс, тейк-профит (не 0 и не ниже, неизменны до закрытия). Сделки открываются при вероятности ≥ 50% с оптимальным RRR (ИИ). Звуковые оповещения при сигнале на открытие (чекбокс, приятный звук). Под сделкой — рассуждения ИИ о причинах открытия. ИИ рассчитывает уровни поддержки/сопротивления для решений. Убраны лишние запросы и настроение рынка. Под статистикой — выпадающее меню с индикаторами и значениями. Добавлена вертикальная прокрутка.
     </div>
 
     <script>
@@ -79,9 +79,9 @@
                                     lastSignal = signalKey;
                                 }
                                 if (tf === '15m') {
-                                    indicatorsHtml += `<strong>${symbol} (${tf}):</strong> NW Upper: ${r.indicators.nw_upper}, NW Lower: ${r.indicators.nw_lower}, NW Smooth: ${r.indicators.nw_smooth}, RSI: ${r.indicators.rsi}, MACD: ${r.indicators.macd}/${r.indicators.signal}, ADX: ${r.indicators.adx}, ATR: ${r.indicators.atr}, Support: ${r.indicators.support}, Resistance: ${r.indicators.resistance}, EMA50: ${r.indicators.ema50}, EMA100: ${r.indicators.ema100}, EMA200: ${r.indicators.ema200}<br>`;
+                                    indicatorsHtml += `<strong>${symbol} (${tf}):</strong> NW Upper: ${r.indicators.nw_upper}, NW Lower: ${r.indicators.nw_lower}, NW Smooth: ${r.indicators.nw_smooth}, RSI: ${r.indicators.rsi}, MACD: ${r.indicators.macd}/${r.indicators.signal}, ADX: ${r.indicators.adx}, ATR: ${r.indicators.atr}, Support: ${r.indicators.support}, Resistance: ${r.indicators.resistance}<br>`;
                                 }
-                                return `<td class="${cls}">${r.direction} (${r.confidence}%)</td>`;
+                                return `<td class="${cls}">${r.direction}${r.confidence > 0 ? ` (${r.confidence}%)` : ''}</td>`;
                             }).join('')}
                         `;
                         tbody.appendChild(row);
