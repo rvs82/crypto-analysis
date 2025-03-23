@@ -425,25 +425,32 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
 
   const confidence = Math.min(95, Math.max(5, Math.abs(score) * 100));
   let direction = score > 0 ? 'Лонг' : score < 0 ? 'Шорт' : 'Нейтрально';
-  const entry = price;
-  const stopLoss = direction === 'Лонг' ? price - atr * 1 : price + atr * 1; // Уменьшено для теста
-  const rrrFactor = Math.max(4.5, Math.min(6, adx / 10));
-  const takeProfit = direction === 'Лонг' ? price + atr * rrrFactor : price - atr * rrrFactor;
+
+  const tradeData = trades[symbol];
+  let entry, stopLoss, takeProfit;
+
+  if (tradeData.active) {
+    direction = tradeData.active.direction;
+    entry = tradeData.active.entry;
+    stopLoss = tradeData.active.stopLoss;
+    takeProfit = tradeData.active.takeProfit;
+  } else {
+    entry = price;
+    stopLoss = direction === 'Лонг' ? price - atr * 1 : price + atr * 1;
+    const rrrFactor = Math.max(4.5, Math.min(6, adx / 10));
+    takeProfit = direction === 'Лонг' ? price + atr * rrrFactor : price - atr * rrrFactor;
+
+    if (direction !== 'Нейтрально' && confidence >= 75) {
+      tradeData.active = { direction, entry, stopLoss, takeProfit };
+      tradeData.openCount++;
+      console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
+    }
+  }
 
   const backtest = backtestSignal(symbol, direction, entry, stopLoss, takeProfit, klines);
-
   const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
   const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
   const rrr = risk > 0 ? Math.round(profit / risk) : 0;
-
-  const tradeData = trades[symbol];
-  if (direction !== 'Нейтрально' && !tradeData.active && confidence >= 75) {
-    tradeData.active = { direction, entry, stopLoss, takeProfit };
-    tradeData.openCount++;
-    console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
-  } else if (tradeData.active) {
-    direction = tradeData.active.direction;
-  }
 
   return {
     direction, entry, stopLoss, takeProfit, confidence, rsi, ema50, ema200, macd, vwmacd, bollinger,
