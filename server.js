@@ -37,13 +37,16 @@ wss.on('message', (data) => {
 
 async function fetchKlines(symbol) {
   try {
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=1000`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // Тайм-аут 5 секунд
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=1000`, { signal: controller.signal });
+    clearTimeout(timeout);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
     console.log(`Получены свечи для ${symbol}`);
     return data;
   } catch (error) {
-    console.error(`Ошибка получения свечей для ${symbol}:`, error);
+    console.error(`Ошибка получения свечей для ${symbol}:`, error.message);
     return [];
   }
 }
@@ -246,9 +249,14 @@ app.get('/data', async (req, res) => {
   const newsSentiment = await fetchNewsSentiment();
   await updateMarketSentiment();
 
-  for (let symbol of symbols) {
-    const klines = await fetchKlines(symbol);
-    recommendations[symbol] = await aiTradeDecision(symbol, newsSentiment, klines);
+  for (const symbol of symbols) {
+    try {
+      const klines = await fetchKlines(symbol);
+      recommendations[symbol] = await aiTradeDecision(symbol, newsSentiment, klines);
+    } catch (error) {
+      console.error(`Ошибка обработки ${symbol}:`, error);
+      recommendations[symbol] = { direction: 'Нейтрально', entry: 0, stopLoss: 0, takeProfit: 0, confidence: 0, rrr: '0/0' };
+    }
   }
 
   console.log('Sending data:', { prices: lastPrices, recommendations, sentiment, trades });
