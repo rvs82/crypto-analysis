@@ -203,20 +203,6 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
     const rrr = risk > 0 ? Math.round(profit / risk) : 0;
 
-    const tradeData = trades[symbol];
-    if (!activeTradeSymbol && direction !== 'Нет' && confidence >= 50) {
-      tradeData.active = { direction, entry, stopLoss, takeProfit, timeframe: tf };
-      tradeData.openCount++;
-      activeTradeSymbol = symbol;
-      console.log(`${symbol} (${tf}): Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, confidence=${confidence}`);
-    } else if (direction !== 'Нет' && confidence >= 50) {
-      console.log(`${symbol} (${tf}): Сигнал ${direction} с confidence=${confidence}, но уже есть активная сделка на ${activeTradeSymbol}`);
-    }
-
-    if (tradeData.active && tradeData.active.timeframe === tf) {
-      confidence = Math.min(100, Math.round(50 + (direction === 'Лонг' ? (price - nw.upper) : (nw.lower - price)) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
-    }
-
     recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', indicators, reasoning };
   }
 
@@ -289,6 +275,7 @@ function checkTradeStatus(symbol, currentPrice) {
 app.get('/data', async (req, res) => {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   let recommendations = {};
+  let bestTrade = null;
 
   for (const symbol of symbols) {
     let klinesByTimeframe = {};
@@ -296,6 +283,23 @@ app.get('/data', async (req, res) => {
       klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
     }
     recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+
+    for (const tf of TIMEFRAMES) {
+      const rec = recommendations[symbol][tf];
+      if (rec.direction !== 'Нет' && rec.confidence >= 50) {
+        if (!bestTrade || rec.confidence > bestTrade.confidence) {
+          bestTrade = { symbol, timeframe: tf, ...rec };
+        }
+      }
+    }
+  }
+
+  if (bestTrade && !activeTradeSymbol) {
+    const tradeData = trades[bestTrade.symbol];
+    tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
+    tradeData.openCount++;
+    activeTradeSymbol = bestTrade.symbol;
+    console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
   }
 
   res.json({ prices: lastPrices, recommendations, trades, activeTradeSymbol });
