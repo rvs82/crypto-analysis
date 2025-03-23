@@ -29,11 +29,12 @@ wss.on('open', () => {
 wss.on('message', (data) => {
   try {
     const parsedData = JSON.parse(data);
-    console.log('WebSocket data:', parsedData); // Отладка
-    if (parsedData.s && lastPrices[parsedData.s]) {
-      lastPrices[parsedData.s] = parseFloat(parsedData.c) || 0;
-      console.log(`Обновлена цена для ${parsedData.s}: ${lastPrices[parsedData.s]}`);
-      checkTradeStatus(parsedData.s, lastPrices[parsedData.s]);
+    console.log('WebSocket data:', parsedData);
+    const symbol = parsedData.s;
+    if (symbol && lastPrices.hasOwnProperty(symbol)) {
+      lastPrices[symbol] = parseFloat(parsedData.c) || 0;
+      console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
+      checkTradeStatus(symbol, lastPrices[symbol]);
     }
   } catch (error) {
     console.error('Ошибка парсинга WebSocket:', error);
@@ -156,14 +157,16 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   } else {
     entry = price;
     if (direction === 'Лонг') {
-      stopLoss = levels.support - atr * 0.2;
-      takeProfit = levels.resistance - atr * 0.5;
-      const minProfit = entry + 4 * (entry - stopLoss);
+      stopLoss = Math.min(entry - atr * 0.2, levels.support - atr * 0.2);
+      takeProfit = Math.max(entry + atr * 1, levels.resistance - atr * 0.5);
+      const risk = entry - stopLoss;
+      const minProfit = entry + 4 * risk;
       if (takeProfit < minProfit) takeProfit = minProfit;
     } else if (direction === 'Шорт') {
-      stopLoss = levels.resistance + atr * 0.2;
-      takeProfit = levels.support + atr * 0.5;
-      const minProfit = entry - 4 * (stopLoss - entry);
+      stopLoss = Math.max(entry + atr * 0.2, levels.resistance + atr * 0.2);
+      takeProfit = Math.min(entry - atr * 1, levels.support + atr * 0.5);
+      const risk = stopLoss - entry;
+      const minProfit = entry - 4 * risk;
       if (takeProfit > minProfit) takeProfit = minProfit;
     } else {
       stopLoss = takeProfit = entry;
