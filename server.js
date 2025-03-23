@@ -164,12 +164,12 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
 
   for (const tf of TIMEFRAMES) {
     const klines = klinesByTimeframe[tf];
-    const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-    if (closes.length < 200) {
+    if (!klines || klines.length < 200) {
       recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Недостаточно данных' };
       continue;
     }
 
+    const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
     const nw = calculateNadarayaWatsonEnvelope(closes);
     const rsi = calculateRSI(closes);
     const macd = calculateMACD(closes);
@@ -293,7 +293,15 @@ app.get('/data', async (req, res) => {
     for (const tf of TIMEFRAMES) {
       klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
     }
-    recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+    try {
+      recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+    } catch (error) {
+      console.error(`Ошибка в aiTradeDecision для ${symbol}:`, error);
+      recommendations[symbol] = TIMEFRAMES.reduce((acc, tf) => {
+        acc[tf] = { direction: 'Нет', entry: lastPrices[symbol], stopLoss: lastPrices[symbol], takeProfit: lastPrices[symbol], confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Ошибка обработки' };
+        return acc;
+      }, {});
+    }
 
     let activeTradeSymbol = null;
     for (const s in trades) {
@@ -306,9 +314,10 @@ app.get('/data', async (req, res) => {
     if (!activeTradeSymbol) {
       let bestTrade = null;
       for (const sym of symbols) {
+        if (!recommendations[sym]) continue;
         for (const tf of TIMEFRAMES) {
           const rec = recommendations[sym][tf];
-          if (rec.direction !== 'Нет' && rec.confidence >= 50) {
+          if (rec && rec.direction !== 'Нет' && rec.confidence >= 50) {
             if (!bestTrade || rec.confidence > bestTrade.confidence) {
               bestTrade = { symbol: sym, timeframe: tf, ...rec };
             }
@@ -327,7 +336,7 @@ app.get('/data', async (req, res) => {
   res.json({ prices: lastPrices, recommendations, trades });
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 app.listen(port, () => {
   console.log(`Сервер запущен на порту ${port}`);
 });
