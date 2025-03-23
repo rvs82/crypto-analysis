@@ -422,6 +422,19 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
   const prediction = trainPredictionModel(klines);
   const levels = findLevels(klines, rsi, macd, adx);
 
+  const recentCloses = closes.slice(-5);
+  let confidences = [];
+  for (let i = 0; i < recentCloses.length; i++) {
+    const subCloses = closes.slice(0, closes.length - 5 + i + 1);
+    const subRsi = calculateRSI(subCloses);
+    const subMacd = calculateMACD(subCloses);
+    const subAdx = calculateADX(klines.slice(0, klines.length - 5 + i + 1));
+    const subScore = (weights.rsi * (subRsi - 50) / 50) + (weights.macd * (subMacd.histogram / Math.abs(subMacd.line) || 0)) + 
+                     (weights.adx * (subAdx - 25) / 25) + newsSentiment;
+    confidences.push(Math.min(95, Math.max(5, Math.abs(subScore) * 100)));
+  }
+  const confidenceStability = Math.max(...confidences) - Math.min(...confidences);
+
   const rsiNorm = (rsi - 50) / 50;
   const macdNorm = macd.histogram / Math.abs(macd.line) || 0;
   const vwmacdNorm = vwmacd.histogram / Math.abs(vwmacd.line) || 0;
@@ -484,7 +497,7 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     if (direction === 'Лонг' && takeProfit < minProfit) takeProfit = minProfit;
     if (direction === 'Шорт' && takeProfit > minProfit) takeProfit = minProfit;
 
-    if (direction !== 'Нейтрально' && confidence >= 75) {
+    if (direction !== 'Нейтрально' && confidence >= 75 && confidenceStability <= 10) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
       tradeData.openCount++;
       console.log(`${symbol}: Сделка ${direction} открыта: entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}`);
