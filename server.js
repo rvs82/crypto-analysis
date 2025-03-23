@@ -17,7 +17,6 @@ let trades = {
 const TRADE_AMOUNT = 100;
 const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['15m', '30m', '1h', '4h', '1d', '1w'];
-let activeTradeSymbol = null;
 
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
@@ -194,10 +193,10 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     }
 
     const entry = price;
-    let stopLoss = direction === 'Лонг' ? Math.max(levels.support, entry - atr * 0.5) : direction === 'Шорт' ? Math.min(levels.resistance, entry + atr * 0.5) : entry;
-    let takeProfit = direction === 'Лонг' ? Math.max(levels.resistance, entry + atr * 2) : direction === 'Шорт' ? Math.max(levels.support, entry - atr * 2) : entry;
-    stopLoss = stopLoss > 0 ? stopLoss : entry * 0.99;
-    takeProfit = takeProfit > 0 ? takeProfit : entry * 1.01;
+    let stopLoss = direction === 'Лонг' ? entry - atr * 0.5 : direction === 'Шорт' ? entry + atr * 0.5 : entry;
+    let takeProfit = direction === 'Лонг' ? entry + atr * 2 : direction === 'Шорт' ? entry - atr * 2 : entry;
+    stopLoss = Math.max(stopLoss, levels.support > 0 ? levels.support : entry * 0.99);
+    takeProfit = direction === 'Шорт' ? Math.max(takeProfit, levels.support > 0 ? levels.support : entry * 0.99) : Math.max(takeProfit, entry * 1.01);
 
     const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
     const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
@@ -233,8 +232,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
-        activeTradeSymbol = null;
-        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} + комиссия: ${commission.toFixed(2)}`);
+        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
       } else if (currentPrice >= takeProfit) {
         const profit = TRADE_AMOUNT * (takeProfit - entry);
         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -243,8 +241,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
-        activeTradeSymbol = null;
-        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} - комиссия: ${commission.toFixed(2)}`);
+        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
       }
     } else if (direction === 'Шорт') {
       if (currentPrice >= stopLoss) {
@@ -255,8 +252,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
-        activeTradeSymbol = null;
-        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} + комиссия: ${commission.toFixed(2)}`);
+        console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
       } else if (currentPrice <= takeProfit) {
         const profit = TRADE_AMOUNT * (entry - takeProfit);
         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -265,8 +261,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
-        activeTradeSymbol = null;
-        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} - комиссия: ${commission.toFixed(2)}`);
+        console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
       }
     }
   }
@@ -275,7 +270,7 @@ function checkTradeStatus(symbol, currentPrice) {
 app.get('/data', async (req, res) => {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   let recommendations = {};
-  let bestTrade = null;
+  let activeTradeSymbol = null;
 
   for (const symbol of symbols) {
     let klinesByTimeframe = {};
@@ -284,22 +279,21 @@ app.get('/data', async (req, res) => {
     }
     recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
 
-    for (const tf of TIMEFRAMES) {
-      const rec = recommendations[symbol][tf];
-      if (rec.direction !== 'Нет' && rec.confidence >= 50) {
-        if (!bestTrade || rec.confidence > bestTrade.confidence) {
-          bestTrade = { symbol, timeframe: tf, ...rec };
+    if (!activeTradeSymbol) {
+      for (const tf of TIMEFRAMES) {
+        const rec = recommendations[symbol][tf];
+        if (rec.direction !== 'Нет' && rec.confidence >= 50) {
+          const tradeData = trades[symbol];
+          if (!tradeData.active) {
+            tradeData.active = { direction: rec.direction, entry: rec.entry, stopLoss: rec.stopLoss, takeProfit: rec.takeProfit, timeframe: tf };
+            tradeData.openCount++;
+            activeTradeSymbol = symbol;
+            console.log(`${symbol} (${tf}): Сделка ${rec.direction} открыта: entry=${rec.entry}, stopLoss=${rec.stopLoss}, takeProfit=${rec.takeProfit}, confidence=${rec.confidence}`);
+            break;
+          }
         }
       }
     }
-  }
-
-  if (bestTrade && !activeTradeSymbol) {
-    const tradeData = trades[bestTrade.symbol];
-    tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
-    tradeData.openCount++;
-    activeTradeSymbol = bestTrade.symbol;
-    console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
   }
 
   res.json({ prices: lastPrices, recommendations, trades, activeTradeSymbol });
