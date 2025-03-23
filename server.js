@@ -38,7 +38,7 @@ wss.on('message', (data) => {
 async function fetchKlines(symbol) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // Тайм-аут 5 секунд
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=5m&limit=1000`, { signal: controller.signal });
     clearTimeout(timeout);
     const data = await response.json();
@@ -48,17 +48,6 @@ async function fetchKlines(symbol) {
   } catch (error) {
     console.error(`Ошибка получения свечей для ${symbol}:`, error.message);
     return [];
-  }
-}
-
-async function fetchOrderBook(symbol) {
-  try {
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/depth?symbol=${symbol}&limit=10`);
-    const data = await response.json();
-    return { bidVolume: data.bids.reduce((sum, bid) => sum + parseFloat(bid[1]), 0), askVolume: data.asks.reduce((sum, ask) => sum + parseFloat(ask[1]), 0) };
-  } catch (error) {
-    console.error(`Ошибка получения глубины рынка для ${symbol}:`, error);
-    return { bidVolume: 0, askVolume: 0 };
   }
 }
 
