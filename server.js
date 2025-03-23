@@ -46,6 +46,7 @@ async function fetchKlines(symbol, timeframe) {
     const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
+    console.log(`Получены свечи для ${symbol} на ${timeframe}: ${data.length} свечей`);
     return data;
   } catch (error) {
     console.error(`Ошибка получения свечей для ${symbol} на ${timeframe}:`, error.message);
@@ -192,7 +193,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const rrr = risk > 0 ? Math.round(profit / risk) : 0;
 
     const tradeData = trades[symbol];
-    if (!activeTradeSymbol && !tradeData.active && direction !== 'Нет' && confidence >= 50) {
+    if (!activeTradeSymbol && direction !== 'Нет' && confidence >= 50) {
       tradeData.active = { direction, entry, stopLoss, takeProfit, timeframe: tf };
       tradeData.openCount++;
       activeTradeSymbol = symbol;
@@ -277,6 +278,7 @@ function checkTradeStatus(symbol, currentPrice) {
 app.get('/data', async (req, res) => {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   let recommendations = {};
+  let bestTrade = null;
 
   for (const symbol of symbols) {
     let klinesByTimeframe = {};
@@ -284,6 +286,23 @@ app.get('/data', async (req, res) => {
       klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
     }
     recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+
+    for (const tf of TIMEFRAMES) {
+      const rec = recommendations[symbol][tf];
+      if (rec.direction !== 'Нет' && rec.confidence >= 50) {
+        if (!bestTrade || rec.confidence > bestTrade.confidence) {
+          bestTrade = { symbol, timeframe: tf, ...rec };
+        }
+      }
+    }
+  }
+
+  if (bestTrade && !activeTradeSymbol) {
+    const tradeData = trades[bestTrade.symbol];
+    tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
+    tradeData.openCount++;
+    activeTradeSymbol = bestTrade.symbol;
+    console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
   }
 
   res.json({ prices: lastPrices, recommendations, trades, activeTradeSymbol });
