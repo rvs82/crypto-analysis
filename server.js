@@ -436,9 +436,9 @@ async function aiTradeDecision(symbol, newsSentiment, klines) {
     takeProfit = tradeData.active.takeProfit;
   } else {
     entry = price;
-    stopLoss = direction === 'Лонг' ? price - atr * 1 : price + atr * 1;
+    stopLoss = direction === 'Лонг' ? price - atr * 0.5 : price + atr * 0.5;
     const rrrFactor = Math.max(4.5, Math.min(6, adx / 10));
-    takeProfit = direction === 'Лонг' ? price + atr * rrrFactor : price - atr * rrrFactor;
+    takeProfit = direction === 'Лонг' ? price + atr * 2 : price - atr * 2;
 
     if (direction !== 'Нейтрально' && confidence >= 75) {
       tradeData.active = { direction, entry, stopLoss, takeProfit };
@@ -513,6 +513,7 @@ async function updateMarketSentiment() {
                     'MATICUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT', 'XLMUSDT', 'AVAXUSDT', 'LDOUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   const newsSentiment = await fetchNewsSentiment();
   sentiment = { long: 0, short: 0, total: topPairs.length };
+  let neutral = 0;
 
   for (const symbol of topPairs) {
     const klines = await fetchKlines(symbol);
@@ -526,7 +527,11 @@ async function updateMarketSentiment() {
     const score = (rsi - 50) / 50 + macd.histogram / Math.abs(macd.line) + newsSentiment;
     if (score > 0) sentiment.long++;
     else if (score < 0) sentiment.short++;
+    else neutral++;
   }
+
+  sentiment.long = (sentiment.long / sentiment.total) * 100;
+  sentiment.short = (sentiment.short / sentiment.total) * 100;
 }
 
 app.get('/data', async (req, res) => {
