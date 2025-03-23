@@ -129,6 +129,18 @@ function calculateADX(klines) {
   return calculateEMA(14, [dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx]);
 }
 
+function calculateOBV(klines) {
+  let obv = 0;
+  for (let i = 1; i < klines.length; i++) {
+    const close = parseFloat(klines[i][4]);
+    const prevClose = parseFloat(klines[i - 1][4]);
+    const volume = parseFloat(klines[i][5]);
+    if (close > prevClose) obv += volume;
+    else if (close < prevClose) obv -= volume;
+  }
+  return obv;
+}
+
 function calculateLevels(klines) {
   const closes = klines.map(k => parseFloat(k[4]));
   const priceRange = Math.max(...closes) - Math.min(...closes);
@@ -153,7 +165,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
   for (const tf of TIMEFRAMES) {
     const klines = klinesByTimeframe[tf];
     const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-    if (closes.length < 26) {
+    if (closes.length < 200) {
       recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Недостаточно данных' };
       continue;
     }
@@ -163,6 +175,10 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const macd = calculateMACD(closes);
     const adx = calculateADX(klines);
     const atr = calculateATR(klines);
+    const ema50 = calculateEMA(50, closes);
+    const ema100 = calculateEMA(100, closes);
+    const ema200 = calculateEMA(200, closes);
+    const obv = calculateOBV(klines);
     const levels = calculateLevels(klines);
     const indicators = { 
       nw_upper: nw.upper.toFixed(4), 
@@ -173,6 +189,10 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       signal: macd.signal.toFixed(4), 
       adx: adx.toFixed(2), 
       atr: atr.toFixed(4), 
+      ema50: ema50.toFixed(4), 
+      ema100: ema100.toFixed(4), 
+      ema200: ema200.toFixed(4), 
+      obv: obv.toFixed(0), 
       support: levels.support.toFixed(4), 
       resistance: levels.resistance.toFixed(4)
     };
@@ -180,24 +200,21 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     let direction = 'Нет';
     let confidence = 0;
     let reasoning = '';
-    if (price > nw.upper && macd.line > macd.signal) {
+    if (price > nw.upper && macd.line > macd.signal && price > ema50 && obv > 0) {
       direction = 'Лонг';
       confidence = Math.min(100, Math.round(50 + (price - nw.upper) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
-      reasoning = `Цена (${price}) выше верхней границы Nadaraya-Watson (${nw.upper}), MACD подтверждает рост (${macd.line} > ${macd.signal}), ADX (${adx}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают бычий рынок.`;
-    } else if (price < nw.lower && macd.line < macd.signal) {
+      reasoning = `Цена (${price}) выше NW (${nw.upper}), MACD (${macd.line} > ${macd.signal}), EMA50 (${ema50}), OBV (${obv}) положительный. BTC (${btcPrice}), ETH (${ethPrice}) поддерживают рост.`;
+    } else if (price < nw.lower && macd.line < macd.signal && price < ema50 && obv < 0) {
       direction = 'Шорт';
       confidence = Math.min(100, Math.round(50 + (nw.lower - price) / atr * 10 + (btcPrice < lastPrices['BTCUSDT'] * 1.01 ? 10 : 0) + (ethPrice < lastPrices['ETHUSDT'] * 1.01 ? 10 : 0)));
-      reasoning = `Цена (${price}) ниже нижней границы Nadaraya-Watson (${nw.lower}), MACD подтверждает падение (${macd.line} < ${macd.signal}), ADX (${adx}). BTC (${btcPrice}) и ETH (${ethPrice}) поддерживают медвежий рынок.`;
+      reasoning = `Цена (${price}) ниже NW (${nw.lower}), MACD (${macd.line} < ${macd.signal}), EMA50 (${ema50}), OBV (${obv}) отрицательный. BTC (${btcPrice}), ETH (${ethPrice}) поддерживают падение.`;
     } else {
-      reasoning = `Цена (${price}) внутри Nadaraya-Watson (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}) не даёт чёткого сигнала.`;
+      reasoning = `Цена (${price}) внутри NW (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}), EMA50 (${ema50}), OBV (${obv}) не дают сигнала.`;
     }
 
     const entry = price;
-    let stopLoss = direction === 'Лонг' ? entry - atr * 0.5 : direction === 'Шорт' ? entry + atr * 0.5 : entry;
-    let takeProfit = direction === 'Лонг' ? entry + atr * 2 : direction === 'Шорт' ? entry - atr * 2 : entry;
-    stopLoss = Math.max(stopLoss, levels.support > 0 ? levels.support : entry * 0.99);
-    takeProfit = direction === 'Шорт' ? Math.max(takeProfit, levels.support > 0 ? levels.support : entry * 0.99) : Math.max(takeProfit, entry * 1.01);
-
+    const stopLoss = direction === 'Лонг' ? entry - atr * 0.5 : direction === 'Шорт' ? entry + atr * 0.5 : entry;
+    const takeProfit = direction === 'Лонг' ? entry + atr * 2 : direction === 'Шорт' ? entry - atr * 2 : entry;
     const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
     const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
     const rrr = risk > 0 ? Math.round(profit / risk) : 0;
@@ -270,7 +287,6 @@ function checkTradeStatus(symbol, currentPrice) {
 app.get('/data', async (req, res) => {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   let recommendations = {};
-  let activeTradeSymbol = null;
 
   for (const symbol of symbols) {
     let klinesByTimeframe = {};
@@ -279,24 +295,36 @@ app.get('/data', async (req, res) => {
     }
     recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
 
+    let activeTradeSymbol = null;
+    for (const s in trades) {
+      if (trades[s].active) {
+        activeTradeSymbol = s;
+        break;
+      }
+    }
+
     if (!activeTradeSymbol) {
-      for (const tf of TIMEFRAMES) {
-        const rec = recommendations[symbol][tf];
-        if (rec.direction !== 'Нет' && rec.confidence >= 50) {
-          const tradeData = trades[symbol];
-          if (!tradeData.active) {
-            tradeData.active = { direction: rec.direction, entry: rec.entry, stopLoss: rec.stopLoss, takeProfit: rec.takeProfit, timeframe: tf };
-            tradeData.openCount++;
-            activeTradeSymbol = symbol;
-            console.log(`${symbol} (${tf}): Сделка ${rec.direction} открыта: entry=${rec.entry}, stopLoss=${rec.stopLoss}, takeProfit=${rec.takeProfit}, confidence=${rec.confidence}`);
-            break;
+      let bestTrade = null;
+      for (const sym of symbols) {
+        for (const tf of TIMEFRAMES) {
+          const rec = recommendations[sym][tf];
+          if (rec.direction !== 'Нет' && rec.confidence >= 50) {
+            if (!bestTrade || rec.confidence > bestTrade.confidence) {
+              bestTrade = { symbol: sym, timeframe: tf, ...rec };
+            }
           }
         }
+      }
+      if (bestTrade) {
+        const tradeData = trades[bestTrade.symbol];
+        tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
+        tradeData.openCount++;
+        console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
       }
     }
   }
 
-  res.json({ prices: lastPrices, recommendations, trades, activeTradeSymbol });
+  res.json({ prices: lastPrices, recommendations, trades });
 });
 
 const port = process.env.PORT || 3000;
