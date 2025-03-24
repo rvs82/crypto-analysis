@@ -18,7 +18,7 @@ const TRADE_AMOUNT = 100;
 const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
-let tradeHistory = {}; // Для обучения ИИ
+let tradeHistory = {};
 
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
@@ -45,13 +45,14 @@ wss.on('message', (data) => {
 async function fetchKlines(symbol, timeframe) {
   try {
     const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=500`);
+    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
     console.log(`Получены свечи для ${symbol} на ${timeframe}: ${data.length} свечей`);
     return data;
   } catch (error) {
     console.error(`Ошибка получения свечей для ${symbol} на ${timeframe}:`, error.message);
-    return [];
+    return []; // Возвращаем пустой массив при ошибке
   }
 }
 
@@ -176,8 +177,8 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const fib = calculateFibonacciLevels(nw.lower, nw.upper);
     const engulfing = closes.length > 1 ? detectEngulfing(klines) : 'none';
     const horizontalVolume = closes.length > 1 ? calculateHorizontalVolume(klines.slice(-50)) : price;
-    const btcKlines = await fetchKlines('BTCUSDT', tf);
-    const correlationBTC = closes.length > 1 ? calculateCorrelation(symbol, klines, btcKlines) : 0;
+    const btcKlines = await fetchKlines('BTCUSDT', tf) || [];
+    const correlationBTC = closes.length > 1 && btcKlines.length > 1 ? calculateCorrelation(symbol, klines, btcKlines) : 0;
 
     const max20 = closes.length > 20 ? Math.max(...closes.slice(-20)) : price;
     const min20 = closes.length > 20 ? Math.min(...closes.slice(-20)) : price;
@@ -210,12 +211,11 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя.`;
     }
 
-    // Коррекция уверенности на основе истории
     if (tradeHistory[symbol] && tradeHistory[symbol][tf]) {
       const pastTrades = tradeHistory[symbol][tf];
       const lastTrade = pastTrades[pastTrades.length - 1];
       if (lastTrade && lastTrade.result === 'loss' && lastTrade.direction === direction) {
-        confidence = Math.max(0, confidence - 10); // Уменьшаем уверенность при прошлой неудаче
+        confidence = Math.max(0, confidence - 10);
       }
     }
 
