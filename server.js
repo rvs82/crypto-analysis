@@ -333,9 +333,11 @@ app.get('/data', async (req, res) => {
         if (!recommendations[sym]) continue;
         for (const tf of TIMEFRAMES) {
           const rec = recommendations[sym][tf];
+          console.log(`Проверка ${sym} ${tf}: direction=${rec.direction}, confidence=${rec.confidence}, outsideChannel=${rec.outsideChannel}`);
           if (rec && rec.direction !== 'Нет' && rec.confidence >= 50 && rec.outsideChannel) {
             if (!bestTrade || rec.confidence > bestTrade.confidence) {
               bestTrade = { symbol: sym, timeframe: tf, ...rec };
+              console.log(`Выбрана лучшая сделка: ${sym} ${tf}, confidence=${rec.confidence}`);
             }
           }
         }
@@ -345,6 +347,8 @@ app.get('/data', async (req, res) => {
         tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
         tradeData.openCount++;
         console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
+      } else {
+        console.log('Нет подходящей сделки для открытия');
       }
     }
     res.json({ prices: lastPrices, recommendations, trades });
