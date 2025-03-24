@@ -136,21 +136,21 @@
                                 const blinkCls = r.outsideChannel ? `blink-${r.blinkDirection}` : '';
                                 const signalKey = `${symbol}-${r.outsideChannel}`;
                                 if (r.outsideChannel && lastSignal[signalKey] !== true && document.getElementById('channelExitCheckbox').checked) {
-                                    const audio = new Audio('https://freesound.org/data/previews/339/339810_5121236-lq.mp3'); // 5-секундный колокольчик
+                                    const audio = new Audio('https://freesound.org/data/previews/339/339810_5121236-lq.mp3');
                                     audio.play().catch(() => console.log(`Колокольчик для ${symbol} не воспроизведён`));
                                     lastSignal[signalKey] = true;
                                 } else if (!r.outsideChannel) {
                                     lastSignal[signalKey] = false;
                                 }
-                                recommendationsHtml += `${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, разворот: ${r.pivot.toFixed(4)} (${r.reasoning.split('.')[1] || 'нет данных'}), ${r.reasoning.split('.')[2] || ''}<br>`;
-                                if (r.direction === 'Лонг') {
+                                recommendationsHtml += `${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, разворот: ${r.pivot.toFixed(4)} (${r.reasoning.split('.')[1] || 'нет данных'})<br>`;
+                                if (r.forecast === 'рост') {
                                     totalLongs += r.confidence;
                                     totalRecommendations++;
-                                } else if (r.direction === 'Шорт') {
+                                } else if (r.forecast === 'падение' && r.direction === 'Шорт') {
                                     totalShorts += r.confidence;
                                     totalRecommendations++;
                                 }
-                                return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span>${r.direction}${r.confidence > 0 ? ` ${r.confidence}%` : ''}<span class="${r.trend === 'up' ? 'up' : 'down'}">${trendArrow}</span></td>`;
+                                return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span>${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''}<span class="${r.trend === 'up' ? 'up' : 'down'}">${trendArrow}</span></td>`;
                             }).join('')}
                         `;
                         recommendationsHtml += `</details>`;
@@ -162,7 +162,7 @@
                             reasoningDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[trade.active.timeframe]?.reasoning || 'Нет данных'}`;
                         } else {
                             tradeDiv.innerHTML = '<strong>Сделка:</strong> Нет';
-                            reasoningDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Нет активных сделок, рынок анализируется.`;
+                            reasoningDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya, недостаточная вероятность (>50%), или рынок в консолидации.`;
                         }
                         statsDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${trade.openCount}, Закрыто: ${trade.closedCount}, Стоп: ${trade.stopCount}, Профит: ${trade.profitCount}, Прибыль: ${trade.totalProfit.toFixed(2)} USDT, Убыток: ${trade.totalLoss.toFixed(2)} USDT <button onclick="resetStats()">Сбросить</button>`;
                     }
