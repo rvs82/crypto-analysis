@@ -16,7 +16,8 @@ let trades = {
 };
 const TRADE_AMOUNT = 100;
 const BINANCE_FEE = 0.001;
-const TIMEFRAMES = ['15m', '30m', '1h', '4h', '1d', '1w'];
+const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+let lastRecommendations = {};
 
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
@@ -42,7 +43,7 @@ wss.on('message', (data) => {
 
 async function fetchKlines(symbol, timeframe) {
   try {
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=500`);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
     console.log(`Получены свечи для ${symbol} на ${timeframe}: ${data.length} свечей`);
@@ -84,51 +85,6 @@ function calculateMedian(arr) {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-function calculateRSI(closes) {
-  const deltas = closes.slice(-15).slice(1).map((c, i) => c - closes[closes.length - 15 + i]);
-  const gains = deltas.map(d => d > 0 ? d : 0).reduce((a, b) => a + b, 0) / 14;
-  const losses = deltas.map(d => d < 0 ? -d : 0).reduce((a, b) => a + b, 0) / 14;
-  const rs = gains / losses || Infinity;
-  return 100 - (100 / (1 + rs));
-}
-
-function calculateMACD(prices) {
-  const ema12 = calculateEMA(12, prices.slice(-26));
-  const ema26 = calculateEMA(26, prices.slice(-26));
-  const macd = ema12 - ema26;
-  const signal = calculateEMA(9, prices.slice(-9).map((_, i) => calculateEMA(12, prices.slice(-26 + i, -14 + i)) - calculateEMA(26, prices.slice(-26 + i))));
-  return { line: macd, signal: signal, histogram: macd - signal };
-}
-
-function calculateEMA(period, prices) {
-  const k = 2 / (period + 1);
-  let ema = prices[0];
-  for (let i = 1; i < prices.length; i++) ema = prices[i] * k + ema * (1 - k);
-  return ema;
-}
-
-function calculateADX(klines) {
-  const period = 14;
-  const tr = [], plusDM = [], minusDM = [];
-  for (let i = 1; i < klines.length; i++) {
-    const high = parseFloat(klines[i][2]);
-    const low = parseFloat(klines[i][3]);
-    const prevHigh = parseFloat(klines[i - 1][2]);
-    const prevLow = parseFloat(klines[i - 1][3]);
-    const prevClose = parseFloat(klines[i - 1][4]);
-    tr.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
-    const plus = high - prevHigh;
-    const minus = prevLow - low;
-    plusDM.push(plus > minus && plus > 0 ? plus : 0);
-    minusDM.push(minus > plus && minus > 0 ? minus : 0);
-  }
-  const atr = calculateEMA(period, tr.slice(-period));
-  const plusDI = 100 * calculateEMA(period, plusDM.slice(-period)) / atr;
-  const minusDI = 100 * calculateEMA(period, minusDM.slice(-period)) / atr;
-  const dx = Math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100 || 0;
-  return calculateEMA(14, [dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx, dx]);
-}
-
 function calculateOBV(klines) {
   let obv = 0;
   for (let i = 1; i < klines.length; i++) {
@@ -141,19 +97,64 @@ function calculateOBV(klines) {
   return obv;
 }
 
-function calculateLevels(klines) {
+function calculateEMA(period, prices) {
+  const k = 2 / (period + 1);
+  let ema = prices[0];
+  for (let i = 1; i < prices.length; i++) ema = prices[i] * k + ema * (1 - k);
+  return ema;
+}
+
+function calculateFibonacciLevels(nwLower, nwUpper) {
+  const range = nwUpper - nwLower;
+  return {
+    fib05: nwLower + range * 0.5,
+    fib0618: nwLower + range * 0.618
+  };
+}
+
+function detectEngulfing(klines) {
+  const last = klines[klines.length - 1];
+  const prev = klines[klines.length - 2];
+  const lastOpen = parseFloat(last[1]);
+  const lastClose = parseFloat(last[4]);
+  const prevOpen = parseFloat(prev[1]);
+  const prevClose = parseFloat(prev[4]);
+  if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
+  if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
+  return 'none';
+}
+
+function calculateHorizontalVolume(klines) {
   const closes = klines.map(k => parseFloat(k[4]));
-  const priceRange = Math.max(...closes) - Math.min(...closes);
-  const bins = 50;
-  const binSize = priceRange / bins;
-  const density = Array(bins).fill(0);
-  closes.forEach(price => {
-    const bin = Math.min(bins - 1, Math.floor((price - Math.min(...closes)) / binSize));
-    density[bin] += 1;
+  const bins = 20;
+  const range = Math.max(...closes) - Math.min(...closes);
+  const binSize = range / bins;
+  const volumeBins = Array(bins).fill(0);
+  klines.forEach(kline => {
+    const close = parseFloat(kline[4]);
+    const volume = parseFloat(kline[5]);
+    const bin = Math.min(bins - 1, Math.floor((close - Math.min(...closes)) / binSize));
+    volumeBins[bin] += volume;
   });
-  const sortedBins = density.map((d, i) => ({ density: d, price: Math.min(...closes) + i * binSize }))
-    .sort((a, b) => b.density - a.density);
-  return { support: sortedBins[Math.floor(sortedBins.length * 0.75)].price, resistance: sortedBins[Math.floor(sortedBins.length * 0.25)].price };
+  const maxVolumeIndex = volumeBins.indexOf(Math.max(...volumeBins));
+  return Math.min(...closes) + maxVolumeIndex * binSize;
+}
+
+function calculateCorrelation(symbol, klinesSymbol, klinesBTC) {
+  const closesSymbol = klinesSymbol.slice(-20).map(k => parseFloat(k[4]));
+  const closesBTC = klinesBTC.slice(-20).map(k => parseFloat(k[4]));
+  if (closesSymbol.length < 20 || closesBTC.length < 20) return 0;
+  const meanSymbol = closesSymbol.reduce((a, b) => a + b, 0) / 20;
+  const meanBTC = closesBTC.reduce((a, b) => a + b, 0) / 20;
+  let numerator = 0, denomSymbol = 0, denomBTC = 0;
+  for (let i = 0; i < 20; i++) {
+    const diffSymbol = closesSymbol[i] - meanSymbol;
+    const diffBTC = closesBTC[i] - meanBTC;
+    numerator += diffSymbol * diffBTC;
+    denomSymbol += diffSymbol * diffSymbol;
+    denomBTC += diffBTC * diffBTC;
+  }
+  return numerator / Math.sqrt(denomSymbol * denomBTC) || 0;
 }
 
 async function aiTradeDecision(symbol, klinesByTimeframe) {
@@ -164,76 +165,71 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
 
   for (const tf of TIMEFRAMES) {
     const klines = klinesByTimeframe[tf];
-    if (!klines || klines.length < 200) {
-      recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Недостаточно данных' };
+    if (!klines || klines.length < 20) {
+      recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', market: 'Флет', trend: 'none', pivot: price, reasoning: 'Недостаточно данных', forecast: 'падение' };
       continue;
     }
 
     const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
     const nw = calculateNadarayaWatsonEnvelope(closes);
-    const rsi = calculateRSI(closes);
-    const macd = calculateMACD(closes);
-    const adx = calculateADX(klines);
-    const atr = calculateATR(klines);
-    const ema50 = calculateEMA(50, closes);
-    const ema100 = calculateEMA(100, closes);
-    const ema200 = calculateEMA(200, closes);
     const obv = calculateOBV(klines);
-    const levels = calculateLevels(klines);
-    const indicators = { 
-      nw_upper: nw.upper.toFixed(4), 
-      nw_lower: nw.lower.toFixed(4), 
-      nw_smooth: nw.smooth.toFixed(4), 
-      rsi: rsi.toFixed(2), 
-      macd: macd.line.toFixed(4), 
-      signal: macd.signal.toFixed(4), 
-      adx: adx.toFixed(2), 
-      atr: atr.toFixed(4), 
-      ema50: ema50.toFixed(4), 
-      ema100: ema100.toFixed(4), 
-      ema200: ema200.toFixed(4), 
-      obv: obv.toFixed(0), 
-      support: levels.support.toFixed(4), 
-      resistance: levels.resistance.toFixed(4)
-    };
+    const ema200 = calculateEMA(200, closes);
+    const ema100 = calculateEMA(100, closes);
+    const ema365 = calculateEMA(365, closes);
+    const ema1460 = calculateEMA(1460, closes.slice(-1460)));
+    const fib = calculateFibonacciLevels(nw.lower, nw.upper);
+    const engulfing = detectEngulfing(klines);
+    const horizontalVolume = calculateHorizontalVolume(klines.slice(-50));
+    const btcKlines = await fetchKlines('BTCUSDT', tf);
+    const correlationBTC = calculateCorrelation(symbol, klines, btcKlines);
+
+    const max20 = Math.max(...closes.slice(-20));
+    const min20 = Math.min(...closes.slice(-20));
+    const range20 = (max20 - min20) / closes[closes.length - 1];
+    const market = range20 < 0.02 ? 'Флет' : price > nw.smooth && price > closes[closes.length - 20] ? 'Восходящий' : 'Нисходящий';
+    const lastTouch = price > nw.upper ? 'upper' : price < nw.lower ? 'lower' : 'none';
+    const trend = lastTouch === 'upper' ? 'down' : lastTouch === 'lower' ? 'up' : 'none';
+    const forecast = trend === 'up' ? 'рост' : 'падение';
+    const pivot = trend === 'up' ? Math.max(fib.fib05, ema200, horizontalVolume) : Math.min(fib.fib05, ema200, horizontalVolume);
 
     let direction = 'Нет';
     let confidence = 0;
     let reasoning = '';
-    if (price > nw.upper && macd.line > macd.signal && price > ema50 && obv > 0) {
-      direction = 'Лонг';
-      confidence = Math.min(100, Math.round(50 + (price - nw.upper) / atr * 10 + (btcPrice > lastPrices['BTCUSDT'] * 0.99 ? 10 : 0) + (ethPrice > lastPrices['ETHUSDT'] * 0.99 ? 10 : 0)));
-      reasoning = `Цена (${price}) выше NW (${nw.upper}), MACD (${macd.line} > ${macd.signal}), EMA50 (${ema50}), OBV (${obv}) положительный. BTC (${btcPrice}), ETH (${ethPrice}) поддерживают рост.`;
-    } else if (price < nw.lower && macd.line < macd.signal && price < ema50 && obv < 0) {
-      direction = 'Шорт';
-      confidence = Math.min(100, Math.round(50 + (nw.lower - price) / atr * 10 + (btcPrice < lastPrices['BTCUSDT'] * 1.01 ? 10 : 0) + (ethPrice < lastPrices['ETHUSDT'] * 1.01 ? 10 : 0)));
-      reasoning = `Цена (${price}) ниже NW (${nw.lower}), MACD (${macd.line} < ${macd.signal}), EMA50 (${ema50}), OBV (${obv}) отрицательный. BTC (${btcPrice}), ETH (${ethPrice}) поддерживают падение.`;
+    const threshold = nw.upper * 0.005;
+
+    if (price > nw.upper + threshold && price <= nw.upper * 1.05) {
+      if (market !== 'Нисходящий' || (market === 'Нисходящий' && obv < 0 && (engulfing === 'bearish' || btcPrice > lastPrices['BTCUSDT'] * 0.995))) {
+        direction = 'Шорт';
+        confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
+        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает.`;
+      }
+    } else if (price < nw.lower - threshold && price >= nw.lower * 0.95) {
+      if (market !== 'Восходящий' || (market === 'Восходящий' && obv > 0 && (engulfing === 'bullish' || btcPrice < lastPrices['BTCUSDT'] * 1.005))) {
+        direction = 'Лонг';
+        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
+        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает.`;
+      }
     } else {
-      reasoning = `Цена (${price}) внутри NW (${nw.lower}-${nw.upper}), MACD (${macd.line}/${macd.signal}), EMA50 (${ema50}), OBV (${obv}) не дают сигнала.`;
+      reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя.`;
     }
 
     const entry = price;
-    const stopLoss = direction === 'Лонг' ? entry - atr * 0.5 : direction === 'Шорт' ? entry + atr * 0.5 : entry;
-    const takeProfit = direction === 'Лонг' ? entry + atr * 2 : direction === 'Шорт' ? entry - atr * 2 : entry;
+    const stopLoss = direction === 'Лонг' ? entry - threshold : direction === 'Шорт' ? entry + threshold : entry;
+    const takeProfit = direction === 'Лонг' ? entry + threshold * 2 : direction === 'Шорт' ? entry - threshold * 2 : entry;
     const profit = direction === 'Лонг' ? takeProfit - entry : entry - takeProfit;
     const risk = direction === 'Лонг' ? entry - stopLoss : stopLoss - entry;
     const rrr = risk > 0 ? Math.round(profit / risk) : 0;
 
-    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', indicators, reasoning };
+    if (lastRecommendations[symbol] && lastRecommendations[symbol][tf]) {
+      const prevConfidence = lastRecommendations[symbol][tf].confidence;
+      confidence = Math.min(Math.max(confidence, prevConfidence - 5), prevConfidence + 5);
+    }
+
+    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', market, trend, pivot, reasoning, forecast };
   }
 
+  lastRecommendations[symbol] = recommendations;
   return recommendations;
-}
-
-function calculateATR(klines) {
-  const trs = klines.slice(-15).map((kline, i) => {
-    if (i === 0) return parseFloat(kline[2]) - parseFloat(kline[3]);
-    const high = parseFloat(kline[2]);
-    const low = parseFloat(kline[3]);
-    const prevClose = parseFloat(klines[i - 1][4]);
-    return Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-  });
-  return trs.reduce((a, b) => a + b, 0) / 14;
 }
 
 function checkTradeStatus(symbol, currentPrice) {
@@ -298,7 +294,7 @@ app.get('/data', async (req, res) => {
     } catch (error) {
       console.error(`Ошибка в aiTradeDecision для ${symbol}:`, error);
       recommendations[symbol] = TIMEFRAMES.reduce((acc, tf) => {
-        acc[tf] = { direction: 'Нет', entry: lastPrices[symbol], stopLoss: lastPrices[symbol], takeProfit: lastPrices[symbol], confidence: 0, rrr: '0/0', indicators: {}, reasoning: 'Ошибка обработки' };
+        acc[tf] = { direction: 'Нет', entry: lastPrices[symbol], stopLoss: lastPrices[symbol], takeProfit: lastPrices[symbol], confidence: 0, rrr: '0/0', market: 'Флет', trend: 'none', pivot: lastPrices[symbol], reasoning: 'Ошибка обработки', forecast: 'падение' };
         return acc;
       }, {});
     }
@@ -334,6 +330,13 @@ app.get('/data', async (req, res) => {
   }
 
   res.json({ prices: lastPrices, recommendations, trades });
+});
+
+app.post('/reset-stats', (req, res) => {
+  for (const symbol in trades) {
+    trades[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+  }
+  res.sendStatus(200);
 });
 
 const port = process.env.PORT || 10000;
