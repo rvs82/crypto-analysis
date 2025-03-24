@@ -124,7 +124,7 @@ function detectEngulfing(klines) {
   const lastClose = parseFloat(last[4]);
   const prevOpen = parseFloat(prev[1]);
   const prevClose = parseFloat(prev[4]);
-  if (lastClose > asOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
+  if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
   if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
   return 'none';
 }
@@ -353,8 +353,7 @@ app.get('/data', async (req, res) => {
         const tradeData = trades[bestTrade.symbol];
         tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
         tradeData.openCount++;
-        console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
-      } else {
+        console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);      } else {
         console.log('Нет подходящей сделки для открытия: недостаточная вероятность или нет пробоя');
       }
     } else {
