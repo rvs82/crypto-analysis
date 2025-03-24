@@ -101,7 +101,10 @@
 
         function updateData() {
             fetch('/data')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     tbody.innerHTML = '';
                     let indicatorsHtml = '';
@@ -124,7 +127,7 @@
                                 const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
                                 const tfText = tf === '5m' ? '5 минут' : tf === '15m' ? '15 минут' : tf === '30m' ? '30 минут' : tf === '1h' ? '1 час' : tf === '4h' ? '4 часа' : tf === '1d' ? '1 день' : '1 неделя';
                                 if (r.outsideChannel && lastSignal[signalKey] !== true && channelExitCheckbox.checked) {
-                                    const audio = new Audio(`https://example.com/voice-exit-channel-${symbol.replace('USDT', '')}-${tfText}.mp3`); // Заменить на реальный URL
+                                    const audio = new Audio(`https://example.com/voice-exit-channel-${symbol.replace('USDT', '')}-${tfText}.mp3`);
                                     audio.play().catch(() => console.log(`Звук для ${symbol} ${tfText} не воспроизведён`));
                                     lastSignal[signalKey] = true;
                                 } else if (!r.outsideChannel) {
