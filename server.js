@@ -187,6 +187,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const trend = lastTouch === 'upper' ? 'down' : lastTouch === 'lower' ? 'up' : 'none';
     const forecast = trend === 'up' ? 'рост' : 'падение';
     const pivot = trend === 'up' ? Math.max(fib.fib05, ema200, horizontalVolume) : Math.min(fib.fib05, ema200, horizontalVolume);
+    const outsideChannel = price > nw.upper || price < nw.lower;
 
     let direction = 'Нет';
     let confidence = 0;
@@ -202,7 +203,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     } else if (price < nw.lower - threshold && price >= nw.lower * 0.95) {
       if (market !== 'Восходящий' || (market === 'Восходящий' && obv > 0 && (engulfing === 'bullish' || btcPrice < lastPrices['BTCUSDT'] * 1.005))) {
         direction = 'Лонг';
-        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 'бычье поглощение, ' : '') + (correlationBTC > 0.7 ? 10 : 0));
+        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
         reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
       }
     } else {
@@ -230,7 +231,9 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       confidence = Math.min(Math.max(confidence, prevConfidence - 5), prevConfidence + 5);
     }
 
-    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', market, trend, pivot, reasoning, forecast };
+    const marketState = `Рынок сейчас ${market === 'Флет' ? 'в боковике' : market === 'Восходящий' ? 'растёт' : 'падает'}, вероятность прибыли ${confidence >= 50 ? 'высокая' : 'средняя'}, ждём ${forecast === 'рост' ? 'роста' : 'падения'}.`;
+
+    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', market, trend, pivot, reasoning, forecast, marketState, outsideChannel };
   }
 
   lastRecommendations[symbol] = recommendations;
@@ -311,7 +314,7 @@ app.get('/data', async (req, res) => {
     } catch (error) {
       console.error(`Ошибка в aiTradeDecision для ${symbol}:`, error);
       recommendations[symbol] = TIMEFRAMES.reduce((acc, tf) => {
-        acc[tf] = { direction: 'Нет', entry: lastPrices[symbol], stopLoss: lastPrices[symbol], takeProfit: lastPrices[symbol], confidence: 0, rrr: '0/0', market: 'Флет', trend: 'none', pivot: lastPrices[symbol], reasoning: 'Ошибка обработки', forecast: 'падение' };
+        acc[tf] = { direction: 'Нет', entry: lastPrices[symbol], stopLoss: lastPrices[symbol], takeProfit: lastPrices[symbol], confidence: 0, rrr: '0/0', market: 'Флет', trend: 'none', pivot: lastPrices[symbol], reasoning: 'Ошибка обработки', forecast: 'падение', marketState: 'Рынок не определён, вероятность прибыли низкая', outsideChannel: false };
         return acc;
       }, {});
     }
