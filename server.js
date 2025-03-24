@@ -20,6 +20,11 @@ const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let tradeHistory = {};
 
+console.log('Сброс состояния trades при запуске сервера');
+for (const symbol in trades) {
+  trades[symbol].active = null;
+}
+
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
   console.log('WebSocket подключён');
@@ -304,8 +309,6 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeHistory[symbol][timeframe].push({ direction, result: 'profit' });
       }
     }
-  } else {
-    console.log(`Нет активной сделки для ${symbol}`);
   }
 }
 
@@ -321,8 +324,7 @@ app.get('/data', async (req, res) => {
         klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
       }
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
-      console.log(`Рекомендации для ${symbol} сформированы`);
-      checkTradeStatus(symbol, lastPrices[symbol]); // Проверяем статус перед выбором новой сделки
+      console.log(`Рекомендации для ${symbol} сформированы: ${JSON.stringify(recommendations[symbol])}`);
     }
 
     let activeTradeSymbol = null;
