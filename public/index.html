@@ -11,24 +11,32 @@
         .long { color: green; }
         .short { color: red; }
         .neutral { color: black; }
-        #trade, #reasoning, #stats, #indicators, #techSpec { margin-top: 20px; font-size: 15px; }
+        .flat { color: yellow; }
+        .up { color: green; }
+        .down { color: red; }
+        #trade, #reasoning, #stats, #indicators, #techSpec, #howItWorks { margin-top: 20px; font-size: 15px; }
         details { margin-top: 5px; }
         summary { cursor: pointer; }
         #sound { margin-bottom: 10px; }
+        #recommendations { margin-top: 20px; font-size: 15px; }
+        button { padding: 5px 10px; margin-left: 10px; }
     </style>
 </head>
 <body>
     <div id="sound">Звук: <input type="checkbox" id="soundCheckbox" checked></div>
+    <div id="recommendations"></div>
     <table>
         <thead>
             <tr>
                 <th>Пара</th>
+                <th>5м</th>
                 <th>15м</th>
                 <th>30м</th>
                 <th>1ч</th>
                 <th>4ч</th>
                 <th>1д</th>
                 <th>1н</th>
+                <th>Рынок</th>
             </tr>
         </thead>
         <tbody id="data"></tbody>
@@ -36,6 +44,7 @@
     <div id="trade"><strong>Сделка:</strong> Нет</div>
     <div id="reasoning"></div>
     <div id="stats"></div>
+    <button onclick="resetStats()">Сбросить</button>
     <div id="indicators">
         <details>
             <summary>Индикаторы и фильтры</summary>
@@ -44,8 +53,24 @@
     </div>
     <div id="techSpec">
         <strong>Техническое задание:</strong><br>
-        <strong>Новый вариант:</strong><br>
-        Сайт использует индикатор Nadaraya-Watson Envelope [LuxAlgo] с режимом Repainting Smoothing, bandwidth 8, multiplier 3, данными закрытия на таймфреймах 15м, 30м, 1ч, 4ч, 1д, 1н. Для точности сигналов добавлены RSI, MACD, ADX, EMA 50/100/200, OBV. Обработка данных — ИИ с учётом динамики рынка, цен BTC и ETH. Данные в горизонтальной таблице с рекомендациями: "Нет" (чёрный), "Лонг" (зелёный), "Шорт" (красный), рядом вероятность успеха в % (только если > 0). Одновременно открыта 1 сделка размером 100 USDT. Поле "Сделка" показывает криптовалюту, таймфрейм, направление (цветное), вероятность успеха (пересчитывается ИИ в реальном времени), цены открытия, стоп-лосс, тейк-профит (не 0 и не ниже, неизменны до закрытия). Сделки открываются при вероятности ≥ 50% с оптимальным RRR (ИИ). Звуковые оповещения при сигнале на открытие (чекбокс, маленький колокольчик). Под сделкой — рассуждения ИИ о причинах открытия. ИИ рассчитывает уровни поддержки/сопротивления для решений. Убраны лишние запросы и настроение рынка. Под статистикой — выпадающее меню с индикаторами и значениями. Добавлена вертикальная прокрутка.
+        <strong>Новый вариант (обновлено):</strong><br>
+        Сайт использует индикатор Nadaraya-Watson Envelope [LuxAlgo] с режимом Repainting Smoothing, bandwidth 8, multiplier 3, данными закрытия на таймфреймах 5м, 15м, 30м, 1ч, 4ч, 1д, 1н. Обработка данных — ИИ с учётом динамики рынка, цен BTC и ETH (корреляция с валютами), уровней объёма (OBV), EMA 200/100/365/1460, Фибоначчи (0.5, 0.618), горизонтальных объёмов, поглощения свечей. Данные в горизонтальной таблице с рекомендациями: "Нет" (чёрный), "Лонг" (зелёный), "Шорт" (красный), рядом вероятность успеха в % (целые числа, рассчитывает ИИ, обновляется плавно), направление рынка: "Флет" (жёлтый), "Восходящий" (зелёный), "Нисходящий" (красный) и стрелка ↑ (зелёная)/↓ (красная) по последнему касанию границы Nadaraya; в столбце "Рынок" — общее направление с цветом (обновляется каждые 5 свечей). Одновременно открыта 1 сделка размером 100 USDT. Поле "Сделка" показывает криптовалюту, таймфрейм, направление (цветное), вероятность успеха, цены открытия, стоп-лосс, тейк-профит (не 0 и не ниже, неизменны до закрытия). После "Статистика" — кнопка "Сбросить" для обнуления вручную. Сделки открываются при вероятности ≥ 50% с оптимальным RRR (ИИ), только если цена пробила уровни Nadaraya (выше верхней — "Шорт", ниже нижней — "Лонг"), пробой (ориентир 0.5%, зависит от OBV, Фибо), с учётом OBV (рост для "Лонг", падение для "Шорт"), крупных покупок/продаж, скачков (>1% за свечу), ретестов (ликвидность с уровня), поглощения (бычье для "Лонг" с коррекцией до Фибо 0.5–0.618), EMA 200/100/365/1460 (поддержка/сопротивление с OBV), Фибоначчи, горизонтальных объёмов, корреляции с BTC/ETH. Не открывать "Лонг" выше `nw.upper`, "Шорт" ниже `nw.lower`. Звуковые оповещения при сигнале (чекбокс, маленький колокольчик). Под сделкой — подробные рассуждения ИИ (рынок, OBV, EMA, Фибо, поглощение, BTC/ETH). ИИ учитывает: <br>
+- **Флет (жёлтый)**: "Лонг" при пробое нижней с ростом OBV, "Шорт" при пробое верхней с падением OBV — цена к середине. <br>
+- **Восходящий (зелёный)**: "Лонг" при пробое нижней с OBV и BTC/ETH, "Шорт" при пробое верхней с большим OBV. <br>
+- **Нисходящий (красный)**: "Шорт" при пробое верхней с падением OBV, "Лонг" при пробое нижней с OBV и BTC/ETH. <br>
+Накопление/консолидация (< 0.5% за 3 свечи) — шанс на разворот/скачок с OBV, коррекция или тренд по покупкам/продажам. Оптимизация для Render: обновление раз в 10 секунд, 500 свечей, минимум вычислений для бесплатного тарифа (512 МБ RAM, 0.1 CPU). Убраны лишние индикаторы (RSI, MACD, ADX), запросы и настроение рынка. Под статистикой — меню с индикаторами. Вертикальная прокрутка.
+    </div>
+    <div id="howItWorks">
+        <strong>Как работает сайт:</strong><br>
+        Этот сайт помогает трейдерам принимать решения о покупке или продаже криптовалют (LDOUSDT, AVAXUSDT, XLMUSDT, HBARUSDT, BATUSDT, AAVEUSDT), показывая сигналы для сделок и анализируя рынок. Вот как это работает:<br><br>
+        <strong>Как формируются сигналы:</strong><br>
+        Сайт использует индикатор Nadaraya-Watson Envelope — это "конверт" вокруг цены, который показывает нормальный диапазон движения. У него есть верхняя граница (nw.upper), нижняя граница (nw.lower) и средняя линия (smooth). Если цена пробивает верхнюю границу (например, на 0.5% выше), появляется сигнал "Шорт" (продажа), потому что цена может упасть обратно к середине. Если пробивает нижнюю границу (на 0.5% ниже), сигнал "Лонг" (покупка), так как цена может вырасти. Пробой — это когда цена уверенно уходит за границу, а не просто касается её. ИИ смотрит, чтобы не было накопления (цена топчется у границы), и проверяет объёмы (OBV): если они растут — "Лонг", падают — "Шорт". Также учитываются уровни EMA (200, 100, 365, 1460) как поддержка или сопротивление, уровни Фибоначчи (0.5 и 0.618) как точки разворота, поглощение свечи (большая свеча перекрывает предыдущую) и корреляция с BTC и ETH. Например, если LDOUSDT пробила нижнюю границу, а BTC ещё не у своей границы, LDO может продолжить падать, пока BTC не отскочит.<br><br>
+        <strong>Как открываются сделки:</strong><br>
+        ИИ выбирает одну сделку с вероятностью успеха ≥ 50%. Вероятность считается по пробою границы, объёмам, EMA, Фибо, поглощению и движению BTC/ETH. Сделка открывается только если цена пробила границу, но не выше верхней для "Лонг" и не ниже нижней для "Шорт". Размер сделки — 100 USDT. ИИ ставит стоп-лосс (где остановить убытки) и тейк-профит (где взять прибыль), они не меняются до закрытия. Сделка закрывается автоматически, если цена доходит до стоп-лосса (убыток) или тейк-профита (прибыль). Если рынок "Флет" (жёлтый), сделки идут от границ к середине; в "Восходящем" (зелёный) "Лонг" предпочтительнее; в "Нисходящем" (красный) — "Шорт".<br><br>
+        <strong>Как обрабатываются данные:</strong><br>
+        Данные о ценах и объёмах берутся с Binance в реальном времени через их API. Каждые 10 секунд сайт обновляет цены для всех валют и пересчитывает сигналы. Искусственный интеллект (ИИ) анализирует последние 500 свечей (историю цен) для каждой валюты и каждого таймфрейма (5м, 15м, 30м, 1ч, 4ч, 1д, 1н). Он считает границы Nadaraya, смотрит объёмы, EMA, Фибо, поглощение и корреляцию с BTC/ETH. ИИ обучен не делать поспешных выводов: он ждёт чёткого пробоя, проверяет, чтобы цена не топталась у границы, и учитывает, как ведут себя BTC и ETH, потому что они сильно влияют на рынок. Данные обрабатываются автоматически ИИ, человек их не трогает — всё делает программа на основе правил.<br><br>
+        <strong>Что показывает сайт:</strong><br>
+        Вверху — рекомендации ИИ для каждой валюты: состояние рынка (Флет, Восходящий, Нисходящий), прогноз ("рост" или "падение" с цветом), точка разворота (например, "0.1840 — уровень EMA200 и высокий объём") и дополнения (новости из CoinDesk, CoinTelegraph, Binance News). В таблице для каждого таймфрейма: сигнал ("Лонг", "Шорт", "Нет"), вероятность успеха (например, 70%), направление рынка с цветом и стрелка (↑ зелёная или ↓ красная), показывающая, куда идёт цена от последней границы. Столбец "Рынок" — общее состояние валюты. Под таблицей — текущая сделка, её параметры и подробное объяснение от ИИ. Есть статистика сделок и кнопка "Сбросить", чтобы обнулить её вручную. Сайт оптимизирован, чтобы не перегружать бесплатный тариф Render.<br>
     </div>
 
     <script>
@@ -55,6 +80,7 @@
         const statsDiv = document.getElementById('stats');
         const indicatorsContent = document.getElementById('indicators-content');
         const soundCheckbox = document.getElementById('soundCheckbox');
+        const recommendationsDiv = document.getElementById('recommendations');
         let lastSignal = null;
 
         function updateData() {
@@ -63,26 +89,32 @@
                 .then(data => {
                     tbody.innerHTML = '';
                     let indicatorsHtml = '';
+                    let recommendationsHtml = '<strong>Рекомендации ИИ:</strong><br>';
 
                     for (const symbol in data.recommendations) {
                         const row = document.createElement('tr');
                         const rec = data.recommendations[symbol];
                         const trade = data.trades[symbol];
+                        recommendationsHtml += `<br><strong>${symbol}:</strong><br>`;
                         row.innerHTML = `
                             <td>${symbol}</td>
                             ${TIMEFRAMES.map(tf => {
                                 const r = rec[tf];
                                 const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
+                                const marketCls = r.market === 'Флет' ? 'flat' : r.market === 'Восходящий' ? 'up' : 'down';
+                                const trendArrow = r.trend === 'up' ? '↑' : r.trend === 'down' ? '↓' : '';
                                 const signalKey = `${symbol}-${tf}-${r.direction}-${r.confidence}`;
                                 if (r.direction !== 'Нет' && r.confidence >= 50 && lastSignal !== signalKey && soundCheckbox.checked) {
                                     new Audio('https://www.myinstants.com/media/sounds/small-bell.mp3').play();
                                     lastSignal = signalKey;
                                 }
-                                if (tf === '15m') {
-                                    indicatorsHtml += `<strong>${symbol} (${tf}):</strong> NW Upper: ${r.indicators.nw_upper}, NW Lower: ${r.indicators.nw_lower}, NW Smooth: ${r.indicators.nw_smooth}, RSI: ${r.indicators.rsi}, MACD: ${r.indicators.macd}/${r.indicators.signal}, ADX: ${r.indicators.adx}, ATR: ${r.indicators.atr}, EMA50: ${r.indicators.ema50}, EMA100: ${r.indicators.ema100}, EMA200: ${r.indicators.ema200}, OBV: ${r.indicators.obv}, Support: ${r.indicators.support}, Resistance: ${r.indicators.resistance}<br>`;
+                                if (tf === '5m') {
+                                    indicatorsHtml += `<strong>${symbol} (${tf}):</strong> Верхняя граница: ${r.indicators.nw_upper}, Нижняя граница: ${r.indicators.nw_lower}, Середина: ${r.indicators.nw_smooth}, OBV: ${r.indicators.obv}, EMA200: ${r.indicators.ema200}<br>`;
                                 }
-                                return `<td class="${cls}">${r.direction}${r.confidence > 0 ? ` (${r.confidence}%)` : ''}</td>`;
+                                recommendationsHtml += `${tf}: ${r.market}, прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, разворот: ${r.pivot.toFixed(4)} (${r.reasoning.split('.')[1]}), ${r.reasoning.split('.')[2] || ''}<br>`;
+                                return `<td class="${cls}">${r.direction}${r.confidence > 0 ? ` (${r.confidence}%)` : ''} <span class="${r.trend === 'up' ? 'up' : 'down'}">${trendArrow}</span></td>`;
                             }).join('')}
+                            <td class="${rec['1d'].market === 'Флет' ? 'flat' : rec['1d'].market === 'Восходящий' ? 'up' : 'down'}">${rec['1d'].market}</td>
                         `;
                         tbody.appendChild(row);
 
@@ -98,13 +130,20 @@
                     }
 
                     indicatorsContent.innerHTML = indicatorsHtml;
+                    recommendationsDiv.innerHTML = recommendationsHtml;
                 })
                 .catch(error => console.error('Ошибка получения данных:', error));
         }
 
-        const TIMEFRAMES = ['15m', '30m', '1h', '4h', '1d', '1w'];
+        function resetStats() {
+            fetch('/reset-stats', { method: 'POST' })
+                .then(() => updateData())
+                .catch(error => console.error('Ошибка сброса статистики:', error));
+        }
+
+        const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
         updateData();
-        setInterval(updateData, 5000);
+        setInterval(updateData, 10000);
     </script>
 </body>
 </html>
