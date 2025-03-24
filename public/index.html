@@ -119,11 +119,11 @@
                         row.innerHTML = `
                             <td>${symbol}</td>
                             ${TIMEFRAMES.map(tf => {
-                                const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'none', pivot: lastPrices[symbol], reasoning: 'Нет данных', forecast: 'падение', outsideChannel: false };
+                                const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'none', pivot: lastPrices[symbol], reasoning: 'Нет данных', forecast: 'падение', outsideChannel: false, blinkDirection: '' };
                                 const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
                                 const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
                                 const trendArrow = r.trend === 'up' ? '↑' : r.trend === 'down' ? '↓' : '';
-                                const blinkCls = r.outsideChannel ? (r.direction === 'Шорт' || price > r.nwUpper ? 'blink-green' : 'blink-red') : '';
+                                const blinkCls = r.outsideChannel ? `blink-${r.blinkDirection}` : '';
                                 const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
                                 const tfText = tf === '5m' ? '5 минут' : tf === '15m' ? '15 минут' : tf === '30m' ? '30 минут' : tf === '1h' ? '1 час' : tf === '4h' ? '4 часа' : tf === '1d' ? '1 день' : '1 неделя';
                                 if (r.outsideChannel && lastSignal[signalKey] !== true && channelExitCheckbox.checked) {
