@@ -123,7 +123,7 @@
                                 const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
                                 const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
                                 const trendArrow = r.trend === 'up' ? '↑' : r.trend === 'down' ? '↓' : '';
-                                const blinkCls = r.outsideChannel ? (price > nw.upper ? 'blink-green' : 'blink-red') : '';
+                                const blinkCls = r.outsideChannel ? (r.direction === 'Шорт' || price > r.nwUpper ? 'blink-green' : 'blink-red') : '';
                                 const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
                                 const tfText = tf === '5m' ? '5 минут' : tf === '15m' ? '15 минут' : tf === '30m' ? '30 минут' : tf === '1h' ? '1 час' : tf === '4h' ? '4 часа' : tf === '1d' ? '1 день' : '1 неделя';
                                 if (r.outsideChannel && lastSignal[signalKey] !== true && channelExitCheckbox.checked) {
@@ -154,9 +154,9 @@
                     recommendationsDiv.innerHTML = recommendationsHtml || '<strong>Рекомендации ИИ:</strong> Нет данных';
                 })
                 .catch(error => {
-                    console.error('Ошибка получения данных:', error);
-                    tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных</td></tr>`).join('');
-                    recommendationsDiv.innerHTML = '<strong>Рекомендации ИИ:</strong> Ошибка загрузки';
+                    console.error('Ошибка получения данных:', error.message, error.stack);
+                    tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных: ${error.message}</td></tr>`).join('');
+                    recommendationsDiv.innerHTML = `<strong>Рекомендации ИИ:</strong> Ошибка загрузки: ${error.message}`;
                 });
         }
 
