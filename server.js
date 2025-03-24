@@ -250,6 +250,7 @@ function checkTradeStatus(symbol, currentPrice) {
   const tradeData = trades[symbol];
   if (tradeData && tradeData.active) {
     const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
+    console.log(`Проверка статуса сделки для ${symbol}: currentPrice=${currentPrice}, entry=${entry}, stopLoss=${stopLoss}, takeProfit=${takeProfit}, direction=${direction}`);
     if (direction === 'Лонг') {
       if (currentPrice <= stopLoss) {
         const loss = TRADE_AMOUNT * (entry - stopLoss);
@@ -303,6 +304,8 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeHistory[symbol][timeframe].push({ direction, result: 'profit' });
       }
     }
+  } else {
+    console.log(`Нет активной сделки для ${symbol}`);
   }
 }
 
@@ -319,13 +322,14 @@ app.get('/data', async (req, res) => {
       }
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
       console.log(`Рекомендации для ${symbol} сформированы`);
+      checkTradeStatus(symbol, lastPrices[symbol]); // Проверяем статус перед выбором новой сделки
     }
 
     let activeTradeSymbol = null;
     for (const s in trades) {
       if (trades[s].active) {
         activeTradeSymbol = s;
-        console.log(`Найдена активная сделка для ${s}`);
+        console.log(`Найдена активная сделка для ${s}: ${JSON.stringify(trades[s].active)}`);
         break;
       }
     }
@@ -353,7 +357,8 @@ app.get('/data', async (req, res) => {
         const tradeData = trades[bestTrade.symbol];
         tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
         tradeData.openCount++;
-        console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);      } else {
+        console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
+      } else {
         console.log('Нет подходящей сделки для открытия: недостаточная вероятность или нет пробоя');
       }
     } else {
@@ -371,6 +376,7 @@ app.post('/reset-stats', (req, res) => {
   for (const symbol in trades) {
     trades[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
   }
+  console.log('Статистика сброшена');
   res.sendStatus(200);
 });
 
