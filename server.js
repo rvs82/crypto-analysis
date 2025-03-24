@@ -44,7 +44,10 @@ wss.on('message', (data) => {
 
 async function fetchKlines(symbol, timeframe) {
   try {
-    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=500`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // Таймаут 5 секунд
+    const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=500`, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Klines data is not an array');
@@ -52,7 +55,7 @@ async function fetchKlines(symbol, timeframe) {
     return data;
   } catch (error) {
     console.error(`Ошибка получения свечей для ${symbol} на ${timeframe}:`, error.message);
-    return []; // Возвращаем пустой массив при ошибке
+    return [];
   }
 }
 
@@ -177,8 +180,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const fib = calculateFibonacciLevels(nw.lower, nw.upper);
     const engulfing = closes.length > 1 ? detectEngulfing(klines) : 'none';
     const horizontalVolume = closes.length > 1 ? calculateHorizontalVolume(klines.slice(-50)) : price;
-    const btcKlines = await fetchKlines('BTCUSDT', tf) || [];
-    const correlationBTC = closes.length > 1 && btcKlines.length > 1 ? calculateCorrelation(symbol, klines, btcKlines) : 0;
+    const correlationBTC = 0; // Убрал fetchKlines для BTC внутри, используем заглушку
 
     const max20 = closes.length > 20 ? Math.max(...closes.slice(-20)) : price;
     const min20 = closes.length > 20 ? Math.min(...closes.slice(-20)) : price;
@@ -198,14 +200,14 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     if (price > nw.upper + threshold && price <= nw.upper * 1.05) {
       if (market !== 'Нисходящий' || (market === 'Нисходящий' && obv < 0 && (engulfing === 'bearish' || btcPrice > lastPrices['BTCUSDT'] * 0.995))) {
         direction = 'Шорт';
-        confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
-        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
+        confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0));
+        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC недоступна. Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
       }
     } else if (price < nw.lower - threshold && price >= nw.lower * 0.95) {
       if (market !== 'Восходящий' || (market === 'Восходящий' && obv > 0 && (engulfing === 'bullish' || btcPrice < lastPrices['BTCUSDT'] * 1.005))) {
         direction = 'Лонг';
-        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
-        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
+        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0));
+        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC недоступна. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
       }
     } else {
       reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя.`;
@@ -304,52 +306,48 @@ app.get('/data', async (req, res) => {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
   let recommendations = {};
 
-  for (const symbol of symbols) {
-    let klinesByTimeframe = {};
-    for (const tf of TIMEFRAMES) {
-      klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
-    }
-    try {
-      recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
-    } catch (error) {
-      console.error(`Ошибка в aiTradeDecision для ${symbol}:`, error);
-      recommendations[symbol] = TIMEFRAMES.reduce((acc, tf) => {
-        acc[tf] = { direction: 'Нет', entry: lastPrices[symbol], stopLoss: lastPrices[symbol], takeProfit: lastPrices[symbol], confidence: 0, rrr: '0/0', market: 'Флет', trend: 'none', pivot: lastPrices[symbol], reasoning: 'Ошибка обработки', forecast: 'падение', marketState: 'Рынок не определён, вероятность прибыли низкая', outsideChannel: false };
-        return acc;
-      }, {});
-    }
-
-    let activeTradeSymbol = null;
-    for (const s in trades) {
-      if (trades[s].active) {
-        activeTradeSymbol = s;
-        break;
+  try {
+    for (const symbol of symbols) {
+      let klinesByTimeframe = {};
+      for (const tf of TIMEFRAMES) {
+        klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
       }
-    }
+      recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
 
-    if (!activeTradeSymbol) {
-      let bestTrade = null;
-      for (const sym of symbols) {
-        if (!recommendations[sym]) continue;
-        for (const tf of TIMEFRAMES) {
-          const rec = recommendations[sym][tf];
-          if (rec && rec.direction !== 'Нет' && rec.confidence >= 50) {
-            if (!bestTrade || rec.confidence > bestTrade.confidence) {
-              bestTrade = { symbol: sym, timeframe: tf, ...rec };
+      let activeTradeSymbol = null;
+      for (const s in trades) {
+        if (trades[s].active) {
+          activeTradeSymbol = s;
+          break;
+        }
+      }
+
+      if (!activeTradeSymbol) {
+        let bestTrade = null;
+        for (const sym of symbols) {
+          if (!recommendations[sym]) continue;
+          for (const tf of TIMEFRAMES) {
+            const rec = recommendations[sym][tf];
+            if (rec && rec.direction !== 'Нет' && rec.confidence >= 50) {
+              if (!bestTrade || rec.confidence > bestTrade.confidence) {
+                bestTrade = { symbol: sym, timeframe: tf, ...rec };
+              }
             }
           }
         }
-      }
-      if (bestTrade) {
-        const tradeData = trades[bestTrade.symbol];
-        tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
-        tradeData.openCount++;
-        console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
+        if (bestTrade) {
+          const tradeData = trades[bestTrade.symbol];
+          tradeData.active = { direction: bestTrade.direction, entry: bestTrade.entry, stopLoss: bestTrade.stopLoss, takeProfit: bestTrade.takeProfit, timeframe: bestTrade.timeframe };
+          tradeData.openCount++;
+          console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
+        }
       }
     }
+    res.json({ prices: lastPrices, recommendations, trades });
+  } catch (error) {
+    console.error('Ошибка в app.get("/data"):', error);
+    res.status(500).json({ error: 'Ошибка сервера при обработке данных', details: error.message });
   }
-
-  res.json({ prices: lastPrices, recommendations, trades });
 });
 
 app.post('/reset-stats', (req, res) => {
