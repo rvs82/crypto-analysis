@@ -18,6 +18,7 @@ const TRADE_AMOUNT = 100;
 const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
+let tradeHistory = {}; // Для обучения ИИ
 
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
@@ -164,29 +165,24 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
   let recommendations = {};
 
   for (const tf of TIMEFRAMES) {
-    const klines = klinesByTimeframe[tf];
-    if (!klines || klines.length < 20) {
-      recommendations[tf] = { direction: 'Нет', entry: price, stopLoss: price, takeProfit: price, confidence: 0, rrr: '0/0', market: 'Флет', trend: 'none', pivot: price, reasoning: 'Недостаточно данных', forecast: 'падение' };
-      continue;
-    }
-
-    const closes = klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c));
-    const nw = calculateNadarayaWatsonEnvelope(closes);
-    const obv = calculateOBV(klines);
-    const ema200 = calculateEMA(200, closes);
-    const ema100 = calculateEMA(100, closes);
-    const ema365 = calculateEMA(365, closes);
-    const ema1460 = closes.length >= 1460 ? calculateEMA(1460, closes.slice(-1460)) : calculateEMA(closes.length, closes);
+    const klines = klinesByTimeframe[tf] || [];
+    const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
+    const nw = closes.length > 1 ? calculateNadarayaWatsonEnvelope(closes) : { upper: price * 1.05, lower: price * 0.95, smooth: price };
+    const obv = closes.length > 1 ? calculateOBV(klines) : 0;
+    const ema200 = closes.length > 1 ? calculateEMA(200, closes) : price;
+    const ema100 = closes.length > 1 ? calculateEMA(100, closes) : price;
+    const ema365 = closes.length > 1 ? calculateEMA(365, closes) : price;
+    const ema1460 = closes.length > 1 ? (closes.length >= 1460 ? calculateEMA(1460, closes.slice(-1460)) : calculateEMA(closes.length, closes)) : price;
     const fib = calculateFibonacciLevels(nw.lower, nw.upper);
-    const engulfing = detectEngulfing(klines);
-    const horizontalVolume = calculateHorizontalVolume(klines.slice(-50));
+    const engulfing = closes.length > 1 ? detectEngulfing(klines) : 'none';
+    const horizontalVolume = closes.length > 1 ? calculateHorizontalVolume(klines.slice(-50)) : price;
     const btcKlines = await fetchKlines('BTCUSDT', tf);
-    const correlationBTC = calculateCorrelation(symbol, klines, btcKlines);
+    const correlationBTC = closes.length > 1 ? calculateCorrelation(symbol, klines, btcKlines) : 0;
 
-    const max20 = Math.max(...closes.slice(-20));
-    const min20 = Math.min(...closes.slice(-20));
-    const range20 = (max20 - min20) / closes[closes.length - 1];
-    const market = range20 < 0.02 ? 'Флет' : price > nw.smooth && price > closes[closes.length - 20] ? 'Восходящий' : 'Нисходящий';
+    const max20 = closes.length > 20 ? Math.max(...closes.slice(-20)) : price;
+    const min20 = closes.length > 20 ? Math.min(...closes.slice(-20)) : price;
+    const range20 = closes.length > 20 ? (max20 - min20) / closes[closes.length - 1] : 0;
+    const market = range20 < 0.02 ? 'Флет' : price > nw.smooth && price > (closes.length > 20 ? closes[closes.length - 20] : price) ? 'Восходящий' : 'Нисходящий';
     const lastTouch = price > nw.upper ? 'upper' : price < nw.lower ? 'lower' : 'none';
     const trend = lastTouch === 'upper' ? 'down' : lastTouch === 'lower' ? 'up' : 'none';
     const forecast = trend === 'up' ? 'рост' : 'падение';
@@ -201,16 +197,25 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       if (market !== 'Нисходящий' || (market === 'Нисходящий' && obv < 0 && (engulfing === 'bearish' || btcPrice > lastPrices['BTCUSDT'] * 0.995))) {
         direction = 'Шорт';
         confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
-        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает.`;
+        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
       }
     } else if (price < nw.lower - threshold && price >= nw.lower * 0.95) {
       if (market !== 'Восходящий' || (market === 'Восходящий' && obv > 0 && (engulfing === 'bullish' || btcPrice < lastPrices['BTCUSDT'] * 1.005))) {
         direction = 'Лонг';
-        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
-        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает.`;
+        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 'бычье поглощение, ' : '') + (correlationBTC > 0.7 ? 10 : 0));
+        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
       }
     } else {
       reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя.`;
+    }
+
+    // Коррекция уверенности на основе истории
+    if (tradeHistory[symbol] && tradeHistory[symbol][tf]) {
+      const pastTrades = tradeHistory[symbol][tf];
+      const lastTrade = pastTrades[pastTrades.length - 1];
+      if (lastTrade && lastTrade.result === 'loss' && lastTrade.direction === direction) {
+        confidence = Math.max(0, confidence - 10); // Уменьшаем уверенность при прошлой неудаче
+      }
     }
 
     const entry = price;
@@ -235,7 +240,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
 function checkTradeStatus(symbol, currentPrice) {
   const tradeData = trades[symbol];
   if (tradeData && tradeData.active) {
-    const { entry, stopLoss, takeProfit, direction } = tradeData.active;
+    const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
     if (direction === 'Лонг') {
       if (currentPrice <= stopLoss) {
         const loss = TRADE_AMOUNT * (entry - stopLoss);
@@ -246,6 +251,9 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.openCount--;
         tradeData.active = null;
         console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
+        if (!tradeHistory[symbol]) tradeHistory[symbol] = {};
+        if (!tradeHistory[symbol][timeframe]) tradeHistory[symbol][timeframe] = [];
+        tradeHistory[symbol][timeframe].push({ direction, result: 'loss' });
       } else if (currentPrice >= takeProfit) {
         const profit = TRADE_AMOUNT * (takeProfit - entry);
         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -255,6 +263,9 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.openCount--;
         tradeData.active = null;
         console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
+        if (!tradeHistory[symbol]) tradeHistory[symbol] = {};
+        if (!tradeHistory[symbol][timeframe]) tradeHistory[symbol][timeframe] = [];
+        tradeHistory[symbol][timeframe].push({ direction, result: 'profit' });
       }
     } else if (direction === 'Шорт') {
       if (currentPrice >= stopLoss) {
@@ -266,6 +277,9 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.openCount--;
         tradeData.active = null;
         console.log(`${symbol}: Закрыто по стоп-лоссу. Убыток: ${loss.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
+        if (!tradeHistory[symbol]) tradeHistory[symbol] = {};
+        if (!tradeHistory[symbol][timeframe]) tradeHistory[symbol][timeframe] = [];
+        tradeHistory[symbol][timeframe].push({ direction, result: 'loss' });
       } else if (currentPrice <= takeProfit) {
         const profit = TRADE_AMOUNT * (entry - takeProfit);
         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -275,6 +289,9 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.openCount--;
         tradeData.active = null;
         console.log(`${symbol}: Закрыто по профиту. Прибыль: ${profit.toFixed(2)} USDT, Комиссия: ${commission.toFixed(2)} USDT`);
+        if (!tradeHistory[symbol]) tradeHistory[symbol] = {};
+        if (!tradeHistory[symbol][timeframe]) tradeHistory[symbol][timeframe] = [];
+        tradeHistory[symbol][timeframe].push({ direction, result: 'profit' });
       }
     }
   }
