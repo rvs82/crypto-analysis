@@ -124,7 +124,7 @@ function detectEngulfing(klines) {
   const lastClose = parseFloat(last[4]);
   const prevOpen = parseFloat(prev[1]);
   const prevClose = parseFloat(prev[4]);
-  if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
+  if (lastClose > asOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
   if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
   return 'none';
 }
@@ -311,33 +311,40 @@ app.get('/data', async (req, res) => {
   let recommendations = {};
 
   try {
+    console.log('Начало обработки /data');
     for (const symbol of symbols) {
       let klinesByTimeframe = {};
       for (const tf of TIMEFRAMES) {
         klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
       }
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+      console.log(`Рекомендации для ${symbol} сформированы`);
     }
 
     let activeTradeSymbol = null;
     for (const s in trades) {
       if (trades[s].active) {
         activeTradeSymbol = s;
+        console.log(`Найдена активная сделка для ${s}`);
         break;
       }
     }
 
     if (!activeTradeSymbol) {
+      console.log('Активных сделок нет, ищу новую');
       let bestTrade = null;
       for (const sym of symbols) {
-        if (!recommendations[sym]) continue;
+        if (!recommendations[sym]) {
+          console.log(`Нет рекомендаций для ${sym}`);
+          continue;
+        }
         for (const tf of TIMEFRAMES) {
           const rec = recommendations[sym][tf];
           console.log(`Проверка ${sym} ${tf}: direction=${rec.direction}, confidence=${rec.confidence}, outsideChannel=${rec.outsideChannel}`);
           if (rec && rec.direction !== 'Нет' && rec.confidence >= 50 && rec.outsideChannel) {
             if (!bestTrade || rec.confidence > bestTrade.confidence) {
               bestTrade = { symbol: sym, timeframe: tf, ...rec };
-              console.log(`Выбрана лучшая сделка: ${sym} ${tf}, confidence=${rec.confidence}`);
+              console.log(`Обновлена лучшая сделка: ${sym} ${tf}, confidence=${rec.confidence}`);
             }
           }
         }
@@ -348,9 +355,12 @@ app.get('/data', async (req, res) => {
         tradeData.openCount++;
         console.log(`${bestTrade.symbol} (${bestTrade.timeframe}): Сделка ${bestTrade.direction} открыта: entry=${bestTrade.entry}, stopLoss=${bestTrade.stopLoss}, takeProfit=${bestTrade.takeProfit}, confidence=${bestTrade.confidence}`);
       } else {
-        console.log('Нет подходящей сделки для открытия');
+        console.log('Нет подходящей сделки для открытия: недостаточная вероятность или нет пробоя');
       }
+    } else {
+      console.log(`Активная сделка уже существует для ${activeTradeSymbol}, новая не открывается`);
     }
+    console.log('Отправка ответа клиенту');
     res.json({ prices: lastPrices, recommendations, trades });
   } catch (error) {
     console.error('Ошибка в app.get("/data"):', error);
