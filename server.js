@@ -45,7 +45,7 @@ wss.on('message', (data) => {
 async function fetchKlines(symbol, timeframe) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // Таймаут 5 секунд
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const response = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=500`, { signal: controller.signal });
     clearTimeout(timeout);
     if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
@@ -203,16 +203,16 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       if (market !== 'Нисходящий' || (market === 'Нисходящий' && obv < 0 && (engulfing === 'bearish' || btcPrice > lastPrices['BTCUSDT'] * 0.995))) {
         direction = 'Шорт';
         confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
-        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
+        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает (${obv}), ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}). Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
       }
     } else if (price < nw.lower - threshold && price >= nw.lower * 0.95) {
       if (market !== 'Восходящий' || (market === 'Восходящий' && obv > 0 && (engulfing === 'bullish' || btcPrice < lastPrices['BTCUSDT'] * 1.005))) {
         direction = 'Лонг';
         confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
-        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
+        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт (${obv}), ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}). Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
       }
     } else {
-      reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя.`;
+      reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя. Возможна консолидация, OBV: ${obv}.`;
     }
 
     if (tradeHistory[symbol] && tradeHistory[symbol][tf]) {
