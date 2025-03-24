@@ -176,7 +176,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const ema200 = calculateEMA(200, closes);
     const ema100 = calculateEMA(100, closes);
     const ema365 = calculateEMA(365, closes);
-    const ema1460 = calculateEMA(1460, closes.slice(-1460)));
+    const ema1460 = closes.length >= 1460 ? calculateEMA(1460, closes.slice(-1460)) : calculateEMA(closes.length, closes);
     const fib = calculateFibonacciLevels(nw.lower, nw.upper);
     const engulfing = detectEngulfing(klines);
     const horizontalVolume = calculateHorizontalVolume(klines.slice(-50));
