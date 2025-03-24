@@ -180,7 +180,8 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const fib = calculateFibonacciLevels(nw.lower, nw.upper);
     const engulfing = closes.length > 1 ? detectEngulfing(klines) : 'none';
     const horizontalVolume = closes.length > 1 ? calculateHorizontalVolume(klines.slice(-50)) : price;
-    const correlationBTC = 0; // Убрал fetchKlines для BTC внутри, используем заглушку
+    const btcKlines = await fetchKlines('BTCUSDT', tf) || [];
+    const correlationBTC = closes.length > 1 && btcKlines.length > 1 ? calculateCorrelation(symbol, klines, btcKlines) : 0;
 
     const max20 = closes.length > 20 ? Math.max(...closes.slice(-20)) : price;
     const min20 = closes.length > 20 ? Math.min(...closes.slice(-20)) : price;
@@ -191,6 +192,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const forecast = trend === 'up' ? 'рост' : 'падение';
     const pivot = trend === 'up' ? Math.max(fib.fib05, ema200, horizontalVolume) : Math.min(fib.fib05, ema200, horizontalVolume);
     const outsideChannel = price > nw.upper || price < nw.lower;
+    const blinkDirection = outsideChannel ? (price > nw.upper ? 'green' : 'red') : '';
 
     let direction = 'Нет';
     let confidence = 0;
@@ -200,14 +202,14 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     if (price > nw.upper + threshold && price <= nw.upper * 1.05) {
       if (market !== 'Нисходящий' || (market === 'Нисходящий' && obv < 0 && (engulfing === 'bearish' || btcPrice > lastPrices['BTCUSDT'] * 0.995))) {
         direction = 'Шорт';
-        confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0));
-        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC недоступна. Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
+        confidence = Math.round(50 + (price - nw.upper) / threshold * 10 + (obv < 0 ? 10 : 0) + (engulfing === 'bearish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
+        reasoning = `Цена (${price}) пробила верхнюю границу (${nw.upper}), рынок: ${market}, OBV падает, ${engulfing === 'bearish' ? 'медвежье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.upper.toFixed(4)}.`;
       }
     } else if (price < nw.lower - threshold && price >= nw.lower * 0.95) {
       if (market !== 'Восходящий' || (market === 'Восходящий' && obv > 0 && (engulfing === 'bullish' || btcPrice < lastPrices['BTCUSDT'] * 1.005))) {
         direction = 'Лонг';
-        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0));
-        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC недоступна. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
+        confidence = Math.round(50 + (nw.lower - price) / threshold * 10 + (obv > 0 ? 10 : 0) + (engulfing === 'bullish' ? 10 : 0) + (correlationBTC > 0.7 ? 10 : 0));
+        reasoning = `Цена (${price}) пробила нижнюю границу (${nw.lower}), рынок: ${market}, OBV растёт, ${engulfing === 'bullish' ? 'бычье поглощение, ' : ''}корреляция с BTC (${correlationBTC}) подтверждает. Возможен ретест уровня ${nw.lower.toFixed(4)}.`;
       }
     } else {
       reasoning = `Цена (${price}) внутри канала (${nw.lower}–${nw.upper}), рынок: ${market}, нет чёткого пробоя.`;
@@ -235,7 +237,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
 
     const marketState = `Рынок сейчас ${market === 'Флет' ? 'в боковике' : market === 'Восходящий' ? 'растёт' : 'падает'}, вероятность прибыли ${confidence >= 50 ? 'высокая' : 'средняя'}, ждём ${forecast === 'рост' ? 'роста' : 'падения'}.`;
 
-    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', market, trend, pivot, reasoning, forecast, marketState, outsideChannel };
+    recommendations[tf] = { direction, entry, stopLoss, takeProfit, confidence, rrr: rrr > 0 ? `1/${rrr}` : '0/0', market, trend, pivot, reasoning, forecast, marketState, outsideChannel, blinkDirection };
   }
 
   lastRecommendations[symbol] = recommendations;
