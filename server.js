@@ -51,29 +51,42 @@ async function fetchKlines(symbol, timeframe) {
   }
 }
 
+function gauss(x, h) {
+  return Math.exp(-(Math.pow(x, 2) / (h * h * 2)));
+}
+
 function calculateNadarayaWatsonEnvelope(closes) {
   const n = closes.length;
-  let upper = new Array(n).fill(0);
-  let lower = new Array(n).fill(0);
-  let smooth = new Array(n).fill(0);
+  let smooth = 0;
+  let sumWeights = 0;
 
-  for (let i = 0; i < n; i++) {
-    let sumWeights = 0;
-    let sumWeightedValues = 0;
-    for (let j = 0; j < n; j++) {
-      const weight = Math.exp(-Math.pow(i - j, 2) / (2 * 8 * 8));
-      sumWeights += weight;
-      sumWeightedValues += weight * closes[j];
-    }
-    smooth[i] = sumWeightedValues / sumWeights;
+  // Вычисление сглаженной линии для последней свечи (аналог Repainting Smoothing)
+  for (let j = 0; j < Math.min(499, n - 1); j++) {
+    const w = gauss(0 - j, 8); // bandwidth = 8
+    sumWeights += w;
+    smooth += closes[n - 1 - j] * w;
   }
+  smooth /= sumWeights;
 
-  const residuals = closes.map((c, i) => Math.abs(c - smooth[i]));
-  const mad = calculateMedian(residuals);
-  upper = smooth.map(s => s + 3 * mad);
-  lower = smooth.map(s => s - 3 * mad);
+  // Вычисление MAE (среднее абсолютное отклонение)
+  let sae = 0;
+  for (let i = 0; i < Math.min(499, n - 1); i++) {
+    let sum = 0;
+    let sumw = 0;
+    for (let j = 0; j < Math.min(499, n - 1); j++) {
+      const w = gauss(i - j, 8);
+      sum += closes[n - 1 - j] * w;
+      sumw += w;
+    }
+    const y = sum / sumw;
+    sae += Math.abs(closes[n - 1 - i] - y);
+  }
+  const mae = (sae / Math.min(499, n - 1)) * 3; // multiplier = 3
 
-  return { upper: upper[n - 1], lower: lower[n - 1], smooth: smooth[n - 1] };
+  const upper = smooth + mae;
+  const lower = smooth - mae;
+
+  return { upper, lower, smooth };
 }
 
 function calculateEMA(closes, period) {
