@@ -19,7 +19,6 @@ const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, XLMUSDT: 1, HBARUSDT: 1, BATUSDT: 1, AAVEUSDT: 1 };
 
-// Обновление цен через REST API каждые 10 секунд
 async function updatePrices() {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
   for (const symbol of symbols) {
@@ -35,8 +34,8 @@ async function updatePrices() {
   }
 }
 
-setInterval(updatePrices, 10000); // Обновление каждые 10 секунд
-updatePrices(); // Первоначальное обновление
+setInterval(updatePrices, 10000);
+updatePrices();
 
 async function fetchKlines(symbol, timeframe) {
   try {
@@ -126,7 +125,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const volume = parseFloat(lastKline[5]) || 0;
 
     const outsideChannel = price > nw.upper || price < nw.lower;
-    const direction = price > nw.upper ? 'Шорт' : price < nw.lower ? 'Лонг' : 'Нет';
+    const direction = outsideChannel ? (price > nw.upper ? 'Шорт' : 'Лонг') : 'Нет';
     const market = outsideChannel ? (price > nw.upper ? 'Восходящий' : 'Нисходящий') : 'Флет';
     const trend = direction === 'Шорт' ? 'down' : direction === 'Лонг' ? 'up' : 'none';
     const forecast = trend === 'up' ? 'рост' : 'падение';
