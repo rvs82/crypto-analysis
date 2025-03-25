@@ -1,5 +1,4 @@
 const express = require('express');
-const WebSocket = require('ws');
 const fetch = require('node-fetch');
 const app = express();
 
@@ -20,74 +19,24 @@ const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, XLMUSDT: 1, HBARUSDT: 1, BATUSDT: 1, AAVEUSDT: 1 };
 
-function connectWebSocket() {
-  const wss = new WebSocket('wss://ws-feed.pro.coinbase.com', { handshakeTimeout: 10000 });
-
-  wss.on('open', () => {
-    console.log('WebSocket подключён');
-    wss.send(JSON.stringify({
-      type: 'subscribe',
-      channels: [{ name: 'ticker', product_ids: ['LDO-USDT', 'AVAX-USDT', 'XLM-USDT', 'HBAR-USDT', 'BAT-USDT', 'AAVE-USDT', 'BTC-USDT', 'ETH-USDT'] }]
-    }));
-  });
-
-  wss.on('message', (data) => {
+// Обновление цен через REST API каждые 10 секунд
+async function updatePrices() {
+  const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
+  for (const symbol of symbols) {
     try {
-      const parsedData = JSON.parse(data);
-      if (parsedData.type === 'ticker') {
-        const symbol = parsedData.product_id.replace('-', '');
-        if (lastPrices.hasOwnProperty(symbol)) {
-          lastPrices[symbol] = parseFloat(parsedData.price) || lastPrices[symbol];
-          console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
-          checkTradeStatus(symbol, lastPrices[symbol]);
-        }
-      }
+      const response = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
+      const data = await response.json();
+      lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
+      console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
+      checkTradeStatus(symbol, lastPrices[symbol]);
     } catch (error) {
-      console.error('Ошибка обработки сообщения WebSocket:', error);
-    }
-  });
-
-  wss.on('error', (error) => {
-    console.error('Ошибка WebSocket:', error.message);
-    wss.close();
-  });
-
-  wss.on('close', () => {
-    console.log('WebSocket закрыт, попытка переподключения...');
-    setTimeout(connectWebSocket, 10000);
-  });
-
-  wss.on('pong', () => {
-    console.log('Получен pong от сервера');
-  });
-
-  setInterval(() => {
-    if (wss.readyState === WebSocket.OPEN) {
-      wss.ping();
-      console.log('Отправлен ping серверу');
-    }
-  }, 30000);
-
-  return wss;
-}
-
-connectWebSocket();
-
-// Заглушка для цен, если WebSocket не работает
-setInterval(async () => {
-  for (const symbol in lastPrices) {
-    if (lastPrices[symbol] === 0) {
-      try {
-        const response = await fetch(`https://api.coinbase.com/v2/prices/${symbol.slice(0, -4)}-USDT/spot`);
-        const data = await response.json();
-        lastPrices[symbol] = parseFloat(data.data.amount) || lastPrices[symbol];
-        console.log(`Цена из API для ${symbol}: ${lastPrices[symbol]}`);
-      } catch (error) {
-        console.error(`Ошибка загрузки цены для ${symbol}:`, error.message);
-      }
+      console.error(`Ошибка загрузки цены для ${symbol}:`, error.message);
     }
   }
-}, 60000);
+}
+
+setInterval(updatePrices, 10000); // Обновление каждые 10 секунд
+updatePrices(); // Первоначальное обновление
 
 async function fetchKlines(symbol, timeframe) {
   try {
