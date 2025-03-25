@@ -189,10 +189,10 @@ async function checkCorrelation(symbol, klines) {
     const ethLast50 = ethKlines.slice(-50).map(k => parseFloat(k[4]));
     const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500);
     const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
-    return (corrBtc + corrEth) / 2 < 0.3; // Низкая корреляция, если < 0.3
+    return (corrBtc + corrEth) / 2 < 0.3;
   } catch (error) {
     console.error(`Ошибка корреляции для ${symbol}:`, error.message);
-    return false; // Если корреляция не считается, считаем её высокой
+    return false;
   }
 }
 
@@ -201,7 +201,7 @@ function checkAccumulation(klines) {
   const volumes = last10.map(k => parseFloat(k[5]));
   const avgVolume = volumes.reduce((a, b) => a + b, 0) / 10;
   const priceRange = Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3])));
-  return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < lastPrices[klines[0][0]] * 0.005;
+  return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0][0]] || 0) * 0.005;
 }
 
 async function aiTradeDecision(symbol, klinesByTimeframe) {
@@ -356,6 +356,7 @@ app.get('/data', async (req, res) => {
         klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
       }
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
+      console.log(`Рекомендации для ${symbol}:`, recommendations[symbol]); // Отладка
     }
 
     let activeTradeSymbolMain = null;
