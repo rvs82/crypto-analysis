@@ -60,7 +60,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
   let smooth = 0;
   let sumWeights = 0;
 
-  // Вычисление сглаженной линии для последней свечи (аналог Repainting Smoothing)
+  // Repainting Smoothing: расчёт для последней свечи с окном 499 назад
   for (let j = 0; j < Math.min(499, n - 1); j++) {
     const w = gauss(0 - j, 8); // bandwidth = 8
     sumWeights += w;
@@ -68,7 +68,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
   }
   smooth /= sumWeights;
 
-  // Вычисление MAE (среднее абсолютное отклонение)
+  // Вычисление MAE как в TradingView
   let sae = 0;
   for (let i = 0; i < Math.min(499, n - 1); i++) {
     let sum = 0;
