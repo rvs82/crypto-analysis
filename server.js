@@ -21,7 +21,7 @@ let lastRecommendations = {};
 let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, XLMUSDT: 1, HBARUSDT: 1, BATUSDT: 1, AAVEUSDT: 1 };
 
 function connectWebSocket() {
-  const wss = new WebSocket('wss://ws-api.binance.com:443/ws');
+  const wss = new WebSocket('wss://stream.binance.com:9443/stream');
 
   wss.on('open', () => {
     console.log('WebSocket подключён');
@@ -33,9 +33,9 @@ function connectWebSocket() {
   wss.on('message', (data) => {
     try {
       const parsedData = JSON.parse(data);
-      const symbol = parsedData.s;
+      const symbol = parsedData.data?.s;
       if (symbol && lastPrices.hasOwnProperty(symbol)) {
-        lastPrices[symbol] = parseFloat(parsedData.c) || 0;
+        lastPrices[symbol] = parseFloat(parsedData.data.c) || 0;
         console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
         checkTradeStatus(symbol, lastPrices[symbol]);
       }
@@ -61,9 +61,10 @@ connectWebSocket();
 
 async function fetchKlines(symbol, timeframe) {
   try {
-    const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=100`);
+    const response = await fetch(`https://data.binance.vision/data/spot/daily/klines/${symbol}/${timeframe}/${symbol}-${timeframe}-2023-10-01.json`);
     if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return data.slice(-100); // Последние 100 свечей
   } catch (error) {
     console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message);
     return [];
