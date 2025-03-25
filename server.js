@@ -112,10 +112,6 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const entry = price;
     const stopLoss = direction === 'Лонг' ? entry * 0.995 : direction === 'Шорт' ? entry * 1.005 : entry;
     const takeProfit = direction === 'Лонг' ? entry * 1.01 : direction === 'Шорт' ? entry * 0.99 : entry;
-    const market = outsideChannel ? (price > nw.upper ? 'Восходящий' : 'Нисходящий') : 'Флет';
-    const trend = direction === 'Шорт' ? 'down' : direction === 'Лонг' ? 'up' : 'none';
-    const pivot = nw.smooth; // Добавляем pivot для совместимости с клиентом
-    const forecast = trend === 'up' ? 'рост' : 'падение';
 
     recommendations[tf] = { 
       direction, 
@@ -124,13 +120,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       entry, 
       stopLoss, 
       takeProfit, 
-      market, 
-      trend, 
-      pivot, 
-      reasoning, 
-      forecast, 
-      marketState: `Рынок: ${market}, outsideChannel=${outsideChannel}`,
-      blinkDirection: outsideChannel ? (price > nw.upper ? 'green' : 'red') : ''
+      reasoning: `${reasoning}, outsideChannel=${outsideChannel}` 
     };
     console.log(`Рекомендация для ${symbol} ${tf}: direction=${direction}, confidence=${confidence}, outsideChannel=${outsideChannel}`);
   }
