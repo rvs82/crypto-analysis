@@ -19,8 +19,10 @@ const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 
+// Инициализация WebSocket
 const wss = new WebSocket('wss://fstream.binance.com/ws');
 wss.on('open', () => {
+  console.log('WebSocket подключён');
   ['ldousdt', 'avaxusdt', 'xlmusdt', 'hbarusdt', 'batusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
     wss.send(JSON.stringify({ method: "SUBSCRIBE", params: [`${symbol}@ticker`], id: 1 }));
   });
@@ -32,11 +34,16 @@ wss.on('message', (data) => {
     const symbol = parsedData.s;
     if (symbol && lastPrices.hasOwnProperty(symbol)) {
       lastPrices[symbol] = parseFloat(parsedData.c) || 0;
+      console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
       checkTradeStatus(symbol, lastPrices[symbol]);
     }
   } catch (error) {
-    console.error('Ошибка WebSocket:', error);
+    console.error('Ошибка парсинга WebSocket:', error);
   }
+});
+
+wss.on('error', (error) => {
+  console.error('Ошибка WebSocket:', error);
 });
 
 async function fetchKlines(symbol, timeframe) {
@@ -124,6 +131,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
+        console.log(`${symbol}: Закрыто по стопу`);
       } else if (currentPrice >= takeProfit) {
         const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -132,6 +140,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
+        console.log(`${symbol}: Закрыто по профиту`);
       }
     } else if (direction === 'Шорт') {
       if (currentPrice >= stopLoss) {
@@ -142,6 +151,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
+        console.log(`${symbol}: Закрыто по стопу`);
       } else if (currentPrice <= takeProfit) {
         const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -150,6 +160,7 @@ function checkTradeStatus(symbol, currentPrice) {
         tradeData.closedCount++;
         tradeData.openCount--;
         tradeData.active = null;
+        console.log(`${symbol}: Закрыто по профиту`);
       }
     }
   }
@@ -197,6 +208,7 @@ app.get('/data', async (req, res) => {
           timeframe: bestTrade.timeframe
         };
         trades[bestTrade.symbol].openCount++;
+        console.log(`${bestTrade.symbol}: Открыта сделка ${bestTrade.direction}`);
       }
     }
     res.json({ prices: lastPrices, recommendations, trades });
@@ -210,6 +222,7 @@ app.post('/reset-stats', (req, res) => {
   for (const symbol in trades) {
     trades[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
   }
+  console.log('Статистика сброшена');
   res.sendStatus(200);
 });
 
