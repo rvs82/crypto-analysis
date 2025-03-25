@@ -21,7 +21,7 @@ let lastRecommendations = {};
 let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, XLMUSDT: 1, HBARUSDT: 1, BATUSDT: 1, AAVEUSDT: 1 };
 
 function connectWebSocket() {
-  const wss = new WebSocket('wss://stream.binance.us:9443/ws');
+  const wss = new WebSocket('wss://stream.binance.us:9443/ws', { handshakeTimeout: 10000 });
 
   wss.on('open', () => {
     console.log('WebSocket подключён');
@@ -46,13 +46,25 @@ function connectWebSocket() {
 
   wss.on('error', (error) => {
     console.error('Ошибка WebSocket:', error.message);
-    setTimeout(connectWebSocket, 5000);
+    wss.close();
   });
 
   wss.on('close', () => {
     console.log('WebSocket закрыт, попытка переподключения...');
-    setTimeout(connectWebSocket, 5000);
+    setTimeout(connectWebSocket, 10000); // Увеличен таймаут до 10 секунд
   });
+
+  wss.on('pong', () => {
+    console.log('Получен pong от сервера');
+  });
+
+  // Пинг каждые 30 секунд для поддержания соединения
+  setInterval(() => {
+    if (wss.readyState === WebSocket.OPEN) {
+      wss.ping();
+      console.log('Отправлен ping серверу');
+    }
+  }, 30000);
 
   return wss;
 }
