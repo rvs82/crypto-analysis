@@ -15,11 +15,18 @@ let tradesTest = {
   AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
   AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
 };
+let aiLogs = [];
+let aiLearnings = [];
+let aiMistakes = [];
 const TRADE_AMOUNT = 100;
 const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
-let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, AAVEUSDT: 1 };
+let learningWeights = {
+  LDOUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1 },
+  AVAXUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1 },
+  AAVEUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1 }
+};
 
 async function updatePrices() {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
@@ -60,15 +67,13 @@ function calculateNadarayaWatsonEnvelope(closes) {
   let smooth = 0;
   let sumWeights = 0;
 
-  // Repainting Smoothing: расчёт для последней свечи с окном 499 назад
   for (let j = 0; j < Math.min(499, n - 1); j++) {
-    const w = gauss(0 - j, 8); // bandwidth = 8
+    const w = gauss(0 - j, 8);
     sumWeights += w;
     smooth += closes[n - 1 - j] * w;
   }
   smooth /= sumWeights;
 
-  // Вычисление MAE как в TradingView
   let sae = 0;
   for (let i = 0; i < Math.min(499, n - 1); i++) {
     let sum = 0;
@@ -81,7 +86,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
     const y = sum / sumw;
     sae += Math.abs(closes[n - 1 - i] - y);
   }
-  const mae = (sae / Math.min(499, n - 1)) * 3; // multiplier = 3
+  const mae = (sae / Math.min(499, n - 1)) * 3;
 
   const upper = smooth + mae;
   const lower = smooth - mae;
@@ -98,15 +103,15 @@ function calculateEMA(closes, period) {
   return ema;
 }
 
-function calculateOBV(klines) {
-  let obv = 0;
+function calculateVolume(klines) {
+  let volume = 0;
   for (let i = 1; i < klines.length; i++) {
     const prevClose = parseFloat(klines[i - 1][4]);
     const currClose = parseFloat(klines[i][4]);
-    const volume = parseFloat(klines[i][5]);
-    obv += (currClose > prevClose ? volume : currClose < prevClose ? -volume : 0);
+    const vol = parseFloat(klines[i][5]);
+    volume += (currClose > prevClose ? vol : currClose < prevClose ? -vol : 0);
   }
-  return obv;
+  return volume;
 }
 
 function calculateFibonacci(klines) {
@@ -124,6 +129,48 @@ function calculateMedian(arr) {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
+function getTrend(klines) {
+  const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
+  const avgStart = last50.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+  const avgEnd = last50.slice(-5).reduce((a, b) => a + b, 0) / 5;
+  return avgEnd > avgStart ? 'up' : avgEnd < avgStart ? 'down' : 'flat';
+}
+
+function getWick(klines) {
+  const last = klines[klines.length - 1];
+  const high = parseFloat(last[2]);
+  const low = parseFloat(last[3]);
+  const close = parseFloat(last[4]);
+  const upperWick = high - close;
+  const lowerWick = close - low;
+  return { upper: upperWick, lower: lowerWick };
+}
+
+function getSpike(klines) {
+  const last = klines[klines.length - 1];
+  const prev = klines[klines.length - 2];
+  const change = Math.abs(parseFloat(last[4]) - parseFloat(prev[4])) / parseFloat(prev[4]) * 100;
+  return change > 1 ? change : 0;
+}
+
+function getEngulfing(klines) {
+  const last = klines[klines.length - 1];
+  const prev = klines[klines.length - 2];
+  const lastOpen = parseFloat(last[1]);
+  const lastClose = parseFloat(last[4]);
+  const prevOpen = parseFloat(prev[1]);
+  const prevClose = parseFloat(prev[4]);
+  if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
+  if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
+  return 'none';
+}
+
+function getLevels(klines) {
+  const highs = klines.map(k => parseFloat(k[2])).filter(h => !isNaN(h));
+  const lows = klines.map(k => parseFloat(k[3])).filter(l => !isNaN(l));
+  return { resistance: Math.max(...highs), support: Math.min(...lows) };
+}
+
 async function aiTradeDecision(symbol, klinesByTimeframe) {
   const price = lastPrices[symbol] || 0;
   let recommendations = {};
@@ -134,38 +181,57 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const klines = klinesByTimeframe[tf] || [];
     const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
     const nw = closes.length > 1 ? calculateNadarayaWatsonEnvelope(closes) : { upper: price * 1.05, lower: price * 0.95, smooth: price };
-    const obv = klines.length > 1 ? calculateOBV(klines) : 0;
+    const volume = klines.length > 1 ? calculateVolume(klines) : 0;
+    const ema50 = klines.length > 1 ? calculateEMA(closes, 50) : price;
     const ema200 = klines.length > 1 ? calculateEMA(closes, 200) : price;
     const fib = klines.length > 1 ? calculateFibonacci(klines) : { 0.5: price, 0.618: price };
     const lastKline = klines[klines.length - 1] || [0, 0, 0, 0, 0, 0];
-    const volume = parseFloat(lastKline[5]) || 0;
+    const vol = parseFloat(lastKline[5]) || 0;
+    const trend = getTrend(klines);
+    const wick = getWick(klines);
+    const spike = getSpike(klines);
+    const engulfing = getEngulfing(klines);
+    const levels = getLevels(klines);
+    const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'up' : 'down';
+    const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
 
     const outsideChannel = price > nw.upper || price < nw.lower;
     const direction = outsideChannel ? (price > nw.upper ? 'Шорт' : 'Лонг') : 'Нет';
     const market = outsideChannel ? (price > nw.upper ? 'Восходящий' : 'Нисходящий') : 'Флет';
-    const trend = direction === 'Шорт' ? 'down' : direction === 'Лонг' ? 'up' : 'none';
-    const forecast = trend === 'up' ? 'рост' : 'падение';
+    const forecast = direction === 'Шорт' || (direction === 'Нет' && trend === 'down') ? 'падение' : 'рост';
     let confidence = 0;
 
     if (direction !== 'Нет') {
-      confidence = Math.min(100, Math.round((Math.abs(price - (direction === 'Шорт' ? nw.upper : nw.lower)) / price) * 200));
-      if (obv > 0 && direction === 'Лонг') confidence += 20;
-      if (obv < 0 && direction === 'Шорт') confidence += 20;
-      if (price > ema200 && direction === 'Лонг') confidence += 10;
-      if (price < ema200 && direction === 'Шорт') confidence += 10;
-      if (Math.abs(price - fib[0.618]) < price * 0.005) confidence += 15;
-      if (volume > klines.slice(-5, -1).reduce((a, k) => a + parseFloat(k[5]), 0) / 4) confidence += 10;
-      if (btcPrice > lastPrices['BTCUSDT'] * 0.99 && direction === 'Лонг') confidence += 5;
-      if (ethPrice > lastPrices['ETHUSDT'] * 0.99 && direction === 'Лонг') confidence += 5;
-      confidence = Math.min(100, Math.round(confidence * learningWeights[symbol]));
+      confidence += Math.min(100, Math.round(Math.abs(price - (direction === 'Шорт' ? nw.upper : nw.lower)) / price * 200)) * learningWeights[symbol].distance;
+      if (volume > 0 && direction === 'Лонг') confidence += 20 * learningWeights[symbol].volume;
+      if (volume < 0 && direction === 'Шорт') confidence += 20 * learningWeights[symbol].volume;
+      if (price > ema200 && direction === 'Лонг') confidence += 10 * learningWeights[symbol].ema;
+      if (price < ema200 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].ema;
+      if (Math.abs(price - fib[0.618]) < price * 0.005) confidence += 15 * learningWeights[symbol].fibo;
+      if (vol > klines.slice(-5, -1).reduce((a, k) => a + parseFloat(k[5]), 0) / 4) confidence += 10 * learningWeights[symbol].volume;
+      if (btcPrice > lastPrices['BTCUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
+      if (ethPrice > lastPrices['ETHUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
+      if (trend === 'up' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
+      if (trend === 'down' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
+      if (wick.upper > wick.lower && direction === 'Лонг') confidence += 10 * learningWeights[symbol].wick;
+      if (wick.lower > wick.upper && direction === 'Шорт') confidence += 10 * learningWeights[symbol].wick;
+      if (spike > 0 && direction === (spike > 0 ? 'Лонг' : 'Шорт')) confidence += 10 * learningWeights[symbol].spike;
+      if (engulfing === 'bullish' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].engulf;
+      if (engulfing === 'bearish' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].engulf;
+      if (Math.abs(price - levels.resistance) < price * 0.005 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].levels;
+      if (Math.abs(price - levels.support) < price * 0.005 && direction === 'Лонг') confidence += 10 * learningWeights[symbol].levels;
+      if (frequentExits && boundaryTrend === (direction === 'Шорт' ? 'up' : 'down')) confidence += 15 * learningWeights[symbol].trend;
+      confidence = Math.min(100, Math.round(confidence));
     }
 
     const entry = price;
     const stopLoss = direction === 'Лонг' ? entry * 0.995 : direction === 'Шорт' ? entry * 1.005 : entry;
     const takeProfit = direction === 'Лонг' ? entry * 1.01 : direction === 'Шорт' ? entry * 0.99 : entry;
-    const reasoning = direction === 'Шорт' ? `Цена (${price}) выше верхней (${nw.upper}), OBV: ${obv}, EMA200: ${ema200}` : 
-                      direction === 'Лонг' ? `Цена (${price}) ниже нижней (${nw.lower}), OBV: ${obv}, EMA200: ${ema200}` : 
-                      `Цена (${price}) внутри (${nw.lower}–${nw.upper})`;
+    const reasoning = direction === 'Шорт' ? 
+      `Цена ${price} выше верхней ${nw.upper}, объём ${volume}, EMA200 ${ema200}. Тренд ${trend}, хвост вверх ${wick.upper}, вниз ${wick.lower}, скачок ${spike}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance}, поддержка ${levels.support}. Границы канала движутся ${boundaryTrend}.` : 
+      direction === 'Лонг' ? 
+      `Цена ${price} ниже нижней ${nw.lower}, объём ${volume}, EMA200 ${ema200}. Тренд ${trend}, хвост вверх ${wick.upper}, вниз ${wick.lower}, скачок ${spike}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance}, поддержка ${levels.support}. Границы канала движутся ${boundaryTrend}.` : 
+      `Цена ${price} внутри ${nw.lower}–${nw.upper}, объём ${volume}, EMA200 ${ema200}. Тренд ${trend}, хвост вверх ${wick.upper}, вниз ${wick.lower}, скачок ${spike}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance}, поддержка ${levels.support}. Границы канала движутся ${boundaryTrend}.`;
 
     recommendations[tf] = { direction, confidence, outsideChannel, entry, stopLoss, takeProfit, market, trend, pivot: nw.smooth, reasoning, forecast };
   }
@@ -177,7 +243,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
 function checkTradeStatus(symbol, currentPrice, trades) {
   const tradeData = trades[symbol];
   if (tradeData && tradeData.active) {
-    const { entry, stopLoss, takeProfit, direction } = tradeData.active;
+    const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
     if (direction === 'Лонг') {
       if (currentPrice <= stopLoss) {
         const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
@@ -186,7 +252,11 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.stopCount++;
         tradeData.closedCount++;
         tradeData.openCount--;
-        learningWeights[symbol] *= 0.95;
+        learningWeights[symbol].distance *= 0.95;
+        learningWeights[symbol].volume *= 0.95;
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Лонг | Убыток -${(loss + commission).toFixed(2)} USDT | Цена упала до ${currentPrice}, стоп-лосс ${stopLoss}. Слишком слабый сигнал, снижаю вес расстояния и объёмов. Жду чётких трендов.`); 
+        aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Лонг не сработал. Цена ${currentPrice} не удержалась выше ${stopLoss}. Вывод: сигнал был слабым, нужно больше объёмов.`); 
+        if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       } else if (currentPrice >= takeProfit) {
         const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
@@ -195,7 +265,11 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.profitCount++;
         tradeData.closedCount++;
         tradeData.openCount--;
-        learningWeights[symbol] *= 1.05;
+        learningWeights[symbol].distance *= 1.05;
+        learningWeights[symbol].volume *= 1.05;
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Лонг | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена выросла до ${currentPrice}, профит ${takeProfit}. Хороший сигнал, повышаю вес расстояния и объёмов. Ищу похожие возможности.`); 
+        aiLearnings.push(`Успех: ${symbol} ${timeframe} Лонг сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: расстояние от канала и объёмы дали точный сигнал.`); 
+        if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       }
     } else if (direction === 'Шорт') {
@@ -206,7 +280,11 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.stopCount++;
         tradeData.closedCount++;
         tradeData.openCount--;
-        learningWeights[symbol] *= 0.95;
+        learningWeights[symbol].distance *= 0.95;
+        learningWeights[symbol].volume *= 0.95;
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Шорт | Убыток -${(loss + commission).toFixed(2)} USDT | Цена выросла до ${currentPrice}, стоп-лосс ${stopLoss}. Ошибка в сигнале, снижаю вес расстояния и объёмов. Проверяю уровни.`); 
+        aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Шорт не сработал. Цена ${currentPrice} превысила ${stopLoss}. Вывод: сигнал был ложным, нужно больше подтверждений от тренда.`); 
+        if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       } else if (currentPrice <= takeProfit) {
         const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
@@ -215,7 +293,11 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.profitCount++;
         tradeData.closedCount++;
         tradeData.openCount--;
-        learningWeights[symbol] *= 1.05;
+        learningWeights[symbol].distance *= 1.05;
+        learningWeights[symbol].volume *= 1.05;
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Шорт | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена упала до ${currentPrice}, профит ${takeProfit}. Удачный сигнал, повышаю вес расстояния и объёмов. Ищу новые шорты.`); 
+        aiLearnings.push(`Успех: ${symbol} ${timeframe} Шорт сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: расстояние от канала и объёмы подтвердили падение.`); 
+        if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       }
     }
@@ -235,7 +317,6 @@ app.get('/data', async (req, res) => {
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
     }
 
-    // Основные сделки (любой таймфрейм)
     let activeTradeSymbolMain = null;
     for (const s in tradesMain) {
       if (tradesMain[s].active) {
@@ -268,7 +349,6 @@ app.get('/data', async (req, res) => {
       }
     }
 
-    // Тестовые сделки (только 5m)
     let activeTradeSymbolTest = null;
     for (const s in tradesTest) {
       if (tradesTest[s].active) {
@@ -299,7 +379,7 @@ app.get('/data', async (req, res) => {
       }
     }
 
-    res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest });
+    res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes });
   } catch (error) {
     console.error('Ошибка /data:', error);
     res.status(500).json({ error: 'Ошибка сервера', details: error.message });
