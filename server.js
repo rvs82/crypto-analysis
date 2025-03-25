@@ -83,7 +83,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
   let sumWeights = 0;
 
   for (let j = 0; j < Math.min(499, n - 1); j++) {
-    const w = gauss(0 - j, 8);
+    const w = gauss(0 - j, 8); // Bandwidth = 8
     sumWeights += w;
     smooth += closes[n - 1 - j] * w;
   }
@@ -101,7 +101,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
     const y = sum / sumw;
     sae += Math.abs(closes[n - 1 - i] - y);
   }
-  const mae = (sae / Math.min(499, n - 1)) * 3;
+  const mae = (sae / Math.min(499, n - 1)) * 3; // Multiplier = 3
 
   const upper = smooth + mae;
   const lower = smooth - mae;
@@ -148,7 +148,7 @@ function getTrend(klines) {
   const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
   const avgStart = last50.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
   const avgEnd = last50.slice(-5).reduce((a, b) => a + b, 0) / 5;
-  return avgEnd > avgStart ? 'up' : avgEnd < avgStart ? 'down' : 'flat';
+  return avgEnd > avgStart ? 'вверх' : avgEnd < avgStart ? 'вниз' : 'боковик';
 }
 
 function getWick(klines) {
@@ -175,15 +175,32 @@ function getEngulfing(klines) {
   const lastClose = parseFloat(last[4]);
   const prevOpen = parseFloat(prev[1]);
   const prevClose = parseFloat(prev[4]);
-  if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
-  if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
-  return 'none';
+  if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'бычье';
+  if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'медвежье';
+  return 'нет';
 }
 
 function getLevels(klines) {
   const highs = klines.map(k => parseFloat(k[2])).filter(h => !isNaN(h));
   const lows = klines.map(k => parseFloat(k[3])).filter(l => !isNaN(l));
   return { resistance: Math.max(...highs), support: Math.min(...lows) };
+}
+
+function checkCorrelation(symbol, klines) {
+  const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
+  const btcLast50 = (await fetchKlines('BTCUSDT', '5m')).slice(-50).map(k => parseFloat(k[4]));
+  const ethLast50 = (await fetchKlines('ETHUSDT', '5m')).slice(-50).map(k => parseFloat(k[4]));
+  const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500);
+  const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
+  return (corrBtc + corrEth) / 2 < 0.3; // Низкая корреляция, если < 0.3
+}
+
+function checkAccumulation(klines) {
+  const last10 = klines.slice(-10);
+  const volumes = last10.map(k => parseFloat(k[5]));
+  const avgVolume = volumes.reduce((a, b) => a + b, 0) / 10;
+  const priceRange = Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3])));
+  return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < lastPrices[klines[0][0]] * 0.005; // Объём растёт, диапазон узкий
 }
 
 async function aiTradeDecision(symbol, klinesByTimeframe) {
@@ -207,13 +224,15 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const spike = getSpike(klines);
     const engulfing = getEngulfing(klines);
     const levels = getLevels(klines);
-    const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'up' : 'down';
+    const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'вверх' : 'вниз';
     const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
+    const lowBtcEthCorr = await checkCorrelation(symbol, klines);
+    const accumulation = checkAccumulation(klines);
 
     const outsideChannel = price > nw.upper || price < nw.lower;
     const direction = outsideChannel ? (price > nw.upper ? 'Шорт' : 'Лонг') : 'Нет';
     const market = outsideChannel ? (price > nw.upper ? 'Восходящий' : 'Нисходящий') : 'Флет';
-    const forecast = direction === 'Шорт' || (direction === 'Нет' && trend === 'down') ? 'падение' : 'рост';
+    const forecast = direction === 'Шорт' || (direction === 'Нет' && trend === 'вниз') ? 'падение' : 'рост';
     let confidence = 0;
 
     if (direction !== 'Нет') {
@@ -224,18 +243,24 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       if (price < ema200 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].ema;
       if (Math.abs(price - fib[0.618]) < price * 0.005) confidence += 15 * learningWeights[symbol].fibo;
       if (vol > klines.slice(-5, -1).reduce((a, k) => a + parseFloat(k[5]), 0) / 4) confidence += 10 * learningWeights[symbol].volume;
-      if (btcPrice > lastPrices['BTCUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
-      if (ethPrice > lastPrices['ETHUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
-      if (trend === 'up' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
-      if (trend === 'down' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
+      if (!lowBtcEthCorr) {
+        if (btcPrice > lastPrices['BTCUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
+        if (ethPrice > lastPrices['ETHUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
+      } else {
+        learningWeights[symbol].btcEth *= 0.95;
+        aiLearnings.push(`${new Date().toLocaleString()}: ${symbol} ${tf} — Низкая корреляция с BTC/ETH, уменьшил их вес до ${learningWeights[symbol].btcEth.toFixed(2)}.`);
+      }
+      if (trend === 'вверх' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
+      if (trend === 'вниз' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
       if (wick.upper > wick.lower && direction === 'Лонг') confidence += 10 * learningWeights[symbol].wick;
       if (wick.lower > wick.upper && direction === 'Шорт') confidence += 10 * learningWeights[symbol].wick;
       if (spike > 0 && direction === (spike > 0 ? 'Лонг' : 'Шорт')) confidence += 10 * learningWeights[symbol].spike;
-      if (engulfing === 'bullish' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].engulf;
-      if (engulfing === 'bearish' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].engulf;
+      if (engulfing === 'бычье' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].engulf;
+      if (engulfing === 'медвежье' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].engulf;
       if (Math.abs(price - levels.resistance) < price * 0.005 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].levels;
       if (Math.abs(price - levels.support) < price * 0.005 && direction === 'Лонг') confidence += 10 * learningWeights[symbol].levels;
-      if (frequentExits && boundaryTrend === (direction === 'Шорт' ? 'up' : 'down')) confidence += 15 * learningWeights[symbol].trend;
+      if (frequentExits && boundaryTrend === (direction === 'Шорт' ? 'вверх' : 'вниз')) confidence += 15 * learningWeights[symbol].trend;
+      if (accumulation) confidence += 10 * learningWeights[symbol].volume; // Накопление как сигнал
       confidence = Math.min(100, Math.round(confidence));
     }
 
@@ -243,10 +268,10 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
     const stopLoss = direction === 'Лонг' ? entry * 0.995 : direction === 'Шорт' ? entry * 1.005 : entry;
     const takeProfit = direction === 'Лонг' ? entry * 1.01 : direction === 'Шорт' ? entry * 0.99 : entry;
     const reasoning = direction === 'Шорт' ? 
-      `Цена ${price} выше верхней ${nw.upper}, объём ${volume}, EMA200 ${ema200}. Тренд ${trend}, хвост вверх ${wick.upper}, вниз ${wick.lower}, скачок ${spike}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance}, поддержка ${levels.support}. Границы канала движутся ${boundaryTrend}.` : 
+      `Тренд ${trend}. Цена ${price.toFixed(4)} выше верхней ${nw.upper.toFixed(4)}, объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}. Хвост вверх ${wick.upper.toFixed(4)}, вниз ${wick.lower.toFixed(4)}, скачок ${spike.toFixed(2)}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance.toFixed(4)}, поддержка ${levels.support.toFixed(4)}. Границы канала движутся ${boundaryTrend}. ${accumulation ? 'Накопление объёмов — возможен разворот или продолжение.' : ''}` : 
       direction === 'Лонг' ? 
-      `Цена ${price} ниже нижней ${nw.lower}, объём ${volume}, EMA200 ${ema200}. Тренд ${trend}, хвост вверх ${wick.upper}, вниз ${wick.lower}, скачок ${spike}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance}, поддержка ${levels.support}. Границы канала движутся ${boundaryTrend}.` : 
-      `Цена ${price} внутри ${nw.lower}–${nw.upper}, объём ${volume}, EMA200 ${ema200}. Тренд ${trend}, хвост вверх ${wick.upper}, вниз ${wick.lower}, скачок ${spike}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance}, поддержка ${levels.support}. Границы канала движутся ${boundaryTrend}.`;
+      `Тренд ${trend}. Цена ${price.toFixed(4)} ниже нижней ${nw.lower.toFixed(4)}, объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}. Хвост вверх ${wick.upper.toFixed(4)}, вниз ${wick.lower.toFixed(4)}, скачок ${spike.toFixed(2)}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance.toFixed(4)}, поддержка ${levels.support.toFixed(4)}. Границы канала движутся ${boundaryTrend}. ${accumulation ? 'Накопление объёмов — возможен разворот или продолжение.' : ''}` : 
+      `Тренд ${trend}. Цена ${price.toFixed(4)} внутри ${nw.lower.toFixed(4)}–${nw.upper.toFixed(4)}, объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}. Хвост вверх ${wick.upper.toFixed(4)}, вниз ${wick.lower.toFixed(4)}, скачок ${spike.toFixed(2)}%, поглощение ${engulfing}. Уровень сопротивления ${levels.resistance.toFixed(4)}, поддержка ${levels.support.toFixed(4)}. Границы канала движутся ${boundaryTrend}. ${accumulation ? 'Накопление объёмов — возможен разворот или продолжение.' : ''}`;
 
     recommendations[tf] = { direction, confidence, outsideChannel, entry, stopLoss, takeProfit, market, trend, pivot: nw.smooth, reasoning, forecast };
   }
@@ -269,8 +294,8 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.openCount--;
         learningWeights[symbol].distance *= 0.95;
         learningWeights[symbol].volume *= 0.95;
-        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Лонг | Убыток -${(loss + commission).toFixed(2)} USDT | Цена упала до ${currentPrice}, стоп-лосс ${stopLoss}. Слишком слабый сигнал, снижаю вес расстояния и объёмов. Жду чётких трендов.`); 
-        aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Лонг не сработал. Цена ${currentPrice} не удержалась выше ${stopLoss}. Вывод: сигнал был слабым, нужно больше объёмов.`); 
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Лонг | Убыток -${(loss + commission).toFixed(2)} USDT | Цена упала до ${currentPrice.toFixed(4)}, стоп-лосс ${stopLoss.toFixed(4)}. Слишком слабый сигнал, снижаю вес расстояния и объёмов. Жду чётких трендов.`); 
+        aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Лонг не сработал. Цена ${currentPrice.toFixed(4)} не удержалась выше ${stopLoss.toFixed(4)}. Вывод: сигнал был слабым, нужно больше объёмов.`); 
         if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       } else if (currentPrice >= takeProfit) {
@@ -282,8 +307,8 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.openCount--;
         learningWeights[symbol].distance *= 1.05;
         learningWeights[symbol].volume *= 1.05;
-        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Лонг | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена выросла до ${currentPrice}, профит ${takeProfit}. Хороший сигнал, повышаю вес расстояния и объёмов. Ищу похожие возможности.`); 
-        aiLearnings.push(`Успех: ${symbol} ${timeframe} Лонг сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: расстояние от канала и объёмы дали точный сигнал.`); 
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Лонг | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена выросла до ${currentPrice.toFixed(4)}, профит ${takeProfit.toFixed(4)}. Хороший сигнал, повышаю вес расстояния и объёмов. Ищу похожие возможности.`); 
+        aiLearnings.push(`Успех: ${symbol} ${timeframe} Лонг сработал. Цена ${currentPrice.toFixed(4)} достигла ${takeProfit.toFixed(4)}. Вывод: расстояние от канала и объёмы дали точный сигнал.`); 
         if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       }
@@ -297,8 +322,8 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.openCount--;
         learningWeights[symbol].distance *= 0.95;
         learningWeights[symbol].volume *= 0.95;
-        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Шорт | Убыток -${(loss + commission).toFixed(2)} USDT | Цена выросла до ${currentPrice}, стоп-лосс ${stopLoss}. Ошибка в сигнале, снижаю вес расстояния и объёмов. Проверяю уровни.`); 
-        aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Шорт не сработал. Цена ${currentPrice} превысила ${stopLoss}. Вывод: сигнал был ложным, нужно больше подтверждений от тренда.`); 
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Шорт | Убыток -${(loss + commission).toFixed(2)} USDT | Цена выросла до ${currentPrice.toFixed(4)}, стоп-лосс ${stopLoss.toFixed(4)}. Ошибка в сигнале, снижаю вес расстояния и объёмов. Проверяю уровни.`); 
+        aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Шорт не сработал. Цена ${currentPrice.toFixed(4)} превысила ${stopLoss.toFixed(4)}. Вывод: сигнал был ложным, нужно больше подтверждений от тренда.`); 
         if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       } else if (currentPrice <= takeProfit) {
@@ -310,8 +335,8 @@ function checkTradeStatus(symbol, currentPrice, trades) {
         tradeData.openCount--;
         learningWeights[symbol].distance *= 1.05;
         learningWeights[symbol].volume *= 1.05;
-        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Шорт | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена упала до ${currentPrice}, профит ${takeProfit}. Удачный сигнал, повышаю вес расстояния и объёмов. Ищу новые шорты.`); 
-        aiLearnings.push(`Успех: ${symbol} ${timeframe} Шорт сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: расстояние от канала и объёмы подтвердили падение.`); 
+        aiLogs.push(`${new Date().toLocaleString()} | ${symbol} ${timeframe} Шорт | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена упала до ${currentPrice.toFixed(4)}, профит ${takeProfit.toFixed(4)}. Удачный сигнал, повышаю вес расстояния и объёмов. Ищу новые шорты.`); 
+        aiLearnings.push(`Успех: ${symbol} ${timeframe} Шорт сработал. Цена ${currentPrice.toFixed(4)} достигла ${takeProfit.toFixed(4)}. Вывод: расстояние от канала и объёмы подтвердили падение.`); 
         if (aiLogs.length > 10) aiLogs.shift();
         tradeData.active = null;
       }
@@ -361,7 +386,11 @@ app.get('/data', async (req, res) => {
           timeframe: bestTrade.timeframe
         };
         tradesMain[bestTrade.symbol].openCount++;
+        aiLogs.push(`${new Date().toLocaleString()} | ${bestTrade.symbol} ${bestTrade.timeframe} ${bestTrade.direction} | Открыта сделка с уверенностью ${bestTrade.confidence}%. Условия выполнены: пробой канала, цена ${bestTrade.entry.toFixed(4)}.`);
+      } else {
+        aiLogs.push(`${new Date().toLocaleString()} | Нет сделок | Условия не выполнены: нет сигнала с уверенностью >= 50% и пробоем канала.`);
       }
+      if (aiLogs.length > 10) aiLogs.shift();
     }
 
     let activeTradeSymbolTest = null;
@@ -391,7 +420,11 @@ app.get('/data', async (req, res) => {
           timeframe: bestTrade.timeframe
         };
         tradesTest[bestTrade.symbol].openCount++;
+        aiLogs.push(`${new Date().toLocaleString()} | ${bestTrade.symbol} 5m ${bestTrade.direction} | Открыта тестовая сделка с уверенностью ${bestTrade.confidence}%. Условия выполнены: пробой канала, цена ${bestTrade.entry.toFixed(4)}.`);
+      } else {
+        aiLogs.push(`${new Date().toLocaleString()} | Нет тестовых сделок (5m) | Условия не выполнены: нет сигнала с уверенностью >= 50% и пробоем канала.`);
       }
+      if (aiLogs.length > 10) aiLogs.shift();
     }
 
     res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes });
