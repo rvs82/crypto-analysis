@@ -20,36 +20,44 @@ const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, XLMUSDT: 1, HBARUSDT: 1, BATUSDT: 1, AAVEUSDT: 1 };
 
-const wss = new WebSocket('wss://stream.binance.com:9443/ws');
-wss.on('open', () => {
-  console.log('WebSocket подключён');
-  ['ldousdt', 'avaxusdt', 'xlmusdt', 'hbarusdt', 'batusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
-    wss.send(JSON.stringify({ method: "SUBSCRIBE", params: [`${symbol}@ticker`], id: 1 }));
+function connectWebSocket() {
+  const wss = new WebSocket('wss://ws-api.binance.com:443/ws');
+
+  wss.on('open', () => {
+    console.log('WebSocket подключён');
+    ['ldousdt', 'avaxusdt', 'xlmusdt', 'hbarusdt', 'batusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
+      wss.send(JSON.stringify({ method: "SUBSCRIBE", params: [`${symbol}@ticker`], id: 1 }));
+    });
   });
-});
 
-wss.on('error', (error) => {
-  console.error('Ошибка WebSocket:', error.message);
-  setTimeout(() => {
-    console.log('Попытка переподключения...');
-    wss.close();
-    wss.connect();
-  }, 5000);
-});
-
-wss.on('message', (data) => {
-  try {
-    const parsedData = JSON.parse(data);
-    const symbol = parsedData.s;
-    if (symbol && lastPrices.hasOwnProperty(symbol)) {
-      lastPrices[symbol] = parseFloat(parsedData.c) || 0;
-      console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
-      checkTradeStatus(symbol, lastPrices[symbol]);
+  wss.on('message', (data) => {
+    try {
+      const parsedData = JSON.parse(data);
+      const symbol = parsedData.s;
+      if (symbol && lastPrices.hasOwnProperty(symbol)) {
+        lastPrices[symbol] = parseFloat(parsedData.c) || 0;
+        console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
+        checkTradeStatus(symbol, lastPrices[symbol]);
+      }
+    } catch (error) {
+      console.error('Ошибка обработки сообщения WebSocket:', error);
     }
-  } catch (error) {
-    console.error('Ошибка обработки сообщения WebSocket:', error);
-  }
-});
+  });
+
+  wss.on('error', (error) => {
+    console.error('Ошибка WebSocket:', error.message);
+    setTimeout(connectWebSocket, 5000);
+  });
+
+  wss.on('close', () => {
+    console.log('WebSocket закрыт, попытка переподключения...');
+    setTimeout(connectWebSocket, 5000);
+  });
+
+  return wss;
+}
+
+connectWebSocket();
 
 async function fetchKlines(symbol, timeframe) {
   try {
