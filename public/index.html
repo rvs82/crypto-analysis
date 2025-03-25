@@ -184,6 +184,10 @@
                 })
                 .then(data => {
                     console.log('Получены данные:', data);
+                    if (!data || !data.recommendations || !data.tradesMain || !data.tradesTest || !data.prices) {
+                        throw new Error('Некорректные данные от сервера');
+                    }
+
                     tbody.innerHTML = '';
                     let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
                     let logHtml = '<h2>Лог ИИ:</h2><div class="block">';
@@ -204,7 +208,7 @@
                         row.innerHTML = `
                             <td>${symbol}</td>
                             ${TIMEFRAMES.map(tf => {
-                                const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', pivot: lastPrices[symbol], reasoning: 'Нет данных', forecast: 'падение', outsideChannel: false };
+                                const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', pivot: data.prices[symbol] || 0, reasoning: 'Нет данных', forecast: 'падение', outsideChannel: false };
                                 const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
                                 const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
                                 trendUpdateCounter[symbol][tf] = (trendUpdateCounter[symbol][tf] || 0) + 1;
@@ -254,29 +258,31 @@
                         statsTestDiv.innerHTML = `<strong>Статистика (тест 5m):</strong> Открыто: ${tradeTest.openCount}, Закрыто: ${tradeTest.closedCount}, Стоп: ${tradeTest.stopCount}, Профит: ${tradeTest.profitCount}, Прибыль: ${tradeTest.totalProfit.toFixed(2)} USDT, Убыток: ${tradeTest.totalLoss.toFixed(2)} USDT <button onclick="resetStatsTest()">Сбросить</button>`;
                     }
 
-                    const longPercent = totalCount > 0 ? Math.round(totalLongs / (totalCount * 100) * 100) : 0;
-                    const shortPercent = totalCount > 0 ? Math.round(totalShorts / (totalCount * 100) * 100) : 0;
+                    const longPercent = totalCount > 0 ? Math.round(totalLongs / totalCount) : 0;
+                    const shortPercent = totalCount > 0 ? Math.round(totalShorts / totalCount) : 0;
                     marketMood.style.background = `linear-gradient(to right, green ${longPercent}%, red ${longPercent}%)`;
                     marketMood.querySelector('.longs').textContent = `Лонги ${longPercent}%`;
                     marketMood.querySelector('.shorts').textContent = `Шорты ${shortPercent}%`;
 
                     forecastAIDiv.innerHTML = forecastHtml || '<h2>Прогноз ИИ:</h2> Нет данных';
-                    logHtml += data.aiLogs.map(log => `<p>${log}</p>`).join('') || 'Нет записей';
+                    logHtml += (data.aiLogs || []).map(log => `<p>${log}</p>`).join('') || 'Нет записей';
                     logHtml += '</div>';
                     aiLogDiv.innerHTML = logHtml;
 
                     const howItWorks = document.getElementById('howItWorks');
-                    const learnings = data.aiLearnings.map((learn, i) => i === data.aiLearnings.length - 1 ? `<span class="new-learning">${learn}</span>` : learn).join('<br>');
-                    const mistakes = data.aiMistakes.map((mistake, i) => i === data.aiMistakes.length - 1 ? `<span class="new-mistake">${mistake}</span>` : mistake).join('<br>');
-                    howItWorks.innerHTML = howItWorks.innerHTML.split('<strong>Чему научился ИИ:</strong>')[0] + 
-                        `<strong>Чему научился ИИ:</strong><br>${learnings || 'Пока нет данных'}<br><br>` +
-                        `<strong>Ошибки ИИ:</strong><br>${mistakes || 'Пока нет данных'}`;
+                    if (howItWorks) {
+                        const learnings = (data.aiLearnings || []).map((learn, i) => i === data.aiLearnings.length - 1 ? `<span class="new-learning">${learn}</span>` : learn).join('<br>');
+                        const mistakes = (data.aiMistakes || []).map((mistake, i) => i === data.aiMistakes.length - 1 ? `<span class="new-mistake">${mistake}</span>` : mistake).join('<br>');
+                        howItWorks.innerHTML = howItWorks.innerHTML.split('<strong>Чему научился ИИ:</strong>')[0] + 
+                            `<strong>Чему научился ИИ:</strong><br>${learnings || 'Пока нет данных'}<br><br>` +
+                            `<strong>Ошибки ИИ:</strong><br>${mistakes || 'Пока нет данных'}`;
+                    }
                 })
                 .catch(error => {
-                    console.error('Ошибка получения данных:', error.message);
-                    if (tbody) tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных: ${error.message}</td></tr>`).join('');
-                    if (forecastAIDiv) forecastAIDiv.innerHTML = `<h2>Прогноз ИИ:</h2> Ошибка загрузки: ${error.message}`;
-                    if (aiLogDiv) aiLogDiv.innerHTML = `<h2>Лог ИИ:</h2><div class="block">Ошибка загрузки: ${error.message}</div>`;
+                    console.error('Ошибка обработки данных:', error);
+                    tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных: ${error.message}</td></tr>`).join('');
+                    forecastAIDiv.innerHTML = `<h2>Прогноз ИИ:</h2> Ошибка загрузки: ${error.message}`;
+                    aiLogDiv.innerHTML = `<h2>Лог ИИ:</h2><div class="block">Ошибка загрузки: ${error.message}</div>`;
                 });
         }
 
