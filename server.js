@@ -356,7 +356,7 @@ app.get('/data', async (req, res) => {
         klinesByTimeframe[tf] = await fetchKlines(symbol, tf);
       }
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
-      console.log(`Рекомендации для ${symbol}:`, recommendations[symbol]); // Отладка
+      console.log(`Рекомендации для ${symbol}:`, recommendations[symbol]);
     }
 
     let activeTradeSymbolMain = null;
@@ -389,6 +389,7 @@ app.get('/data', async (req, res) => {
         };
         tradesMain[bestTrade.symbol].openCount++;
         aiLogs.push(`${new Date().toLocaleString()} | ${bestTrade.symbol} ${bestTrade.timeframe} ${bestTrade.direction} | Открыта сделка с уверенностью ${bestTrade.confidence}%. Условия выполнены: пробой канала, цена ${bestTrade.entry.toFixed(4)}.`);
+        console.log('Открыта основная сделка:', tradesMain[bestTrade.symbol]);
       } else {
         aiLogs.push(`${new Date().toLocaleString()} | Нет сделок | Условия не выполнены: нет сигнала с уверенностью >= 50% и пробоем канала.`);
       }
@@ -423,6 +424,7 @@ app.get('/data', async (req, res) => {
         };
         tradesTest[bestTrade.symbol].openCount++;
         aiLogs.push(`${new Date().toLocaleString()} | ${bestTrade.symbol} 5m ${bestTrade.direction} | Открыта тестовая сделка с уверенностью ${bestTrade.confidence}%. Условия выполнены: пробой канала, цена ${bestTrade.entry.toFixed(4)}.`);
+        console.log('Открыта тестовая сделка:', tradesTest[bestTrade.symbol]);
       } else {
         aiLogs.push(`${new Date().toLocaleString()} | Нет тестовых сделок (5m) | Условия не выполнены: нет сигнала с уверенностью >= 50% и пробоем канала.`);
       }
