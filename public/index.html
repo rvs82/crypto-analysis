@@ -37,11 +37,13 @@
         #reasoningMain, #reasoningTest, #statsMain, #statsTest { margin-top: 10px; font-size: 15px; }
         #statsMain, #statsTest { display: flex; align-items: center; }
         details { margin-top: 5px; width: 100%; }
-        summary { cursor: pointer; }
-        #recommendations { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 14px; }
-        #recommendations details { margin-bottom: 10px; }
+        summary { cursor: pointer; display: flex; align-items: center; }
+        summary::marker { content: "▼ "; font-size: 12px; margin-right: 5px; }
+        #forecastAI, #aiLog { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 14px; }
+        #forecastAI details, #aiLog details { margin-bottom: 10px; }
         h2 { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 18px; margin-bottom: 10px; }
-        button { padding: 5px 10px; margin-left: 10px; }
+        button { padding: 5px 10px; margin-left: 10px; background-color: #cccccc; border: none; cursor: pointer; }
+        button:hover { background-color: #999999; }
     </style>
 </head>
 <body>
@@ -70,17 +72,82 @@
     <div id="tradeTest"><strong>Сделка (тест 5m):</strong> Нет</div>
     <div id="reasoningTest"></div>
     <div id="statsTest"><strong>Статистика (тест 5m):</strong> Загрузка... <button onclick="resetStatsTest()">Сбросить</button></div>
-    <div id="recommendations"><h2>Рекомендации ИИ:</h2><br></div>
+    <div id="forecastAI"><h2>Прогноз ИИ:</h2><br></div>
+    <div id="aiLog"><h2>Лог ИИ:</h2><br></div>
     <details>
         <summary><h2>Техническое задание</h2></summary>
         <div id="techSpec">
-            <!-- Техническое задание остаётся без изменений -->
+            <strong>Новый вариант (обновлено):</strong><br>
+            Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи обучения ИИ и архив логов для скачивания. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Сайт оптимизирован для бесплатного тарифа Render (512 МБ RAM, 0.1 CPU), использует Google Drive для хранения архива логов.<br><br>
+            Дизайн и стили:<br>
+            - Фон сайта: светло-серый (#F0F0F0).<br>
+            - Таблица данных: белый (#FFFFFF) с границами светло-серого (#DDD).<br>
+            - Заголовки таблицы: зелёный (#4CAF50), текст белый (#FFFFFF).<br>
+            - Текст "Лонг": зелёный (#008000).<br>
+            - Текст "Шорт": красный (#FF0000).<br>
+            - Текст "Нет": чёрный (#000000).<br>
+            - Квадратики рынка: Флет — жёлтый (#FFFF00), Восходящий — светло-зелёный (#90EE90), Нисходящий — красный (#FF0000), граница чёрная (#000000), размер 10x10px.<br>
+            - Стрелки тренда: зелёная (#008000) для ↑, красная (#FF0000) для ↓, размер 18px.<br>
+            - Полоса настроения рынка: градиент от зелёного (#008000) слева до красного (#FF0000) справа, ширина 100%, высота 40px, текст белый (#FFFFFF).<br>
+            - Выпадающие меню: фон белый (#FFFFFF), рамка 1px чёрная (#000000), текст чёрный (#000000).<br>
+            - Кнопки "Сбросить": фон серый (#CCCCCC), текст чёрный (#000000), при наведении тёмно-серый (#999999).<br>
+            - Шрифт: Arial Narrow, без засечек; заголовки (h2) 18px полужирный, таблица/прогнозы/логи 14px, статистика/сделки 15px.<br>
+            - Значки выпадающих меню: треугольник вниз (▼), размер 12px, чёрный (#000000), в одной строке с названием через CSS display: inline.<br>
+            - Мигание ячеек: зелёное (от #FFFFFF до rgba(0, 255, 0, 0.1)), красное (от #FFFFFF до rgba(255, 0, 0, 0.1)), анимация 2 секунды.<br><br>
+            Структура и расположение блоков:<br>
+            - Шапка: полоса настроения рынка (100% ширины, 40px высоты), текст "Лонги" слева (padding-left: 10px), "Шорты" справа (padding-right: 10px), выравнивание по центру по вертикали.<br>
+            - Основной контент:<br>
+              - Таблица данных (100% ширины, высота авто), текст центрирован, отступы 10px.<br>
+              - "Сделка" (100% ширины, высота авто), текст слева, отступ сверху 20px.<br>
+              - "Рассуждения ИИ" для основной сделки (100% ширины, высота авто), текст слева, отступ сверху 10px.<br>
+              - "Статистика" для основной сделки (100% ширины, высота авто), текст слева, кнопка "Сбросить" справа, отступ сверху 10px.<br>
+              - "Сделка (тест 5m)" (100% ширины, высота авто), текст слева, отступ сверху 20px.<br>
+              - "Рассуждения ИИ" для тестовой сделки (100% ширины, высота авто), текст слева, отступ сверху 10px.<br>
+              - "Статистика (тест 5m)" (100% ширины, высота авто), текст слева, кнопка "Сбросить" справа, отступ сверху 10px.<br>
+              - "Прогноз ИИ" (выпадающее меню, 100% ширины), текст слева, отступы внутри 5px.<br>
+              - "Лог ИИ" (выпадающее меню, 100% ширины), текст слева, отступы внутри 5px, кнопка "Скачать архив логов" справа.<br>
+            - Подвал:<br>
+              - "Техническое задание" (выпадающее меню, 100% ширины), текст слева, отступы внутри 5px.<br>
+              - "Как работает сайт" (выпадающее меню, 100% ширины), текст слева, отступы внутри 5px.<br>
+              - Чекбокс "Звук" (слева, высота авто), отступ сверху 10px.<br><br>
+            Функциональность:<br>
+            - Таблица данных: показывает сигналы ("Лонг", "Шорт", "Нет"), % вероятности, квадратики рынка, стрелки тренда; обновляется каждые 10 секунд.<br>
+            - "Сделка": отображает текущую основную сделку (валюта, таймфрейм, направление, % вероятности, цены входа, стоп-лосса, профита), обновляется при изменении.<br>
+            - "Сделка (тест 5m)": то же, но только для 5m-таймфрейма.<br>
+            - "Рассуждения ИИ": текст о текущей сделке (условия, выводы), обновляется с новой сделкой.<br>
+            - "Статистика": открытые/закрытые сделки, стопы, профиты, прибыль/убыток в USDT; кнопка "Сбросить" обнуляет всё.<br>
+            - "Прогноз ИИ": прогнозы по таймфреймам (рост/падение, точка разворота, рассуждения), не сворачивается при обновлении.<br>
+            - "Лог ИИ": 10 последних записей (дата, сделка, результат, анализ, выводы, действия), кнопка "Скачать архив логов" даёт ссылку на Google Drive.<br>
+            - Звук: колокольчик (5 секунд, https://freesound.org/data/previews/339/339810_5121236-lq.mp3) при выходе за канал, управляется чекбоксом "Звук".<br><br>
+            Требования к ИИ:<br>
+            - Использует Nadaraya-Watson Envelope (Repainting Smoothing, bandwidth=8, multiplier=3, 5000 свечей) для прогнозов ("рост"/"падение") и % вероятности.<br>
+            - Учитывает: расстояние от границ канала, объёмы, EMA50/200, Фибоначчи (0.5, 0.618), BTC/ETH, тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс (50% покупатели/продавцы), стакан заявок, уровни разворота, направление границ канала, частые выходы за границы без возврата к середине.<br>
+            - Прогнозы обновляются каждые 10 секунд, стабильны, без резких смен.<br>
+            - Вероятность успешности: зависит от всех факторов, цены пишутся без скобок, OBV заменён на "объём" или "объёмы".<br>
+            - Обучение ИИ: онлайн, корректирует веса факторов (+5% при прибыли, -5% при убытке) после каждой сделки. Ведёт лог в "Лог ИИ" (10 записей): дата, сделка, результат, анализ (тренд, объёмы, стакан и т.д.), выводы (изменение весов), действия. Логи архивируются в Google Drive (`ai_log_archive.json`) без лимита для обучения нового ИИ.<br><br>
+            Причины функциональных элементов:<br>
+            - Мигание ячеек: зелёное при выходе за верхнюю границу — сигнал "Шорта" (цена может упасть), красное при выходе за нижнюю — сигнал "Лонга" (цена может вырасти). Нет мигания внутри канала — нет сигнала.<br>
+            - Стрелки тренда: зелёная ↑ при касании нижней границы и росте — бычий сигнал, красная ↓ при касании верхней и падении — медвежий сигнал. Обновляются раз в 5 свечей для стабильности. Нет стрелки — тренд неясен.<br>
+            - Квадратики рынка: жёлтый (Флет) — цена в канале, рынок спокоен; зелёный (Восходящий) — выход вверх, покупатели сильны; красный (Нисходящий) — выход вниз, продавцы активны.<br>
+            - Процент вероятности: растёт при сильном сигнале (дальше от границы, больше объёмов, поддержка тренда, Фибоначчи, стакан), падает при слабости (равновесие рынка, ошибки в прошлом).<br>
+            - Прогноз "рост"/"падение": "рост" — цена ниже нижней границы, объёмы растут, тренд вверх; "падение" — цена выше верхней, объёмы падают, тренд вниз.<br>
+            - Обновление данных: каждые 10 секунд для актуальности без перегрузки Render.<br>
+            - Звук: колокольчик при выходе за канал, чтобы не пропустить сигнал.<br>
+            - Кнопка "Сбросить": обнуляет все сделки для нового старта.<br>
         </div>
     </details>
     <details>
         <summary><h2>Как работает сайт</h2></summary>
         <div id="howItWorks">
-            <!-- Текст "Как работает сайт" остаётся без изменений -->
+            Этот сайт помогает трейдерам решать, покупать или продавать криптовалюты (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая сигналы для сделок и анализируя рынок. Вот как это работает:<br><br>
+            Сайт использует индикатор Nadaraya-Watson Envelope — это рамка вокруг цены, показывающая, где она обычно находится. У рамки есть верхняя граница, нижняя граница и середина. Если цена уходит выше верхней границы примерно на 0.5%, это сигнал "Шорт" (продажа), потому что она может вернуться к середине. Если ниже нижней — "Лонг" (покупка), так как цена может пойти вверх. Но 0.5% — это не строго, ИИ смотрит по ситуации. Он проверяет, чтобы это был настоящий пробой, а не топтание у границы (накопление). Для этого ИИ смотрит объёмы: если они растут — больше покупателей, значит "Лонг", если падают — больше продавцов, значит "Шорт". Также он учитывает уровни EMA (50 и 200) — это как стены, от которых цена может отскочить, уровни Фибоначчи (0.5 и 0.618) — точки, куда цена часто приходит, и поглощение свечи — когда новая свеча перекрывает старую, показывая силу покупателей или продавцов. ИИ смотрит, как двигаются BTC и ETH: если LDO пробила границу, а BTC ещё нет, LDO может идти дальше, пока BTC не отскочит. Длинные хвосты на свечах показывают интерес покупателей или продавцов — это тоже сигнал.<br><br>
+            ИИ выбирает одну сделку с вероятностью успеха 50% или больше. Он считает вероятность, глядя на пробой границы, объёмы, EMA, Фибоначчи, поглощение и движение BTC с ETH. Сделка открывается только при пробое: выше верхней — "Шорт", ниже нижней — "Лонг", но не наоборот. Размер сделки — 100 USDT. ИИ ставит стоп-лосс и тейк-профит, они не меняются до закрытия. Сделка закрывается, если цена доходит до стоп-лосса (убыток) или тейк-профита (прибыль). В боковике (Флет, жёлтый квадратик) ИИ торгует от границ к середине, в росте (Восходящий, зелёный) чаще выбирает "Лонг", в падении (Нисходящий, красный) — "Шорт". ИИ учится: если сделка убыточна, он осторожнее в следующий раз.<br><br>
+            Данные о ценах и объёмах берутся с Binance в реальном времени. Каждые 10 секунд сайт обновляет цены и сигналы. ИИ смотрит последние 5000 свечей для каждой валюты и таймфрейма (5м, 15м, 30м, 1ч, 4ч, 1д, 1н). Он считает границы Nadaraya, проверяет объёмы, EMA, Фибоначчи, поглощение, корреляцию с BTC и ETH, хвосты свечей. ИИ ждёт чёткого пробоя, смотрит, чтобы не было топтания, и учитывает BTC и ETH, потому что они влияют на рынок. Всё делает ИИ автоматически по правилам, человек не вмешивается. ИИ учится на ошибках, чтобы их не повторять.<br><br>
+            Вверху — блок настроения рынка: "Лонги" (зелёный % слева) и "Шорты" (красный % справа) с плавным градиентом, данные из прогнозов ИИ. В таблице для каждого таймфрейма: сигнал ("Лонг", "Шорт", "Нет"), вероятность (например, 70%), квадратик рынка (жёлтый — Флет, зелёный — Восходящий, красный — Нисходящий) слева, стрелка (↑ зелёная, ↓ красная) справа — куда идёт цена от последней границы. Квадратики и стрелки обновляются раз в 5 свечей. Если цена пробивает верхнюю границу, ячейка мигает слабым зелёным, нижнюю — слабым красным, пока не вернётся в рамку, звучит колокольчик (5 секунд, разово). Под таблицей — сделка, её параметры и объяснение ИИ. Далее — статистика с кнопкой "Сбросить", прогноз ИИ для каждой валюты в меню, лог ИИ с последними 10 записями, техзадание и "Как работает сайт". Внизу — чекбокс звука. Сайт оптимизирован для Render и работает плавно.<br><br>
+            <strong>Чему научился ИИ:</strong><br>
+            Здесь ИИ записывает, что он понял за всё время работы. Например, если он заметил, что большие объёмы часто ведут к успеху, он напишет: "25.03.2025: Увидел, что объёмы выше 600 подтверждают лонги, добавил им веса". Данные обновляются, когда ИИ учится чему-то новому после сделок.<br><br>
+            <strong>Ошибки ИИ:</strong><br>
+            Здесь ИИ записывает свои промахи. Например: "25.03.2025: AAVEUSDT 5m Шорт не сработал, цена 186.35 выросла до 188.00, хотя объёмы падали. Ошибся, нужно больше тренда". Данные обновляются при каждой ошибке, чтобы видеть, где ИИ ошибается.
         </div>
     </details>
     <div><input type="checkbox" id="channelExitCheckbox" checked> Звук</div>
@@ -93,10 +160,12 @@
         const tradeTestDiv = document.getElementById('tradeTest');
         const reasoningTestDiv = document.getElementById('reasoningTest');
         const statsTestDiv = document.getElementById('statsTest');
-        const recommendationsDiv = document.getElementById('recommendations');
+        const forecastAIDiv = document.getElementById('forecastAI');
+        const aiLogDiv = document.getElementById('aiLog');
         const marketMood = document.getElementById('marketMood');
         let lastSignal = {};
         let trendUpdateCounter = {};
+        let openDetails = {};
 
         function updateData() {
             fetch('/data')
@@ -106,7 +175,8 @@
                 })
                 .then(data => {
                     tbody.innerHTML = '';
-                    let recommendationsHtml = '<h2>Рекомендации ИИ:</h2><br>';
+                    let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
+                    let logHtml = '<h2>Лог ИИ:</h2><br>';
                     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
                     let totalLongs = 0;
                     let totalShorts = 0;
@@ -118,7 +188,7 @@
                         const tradeTest = data.tradesTest[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
                         const row = document.createElement('tr');
                         trendUpdateCounter[symbol] = trendUpdateCounter[symbol] || {};
-                        recommendationsHtml += `<details><summary>${symbol}</summary>`;
+                        forecastHtml += `<details ${openDetails[symbol] ? 'open' : ''}><summary>${symbol}</summary>`;
 
                         row.innerHTML = `
                             <td>${symbol}</td>
@@ -137,7 +207,7 @@
                                 } else if (!r.outsideChannel) {
                                     lastSignal[signalKey] = false;
                                 }
-                                recommendationsHtml += `${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, разворот: ${r.pivot.toFixed(4)} (${r.reasoning.split('.')[1] || 'нет данных'})<br>`;
+                                forecastHtml += `${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, разворот: ${r.pivot.toFixed(4)}, ${r.reasoning}<br>`;
                                 if (r.direction === 'Лонг') {
                                     totalLongs += r.confidence;
                                     totalCount++;
@@ -148,10 +218,9 @@
                                 return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span> ${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''} <span class="${r.trend === 'up' ? 'up' : 'down'}">${trendArrow}</span></td>`;
                             }).join('')}
                         `;
-                        recommendationsHtml += `</details>`;
+                        forecastHtml += `</details>`;
                         tbody.appendChild(row);
 
-                        // Основная сделка
                         if (tradeMain.active) {
                             const cls = tradeMain.active.direction === 'Лонг' ? 'long' : 'short';
                             tradeMainDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${tradeMain.active.timeframe}) <span class="${cls}">${tradeMain.active.direction}</span> (${rec[tradeMain.active.timeframe]?.confidence || 0}%), Открытие: ${tradeMain.active.entry.toFixed(4)}, Стоп: ${tradeMain.active.stopLoss.toFixed(4)}, Профит: ${tradeMain.active.takeProfit.toFixed(4)}`;
@@ -162,7 +231,6 @@
                         }
                         statsMainDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${tradeMain.openCount}, Закрыто: ${tradeMain.closedCount}, Стоп: ${tradeMain.stopCount}, Профит: ${tradeMain.profitCount}, Прибыль: ${tradeMain.totalProfit.toFixed(2)} USDT, Убыток: ${tradeMain.totalLoss.toFixed(2)} USDT <button onclick="resetStatsMain()">Сбросить</button>`;
 
-                        // Тестовая сделка (5m)
                         if (tradeTest.active) {
                             const cls = tradeTest.active.direction === 'Лонг' ? 'long' : 'short';
                             tradeTestDiv.innerHTML = `<strong>Сделка (тест 5m):</strong> ${symbol} (${tradeTest.active.timeframe}) <span class="${cls}">${tradeTest.active.direction}</span> (${rec[tradeTest.active.timeframe]?.confidence || 0}%), Открытие: ${tradeTest.active.entry.toFixed(4)}, Стоп: ${tradeTest.active.stopLoss.toFixed(4)}, Профит: ${tradeTest.active.takeProfit.toFixed(4)}`;
@@ -180,12 +248,18 @@
                     marketMood.querySelector('.longs').textContent = `Лонги ${longPercent}%`;
                     marketMood.querySelector('.shorts').textContent = `Шорты ${shortPercent}%`;
 
-                    recommendationsDiv.innerHTML = recommendationsHtml || '<h2>Рекомендации ИИ:</h2> Нет данных';
+                    forecastAIDiv.innerHTML = forecastHtml || '<h2>Прогноз ИИ:</h2> Нет данных';
+                    logHtml += data.aiLogs.map(log => `<p>${log}</p>`).join('') || 'Нет записей';
+                    aiLogDiv.innerHTML = logHtml;
+
+                    const howItWorks = document.getElementById('howItWorks');
+                    howItWorks.innerHTML += `<br><strong>Чему научился ИИ:</strong><br>${data.aiLearnings.map(learn => `<p>${learn}</p>`).join('') || 'Пока нет данных'}<br><strong>Ошибки ИИ:</strong><br>${data.aiMistakes.map(mistake => `<p>${mistake}</p>`).join('') || 'Пока нет данных'}`;
                 })
                 .catch(error => {
                     console.error('Ошибка получения данных:', error.message);
                     tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных: ${error.message}</td></tr>`).join('');
-                    recommendationsDiv.innerHTML = `<h2>Рекомендации ИИ:</h2> Ошибка загрузки: ${error.message}`;
+                    forecastAIDiv.innerHTML = `<h2>Прогноз ИИ:</h2> Ошибка загрузки: ${error.message}`;
+                    aiLogDiv.innerHTML = `<h2>Лог ИИ:</h2> Ошибка загрузки: ${error.message}`;
                 });
         }
 
@@ -200,6 +274,14 @@
                 .then(() => updateData())
                 .catch(error => console.error('Ошибка сброса статистики (test):', error));
         }
+
+        document.addEventListener('click', (e) => {
+            const summary = e.target.closest('summary');
+            if (summary) {
+                const symbol = summary.textContent.trim();
+                openDetails[symbol] = !openDetails[symbol];
+            }
+        });
 
         const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
         updateData();
