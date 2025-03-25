@@ -28,6 +28,15 @@ wss.on('open', () => {
   });
 });
 
+wss.on('error', (error) => {
+  console.error('Ошибка WebSocket:', error.message);
+  setTimeout(() => {
+    console.log('Попытка переподключения...');
+    wss.close();
+    wss.connect();
+  }, 5000);
+});
+
 wss.on('message', (data) => {
   try {
     const parsedData = JSON.parse(data);
@@ -38,7 +47,7 @@ wss.on('message', (data) => {
       checkTradeStatus(symbol, lastPrices[symbol]);
     }
   } catch (error) {
-    console.error('Ошибка WebSocket:', error);
+    console.error('Ошибка обработки сообщения WebSocket:', error);
   }
 });
 
