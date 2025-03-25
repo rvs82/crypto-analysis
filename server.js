@@ -45,6 +45,16 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
   }
 }
 
+async function fetchKlines(symbol, timeframe) {
+  try {
+    const response = await fetchWithRetry(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+    return response;
+  } catch (error) {
+    console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message);
+    return [];
+  }
+}
+
 async function updatePrices() {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
   for (const symbol of symbols) {
@@ -62,16 +72,6 @@ async function updatePrices() {
 
 setInterval(updatePrices, 10000);
 updatePrices();
-
-async function fetchKlines(symbol, timeframe) {
-  try {
-    const response = await fetchWithRetry(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
-    return response;
-  } catch (error) {
-    console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message);
-    return [];
-  }
-}
 
 function gauss(x, h) {
   return Math.exp(-(Math.pow(x, 2) / (h * h * 2)));
@@ -186,10 +186,12 @@ function getLevels(klines) {
   return { resistance: Math.max(...highs), support: Math.min(...lows) };
 }
 
-function checkCorrelation(symbol, klines) {
+async function checkCorrelation(symbol, klines) {
   const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
-  const btcLast50 = (await fetchKlines('BTCUSDT', '5m')).slice(-50).map(k => parseFloat(k[4]));
-  const ethLast50 = (await fetchKlines('ETHUSDT', '5m')).slice(-50).map(k => parseFloat(k[4]));
+  const btcKlines = await fetchKlines('BTCUSDT', '5m');
+  const ethKlines = await fetchKlines('ETHUSDT', '5m');
+  const btcLast50 = btcKlines.slice(-50).map(k => parseFloat(k[4]));
+  const ethLast50 = ethKlines.slice(-50).map(k => parseFloat(k[4]));
   const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500);
   const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
   return (corrBtc + corrEth) / 2 < 0.3; // Низкая корреляция, если < 0.3
