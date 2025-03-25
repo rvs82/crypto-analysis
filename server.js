@@ -28,12 +28,28 @@ let learningWeights = {
   AAVEUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1 }
 };
 
+async function fetchWithRetry(url, retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      if (i < retries - 1) {
+        console.log(`Попытка ${i + 1} не удалась: ${error.message}. Повтор через ${delay}мс`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
 async function updatePrices() {
   const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
   for (const symbol of symbols) {
     try {
-      const response = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
-      const data = await response.json();
+      const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
       lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
       console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
       checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
@@ -49,9 +65,8 @@ updatePrices();
 
 async function fetchKlines(symbol, timeframe) {
   try {
-    const response = await fetch(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=5000`);
-    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-    return await response.json();
+    const response = await fetchWithRetry(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+    return response;
   } catch (error) {
     console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message);
     return [];
