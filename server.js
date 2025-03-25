@@ -4,30 +4,33 @@ const app = express();
 
 app.use(express.static('public'));
 
-let lastPrices = { LDOUSDT: 0, AVAXUSDT: 0, XLMUSDT: 0, HBARUSDT: 0, BATUSDT: 0, AAVEUSDT: 0, BTCUSDT: 0, ETHUSDT: 0 };
-let trades = {
+let lastPrices = { LDOUSDT: 0, AVAXUSDT: 0, AAVEUSDT: 0, BTCUSDT: 0, ETHUSDT: 0 };
+let tradesMain = {
   LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
   AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-  XLMUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-  HBARUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
-  BATUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
+};
+let tradesTest = {
+  LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
+  AVAXUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
   AAVEUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }
 };
 const TRADE_AMOUNT = 100;
 const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
-let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, XLMUSDT: 1, HBARUSDT: 1, BATUSDT: 1, AAVEUSDT: 1 };
+let learningWeights = { LDOUSDT: 1, AVAXUSDT: 1, AAVEUSDT: 1 };
 
 async function updatePrices() {
-  const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
+  const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
   for (const symbol of symbols) {
     try {
       const response = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
       const data = await response.json();
       lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
       console.log(`Обновлена цена для ${symbol}: ${lastPrices[symbol]}`);
-      checkTradeStatus(symbol, lastPrices[symbol]);
+      checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+      checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
     } catch (error) {
       console.error(`Ошибка загрузки цены для ${symbol}:`, error.message);
     }
@@ -39,7 +42,7 @@ updatePrices();
 
 async function fetchKlines(symbol, timeframe) {
   try {
-    const response = await fetch(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=100`);
+    const response = await fetch(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=5000`);
     if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
     return await response.json();
   } catch (error) {
@@ -158,7 +161,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
   return recommendations;
 }
 
-function checkTradeStatus(symbol, currentPrice) {
+function checkTradeStatus(symbol, currentPrice, trades) {
   const tradeData = trades[symbol];
   if (tradeData && tradeData.active) {
     const { entry, stopLoss, takeProfit, direction } = tradeData.active;
@@ -207,7 +210,7 @@ function checkTradeStatus(symbol, currentPrice) {
 }
 
 app.get('/data', async (req, res) => {
-  const symbols = ['LDOUSDT', 'AVAXUSDT', 'XLMUSDT', 'HBARUSDT', 'BATUSDT', 'AAVEUSDT'];
+  const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
   let recommendations = {};
 
   try {
@@ -219,15 +222,16 @@ app.get('/data', async (req, res) => {
       recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe);
     }
 
-    let activeTradeSymbol = null;
-    for (const s in trades) {
-      if (trades[s].active) {
-        activeTradeSymbol = s;
+    // Основные сделки (любой таймфрейм)
+    let activeTradeSymbolMain = null;
+    for (const s in tradesMain) {
+      if (tradesMain[s].active) {
+        activeTradeSymbolMain = s;
         break;
       }
     }
 
-    if (!activeTradeSymbol) {
+    if (!activeTradeSymbolMain) {
       let bestTrade = null;
       for (const sym of symbols) {
         for (const tf of TIMEFRAMES) {
@@ -240,26 +244,65 @@ app.get('/data', async (req, res) => {
         }
       }
       if (bestTrade) {
-        trades[bestTrade.symbol].active = {
+        tradesMain[bestTrade.symbol].active = {
           direction: bestTrade.direction,
           entry: bestTrade.entry,
           stopLoss: bestTrade.stopLoss,
           takeProfit: bestTrade.takeProfit,
           timeframe: bestTrade.timeframe
         };
-        trades[bestTrade.symbol].openCount++;
+        tradesMain[bestTrade.symbol].openCount++;
       }
     }
-    res.json({ prices: lastPrices, recommendations, trades });
+
+    // Тестовые сделки (только 5m)
+    let activeTradeSymbolTest = null;
+    for (const s in tradesTest) {
+      if (tradesTest[s].active) {
+        activeTradeSymbolTest = s;
+        break;
+      }
+    }
+
+    if (!activeTradeSymbolTest) {
+      let bestTrade = null;
+      for (const sym of symbols) {
+        const rec = recommendations[sym]['5m'];
+        if (rec.direction !== 'Нет' && rec.confidence >= 50 && rec.outsideChannel) {
+          if (!bestTrade || rec.confidence > bestTrade.confidence) {
+            bestTrade = { symbol: sym, timeframe: '5m', ...rec };
+          }
+        }
+      }
+      if (bestTrade) {
+        tradesTest[bestTrade.symbol].active = {
+          direction: bestTrade.direction,
+          entry: bestTrade.entry,
+          stopLoss: bestTrade.stopLoss,
+          takeProfit: bestTrade.takeProfit,
+          timeframe: bestTrade.timeframe
+        };
+        tradesTest[bestTrade.symbol].openCount++;
+      }
+    }
+
+    res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest });
   } catch (error) {
     console.error('Ошибка /data:', error);
     res.status(500).json({ error: 'Ошибка сервера', details: error.message });
   }
 });
 
-app.post('/reset-stats', (req, res) => {
-  for (const symbol in trades) {
-    trades[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+app.post('/reset-stats-main', (req, res) => {
+  for (const symbol in tradesMain) {
+    tradesMain[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+  }
+  res.sendStatus(200);
+});
+
+app.post('/reset-stats-test', (req, res) => {
+  for (const symbol in tradesTest) {
+    tradesTest[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
   }
   res.sendStatus(200);
 });
