@@ -156,147 +156,156 @@
     <div><input type="checkbox" id="channelExitCheckbox" checked> Звук</div>
 
     <script>
-        const tbody = document.getElementById('data');
-        const tradeMainDiv = document.getElementById('tradeMain');
-        const reasoningMainDiv = document.getElementById('reasoningMain');
-        const statsMainDiv = document.getElementById('statsMain');
-        const tradeTestDiv = document.getElementById('tradeTest');
-        const reasoningTestDiv = document.getElementById('reasoningTest');
-        const statsTestDiv = document.getElementById('statsTest');
-        const forecastAIDiv = document.getElementById('forecastAI');
-        const aiLogDiv = document.getElementById('aiLog');
-        const marketMood = document.getElementById('marketMood');
-        let lastSignal = {};
-        let trendUpdateCounter = {};
-        let openDetails = {};
-        let lastTrends = {};
+    const tbody = document.getElementById('data');
+    const tradeMainDiv = document.getElementById('tradeMain');
+    const reasoningMainDiv = document.getElementById('reasoningMain');
+    const statsMainDiv = document.getElementById('statsMain');
+    const tradeTestDiv = document.getElementById('tradeTest');
+    const reasoningTestDiv = document.getElementById('reasoningTest');
+    const statsTestDiv = document.getElementById('statsTest');
+    const forecastAIDiv = document.getElementById('forecastAI');
+    const aiLogDiv = document.getElementById('aiLog');
+    const marketMood = document.getElementById('marketMood');
+    let lastSignal = {};
+    let trendUpdateCounter = {};
+    let openDetails = {};
+    let lastTrends = {};
 
-        function updateData() {
-            fetch('/data')
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    tbody.innerHTML = '';
-                    let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
-                    let logHtml = '<h2>Лог ИИ:</h2><div class="block">';
-                    const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
-                    let totalLongs = 0;
-                    let totalShorts = 0;
-                    let totalCount = 0;
+    function updateData() {
+        if (!tbody || !forecastAIDiv || !aiLogDiv) {
+            console.error('Один из элементов DOM не найден:', { tbody, forecastAIDiv, aiLogDiv });
+            return;
+        }
 
-                    for (const symbol of symbols) {
-                        const rec = data.recommendations[symbol] || {};
-                        const tradeMain = data.tradesMain[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-                        const tradeTest = data.tradesTest[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-                        const row = document.createElement('tr');
-                        trendUpdateCounter[symbol] = trendUpdateCounter[symbol] || {};
-                        lastTrends[symbol] = lastTrends[symbol] || {};
-                        forecastHtml += `<details ${openDetails[symbol] ? 'open' : ''}><summary>${symbol}</summary>`;
+        fetch('/data')
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Получены данные:', data); // Отладка
+                tbody.innerHTML = '';
+                let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
+                let logHtml = '<h2>Лог ИИ:</h2><div class="block">';
+                const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
+                let totalLongs = 0;
+                let totalShorts = 0;
+                let totalCount = 0;
 
-                        row.innerHTML = `
-                            <td>${symbol}</td>
-                            ${TIMEFRAMES.map(tf => {
-                                const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', pivot: lastPrices[symbol], reasoning: 'Нет данных', forecast: 'падение', outsideChannel: false };
-                                const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
-                                const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
-                                trendUpdateCounter[symbol][tf] = (trendUpdateCounter[symbol][tf] || 0) + 1;
-                                const trendArrow = (trendUpdateCounter[symbol][tf] % 5 === 0 || !lastTrends[symbol][tf]) ? (r.trend === 'вверх' ? '↑' : r.trend === 'вниз' ? '↓' : '↑') : lastTrends[symbol][tf];
-                                lastTrends[symbol][tf] = trendArrow;
-                                const blinkCls = r.outsideChannel ? (r.direction === 'Шорт' ? 'blink-green' : 'blink-red') : '';
-                                const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
-                                if (r.outsideChannel && lastSignal[signalKey] !== true && document.getElementById('channelExitCheckbox').checked) {
-                                    const audio = new Audio('https://freesound.org/data/previews/339/339810_5121236-lq.mp3');
-                                    audio.play().catch(() => console.log(`Колокольчик для ${symbol} не воспроизведён`));
-                                    lastSignal[signalKey] = true;
-                                } else if (!r.outsideChannel) {
-                                    lastSignal[signalKey] = false;
-                                }
-                                forecastHtml += `<div class="block">${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, ${r.reasoning}</div>`;
-                                if (r.direction === 'Лонг') {
-                                    totalLongs += r.confidence;
-                                    totalCount++;
-                                } else if (r.direction === 'Шорт') {
-                                    totalShorts += r.confidence;
-                                    totalCount++;
-                                }
-                                return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span> ${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''} <span class="${r.trend === 'вверх' ? 'up' : 'down'}">${trendArrow}</span></td>`;
-                            }).join('')}
-                        `;
-                        forecastHtml += `</details>`;
-                        tbody.appendChild(row);
+                for (const symbol of symbols) {
+                    const rec = data.recommendations[symbol] || {};
+                    const tradeMain = data.tradesMain[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+                    const tradeTest = data.tradesTest[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+                    const row = document.createElement('tr');
+                    trendUpdateCounter[symbol] = trendUpdateCounter[symbol] || {};
+                    lastTrends[symbol] = lastTrends[symbol] || {};
+                    forecastHtml += `<details ${openDetails[symbol] ? 'open' : ''}><summary>${symbol}</summary>`;
 
-                        if (tradeMain.active) {
-                            const cls = tradeMain.active.direction === 'Лонг' ? 'long' : 'short';
-                            tradeMainDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${tradeMain.active.timeframe}) <span class="${cls}">${tradeMain.active.direction}</span> (${rec[tradeMain.active.timeframe]?.confidence || 0}%), Открытие: ${tradeMain.active.entry.toFixed(4)}, Стоп: ${tradeMain.active.stopLoss.toFixed(4)}, Профит: ${tradeMain.active.takeProfit.toFixed(4)}`;
-                            reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[tradeMain.active.timeframe]?.reasoning || 'Нет данных'}`;
-                        } else {
-                            tradeMainDiv.innerHTML = '<strong>Сделка:</strong> Нет';
-                            reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya, недостаточная вероятность (>50%), или рынок в консолидации.`;
-                        }
-                        statsMainDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${tradeMain.openCount}, Закрыто: ${tradeMain.closedCount}, Стоп: ${tradeMain.stopCount}, Профит: ${tradeMain.profitCount}, Прибыль: ${tradeMain.totalProfit.toFixed(2)} USDT, Убыток: ${tradeMain.totalLoss.toFixed(2)} USDT <button onclick="resetStatsMain()">Сбросить</button>`;
+                    row.innerHTML = `
+                        <td>${symbol}</td>
+                        ${TIMEFRAMES.map(tf => {
+                            const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', pivot: lastPrices[symbol], reasoning: 'Нет данных', forecast: 'падение', outsideChannel: false };
+                            const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
+                            const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
+                            trendUpdateCounter[symbol][tf] = (trendUpdateCounter[symbol][tf] || 0) + 1;
+                            const trendArrow = (trendUpdateCounter[symbol][tf] % 5 === 0 || !lastTrends[symbol][tf]) ? (r.trend === 'вверх' ? '↑' : r.trend === 'вниз' ? '↓' : '↑') : lastTrends[symbol][tf];
+                            lastTrends[symbol][tf] = trendArrow;
+                            const blinkCls = r.outsideChannel ? (r.direction === 'Шорт' ? 'blink-green' : 'blink-red') : '';
+                            const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
+                            if (r.outsideChannel && lastSignal[signalKey] !== true && document.getElementById('channelExitCheckbox').checked) {
+                                const audio = new Audio('https://freesound.org/data/previews/339/339810_5121236-lq.mp3');
+                                audio.play().catch(() => console.log(`Колокольчик для ${symbol} не воспроизведён`));
+                                lastSignal[signalKey] = true;
+                            } else if (!r.outsideChannel) {
+                                lastSignal[signalKey] = false;
+                            }
+                            forecastHtml += `<div class="block">${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : 'down'}">${r.forecast}</span>, ${r.reasoning}</div>`;
+                            if (r.direction === 'Лонг') {
+                                totalLongs += r.confidence;
+                                totalCount++;
+                            } else if (r.direction === 'Шорт') {
+                                totalShorts += r.confidence;
+                                totalCount++;
+                            }
+                            return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span> ${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''} <span class="${r.trend === 'вверх' ? 'up' : 'down'}">${trendArrow}</span></td>`;
+                        }).join('')}
+                    `;
+                    forecastHtml += `</details>`;
+                    tbody.appendChild(row);
 
-                        if (tradeTest.active) {
-                            const cls = tradeTest.active.direction === 'Лонг' ? 'long' : 'short';
-                            tradeTestDiv.innerHTML = `<strong>Сделка (тест 5m):</strong> ${symbol} (${tradeTest.active.timeframe}) <span class="${cls}">${tradeTest.active.direction}</span> (${rec[tradeTest.active.timeframe]?.confidence || 0}%), Открытие: ${tradeTest.active.entry.toFixed(4)}, Стоп: ${tradeTest.active.stopLoss.toFixed(4)}, Профит: ${tradeTest.active.takeProfit.toFixed(4)}`;
-                            reasoningTestDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[tradeTest.active.timeframe]?.reasoning || 'Нет данных'}`;
-                        } else {
-                            tradeTestDiv.innerHTML = '<strong>Сделка (тест 5m):</strong> Нет';
-                            reasoningTestDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya, недостаточная вероятность (>50%), или рынок в консолидации.`;
-                        }
-                        statsTestDiv.innerHTML = `<strong>Статистика (тест 5m):</strong> Открыто: ${tradeTest.openCount}, Закрыто: ${tradeTest.closedCount}, Стоп: ${tradeTest.stopCount}, Профит: ${tradeTest.profitCount}, Прибыль: ${tradeTest.totalProfit.toFixed(2)} USDT, Убыток: ${tradeTest.totalLoss.toFixed(2)} USDT <button onclick="resetStatsTest()">Сбросить</button>`;
+                    if (tradeMain.active) {
+                        const cls = tradeMain.active.direction === 'Лонг' ? 'long' : 'short';
+                        tradeMainDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${tradeMain.active.timeframe}) <span class="${cls}">${tradeMain.active.direction}</span> (${rec[tradeMain.active.timeframe]?.confidence || 0}%), Открытие: ${tradeMain.active.entry.toFixed(4)}, Стоп: ${tradeMain.active.stopLoss.toFixed(4)}, Профит: ${tradeMain.active.takeProfit.toFixed(4)}`;
+                        reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[tradeMain.active.timeframe]?.reasoning || 'Нет данных'}`;
+                    } else {
+                        tradeMainDiv.innerHTML = '<strong>Сделка:</strong> Нет';
+                        reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya, недостаточная вероятность (>50%), или рынок в консолидации.`;
                     }
+                    statsMainDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${tradeMain.openCount}, Закрыто: ${tradeMain.closedCount}, Стоп: ${tradeMain.stopCount}, Профит: ${tradeMain.profitCount}, Прибыль: ${tradeMain.totalProfit.toFixed(2)} USDT, Убыток: ${tradeMain.totalLoss.toFixed(2)} USDT <button onclick="resetStatsMain()">Сбросить</button>`;
 
-                    const longPercent = totalCount > 0 ? Math.round(totalLongs / (totalCount * 100) * 100) : 0;
-                    const shortPercent = totalCount > 0 ? Math.round(totalShorts / (totalCount * 100) * 100) : 0;
-                    marketMood.style.background = `linear-gradient(to right, green ${longPercent}%, red ${longPercent}%)`;
-                    marketMood.querySelector('.longs').textContent = `Лонги ${longPercent}%`;
-                    marketMood.querySelector('.shorts').textContent = `Шорты ${shortPercent}%`;
+                    if (tradeTest.active) {
+                        const cls = tradeTest.active.direction === 'Лонг' ? 'long' : 'short';
+                        tradeTestDiv.innerHTML = `<strong>Сделка (тест 5m):</strong> ${symbol} (${tradeTest.active.timeframe}) <span class="${cls}">${tradeTest.active.direction}</span> (${rec[tradeTest.active.timeframe]?.confidence || 0}%), Открытие: ${tradeTest.active.entry.toFixed(4)}, Стоп: ${tradeTest.active.stopLoss.toFixed(4)}, Профит: ${tradeTest.active.takeProfit.toFixed(4)}`;
+                        reasoningTestDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[tradeTest.active.timeframe]?.reasoning || 'Нет данных'}`;
+                    } else {
+                        tradeTestDiv.innerHTML = '<strong>Сделка (тест 5m):</strong> Нет';
+                        reasoningTestDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya, недостаточная вероятность (>50%), или рынок в консолидации.`;
+                    }
+                    statsTestDiv.innerHTML = `<strong>Статистика (тест 5m):</strong> Открыто: ${tradeTest.openCount}, Закрыто: ${tradeTest.closedCount}, Стоп: ${tradeTest.stopCount}, Профит: ${tradeTest.profitCount}, Прибыль: ${tradeTest.totalProfit.toFixed(2)} USDT, Убыток: ${tradeTest.totalLoss.toFixed(2)} USDT <button onclick="resetStatsTest()">Сбросить</button>`;
+                }
 
-                    forecastAIDiv.innerHTML = forecastHtml || '<h2>Прогноз ИИ:</h2> Нет данных';
-                    logHtml += data.aiLogs.map(log => `<p>${log}</p>`).join('') || 'Нет записей';
-                    logHtml += '</div>';
-                    aiLogDiv.innerHTML = logHtml;
+                const longPercent = totalCount > 0 ? Math.round(totalLongs / (totalCount * 100) * 100) : 0;
+                const shortPercent = totalCount > 0 ? Math.round(totalShorts / (totalCount * 100) * 100) : 0;
+                marketMood.style.background = `linear-gradient(to right, green ${longPercent}%, red ${longPercent}%)`;
+                marketMood.querySelector('.longs').textContent = `Лонги ${longPercent}%`;
+                marketMood.querySelector('.shorts').textContent = `Шорты ${shortPercent}%`;
 
-                    const howItWorks = document.getElementById('howItWorks');
-                    const learnings = data.aiLearnings.map((learn, i) => i === data.aiLearnings.length - 1 ? `<span class="new-learning">${learn}</span>` : learn).join('<br>');
-                    const mistakes = data.aiMistakes.map((mistake, i) => i === data.aiMistakes.length - 1 ? `<span class="new-mistake">${mistake}</span>` : mistake).join('<br>');
-                    howItWorks.innerHTML = howItWorks.innerHTML.split('<strong>Чему научился ИИ:</strong>')[0] + 
-                        `<strong>Чему научился ИИ:</strong><br>${learnings || 'Пока нет данных'}<br><br>` +
-                        `<strong>Ошибки ИИ:</strong><br>${mistakes || 'Пока нет данных'}`;
-                })
-                .catch(error => {
-                    console.error('Ошибка получения данных:', error.message);
-                    tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных: ${error.message}</td></tr>`).join('');
-                    forecastAIDiv.innerHTML = `<h2>Прогноз ИИ:</h2> Ошибка загрузки: ${error.message}`;
-                    aiLogDiv.innerHTML = `<h2>Лог ИИ:</h2><div class="block">Ошибка загрузки: ${error.message}</div>`;
-                });
+                forecastAIDiv.innerHTML = forecastHtml || '<h2>Прогноз ИИ:</h2> Нет данных';
+                logHtml += data.aiLogs.map(log => `<p>${log}</p>`).join('') || 'Нет записей';
+                logHtml += '</div>';
+                aiLogDiv.innerHTML = logHtml;
+
+                const howItWorks = document.getElementById('howItWorks');
+                const learnings = data.aiLearnings.map((learn, i) => i === data.aiLearnings.length - 1 ? `<span class="new-learning">${learn}</span>` : learn).join('<br>');
+                const mistakes = data.aiMistakes.map((mistake, i) => i === data.aiMistakes.length - 1 ? `<span class="new-mistake">${mistake}</span>` : mistake).join('<br>');
+                howItWorks.innerHTML = howItWorks.innerHTML.split('<strong>Чему научился ИИ:</strong>')[0] + 
+                    `<strong>Чему научился ИИ:</strong><br>${learnings || 'Пока нет данных'}<br><br>` +
+                    `<strong>Ошибки ИИ:</strong><br>${mistakes || 'Пока нет данных'}`;
+            })
+            .catch(error => {
+                console.error('Ошибка получения данных:', error.message);
+                if (tbody) tbody.innerHTML = TIMEFRAMES.map(tf => `<tr><td colspan="${TIMEFRAMES.length + 1}">Ошибка загрузки данных: ${error.message}</td></tr>`).join('');
+                if (forecastAIDiv) forecastAIDiv.innerHTML = `<h2>Прогноз ИИ:</h2> Ошибка загрузки: ${error.message}`;
+                if (aiLogDiv) aiLogDiv.innerHTML = `<h2>Лог ИИ:</h2><div class="block">Ошибка загрузки: ${error.message}</div>`;
+            });
+    }
+
+    function resetStatsMain() {
+        fetch('/reset-stats-main', { method: 'POST' })
+            .then(() => updateData())
+            .catch(error => console.error('Ошибка сброса статистики (main):', error));
+    }
+
+    function resetStatsTest() {
+        fetch('/reset-stats-test', { method: 'POST' })
+            .then(() => updateData())
+            .catch(error => console.error('Ошибка сброса статистики (test):', error));
+    }
+
+    document.addEventListener('click', (e) => {
+        const summary = e.target.closest('summary');
+        if (summary) {
+            const symbol = summary.textContent.trim();
+            openDetails[symbol] = !openDetails[symbol];
         }
+    });
 
-        function resetStatsMain() {
-            fetch('/reset-stats-main', { method: 'POST' })
-                .then(() => updateData())
-                .catch(error => console.error('Ошибка сброса статистики (main):', error));
-        }
-
-        function resetStatsTest() {
-            fetch('/reset-stats-test', { method: 'POST' })
-                .then(() => updateData())
-                .catch(error => console.error('Ошибка сброса статистики (test):', error));
-        }
-
-        document.addEventListener('click', (e) => {
-            const summary = e.target.closest('summary');
-            if (summary) {
-                const symbol = summary.textContent.trim();
-                openDetails[symbol] = !openDetails[symbol];
-            }
-        });
-
-        const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+    const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM загружен, запускаем updateData');
         updateData();
         setInterval(updateData, 10000);
-    </script>
+    });
+</script>
 </body>
 </html>
