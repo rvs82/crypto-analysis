@@ -83,7 +83,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
   let sumWeights = 0;
 
   for (let j = 0; j < Math.min(499, n - 1); j++) {
-    const w = gauss(0 - j, 8); // Bandwidth = 8
+    const w = gauss(0 - j, 8);
     sumWeights += w;
     smooth += closes[n - 1 - j] * w;
   }
@@ -101,7 +101,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
     const y = sum / sumw;
     sae += Math.abs(closes[n - 1 - i] - y);
   }
-  const mae = (sae / Math.min(499, n - 1)) * 3; // Multiplier = 3
+  const mae = (sae / Math.min(499, n - 1)) * 3;
 
   const upper = smooth + mae;
   const lower = smooth - mae;
@@ -136,12 +136,6 @@ function calculateFibonacci(klines) {
   const min = Math.min(...lows);
   const diff = max - min;
   return { 0.5: min + diff * 0.5, 0.618: min + diff * 0.618 };
-}
-
-function calculateMedian(arr) {
-  const sorted = arr.slice().sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 function getTrend(klines) {
@@ -187,14 +181,19 @@ function getLevels(klines) {
 }
 
 async function checkCorrelation(symbol, klines) {
-  const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
-  const btcKlines = await fetchKlines('BTCUSDT', '5m');
-  const ethKlines = await fetchKlines('ETHUSDT', '5m');
-  const btcLast50 = btcKlines.slice(-50).map(k => parseFloat(k[4]));
-  const ethLast50 = ethKlines.slice(-50).map(k => parseFloat(k[4]));
-  const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500);
-  const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
-  return (corrBtc + corrEth) / 2 < 0.3; // Низкая корреляция, если < 0.3
+  try {
+    const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
+    const btcKlines = await fetchKlines('BTCUSDT', '5m');
+    const ethKlines = await fetchKlines('ETHUSDT', '5m');
+    const btcLast50 = btcKlines.slice(-50).map(k => parseFloat(k[4]));
+    const ethLast50 = ethKlines.slice(-50).map(k => parseFloat(k[4]));
+    const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500);
+    const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
+    return (corrBtc + corrEth) / 2 < 0.3; // Низкая корреляция, если < 0.3
+  } catch (error) {
+    console.error(`Ошибка корреляции для ${symbol}:`, error.message);
+    return false; // Если корреляция не считается, считаем её высокой
+  }
 }
 
 function checkAccumulation(klines) {
@@ -202,7 +201,7 @@ function checkAccumulation(klines) {
   const volumes = last10.map(k => parseFloat(k[5]));
   const avgVolume = volumes.reduce((a, b) => a + b, 0) / 10;
   const priceRange = Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3])));
-  return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < lastPrices[klines[0][0]] * 0.005; // Объём растёт, диапазон узкий
+  return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < lastPrices[klines[0][0]] * 0.005;
 }
 
 async function aiTradeDecision(symbol, klinesByTimeframe) {
@@ -262,7 +261,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
       if (Math.abs(price - levels.resistance) < price * 0.005 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].levels;
       if (Math.abs(price - levels.support) < price * 0.005 && direction === 'Лонг') confidence += 10 * learningWeights[symbol].levels;
       if (frequentExits && boundaryTrend === (direction === 'Шорт' ? 'вверх' : 'вниз')) confidence += 15 * learningWeights[symbol].trend;
-      if (accumulation) confidence += 10 * learningWeights[symbol].volume; // Накопление как сигнал
+      if (accumulation) confidence += 10 * learningWeights[symbol].volume;
       confidence = Math.min(100, Math.round(confidence));
     }
 
