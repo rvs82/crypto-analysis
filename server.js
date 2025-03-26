@@ -107,7 +107,7 @@ async function updatePricesFallback() {
         }
     }
 }
-setInterval(updatePricesFallback, 2000);
+setInterval(updatePricesFallback, 1000);
 
 function getMoscowTime() { 
     const now = new Date(); 
@@ -152,15 +152,18 @@ function connectWebSocket() {
             console.log(`Подписка на ${stream} отправлена`);
         });
     });
-    ws.on('message', (data) => {
+    ws.on('message', async (data) => {
         try {
             const msg = JSON.parse(data);
             if (msg.s && msg.c) {
                 const symbol = msg.s.toUpperCase();
-                lastPrices[symbol] = parseFloat(msg.c);
-                console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
-                checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-                checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+                const newPrice = parseFloat(msg.c);
+                if (newPrice !== lastPrices[symbol]) {
+                    lastPrices[symbol] = newPrice;
+                    console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
+                    await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                    await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+                }
             } else {
                 console.log('Получено сообщение без цены:', msg);
             }
@@ -170,8 +173,8 @@ function connectWebSocket() {
     });
     ws.on('error', (error) => console.error('WebSocket ошибка:', error));
     ws.on('close', () => {
-        console.log('WebSocket закрыт, переподключение через 2 секунды...');
-        setTimeout(connectWebSocket, 2000);
+        console.log('WebSocket закрыт, переподключение через 1 секунду...');
+        setTimeout(connectWebSocket, 1000);
     });
 }
 connectWebSocket();
@@ -434,7 +437,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
             } else {
                 learningWeights[symbol].btcEth *= 0.95;
                 aiLearnings.push(`${getMoscowTime()}: ${symbol} ${tf} — Низкая корреляция с BTC/ETH, уменьшил их вес до ${learningWeights[symbol].btcEth.toFixed(2)}.`);
-                saveData();
+                await saveData();
             }
             if (trend === 'вверх' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
             if (trend === 'вниз' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
@@ -450,7 +453,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
             if (isFlat && Math.abs(nw.lower - flatLow) < flatLow * 0.01 && Math.abs(nw.upper - flatHigh) < flatHigh * 0.01) {
                 confidence += 10 * learningWeights[symbol].flat;
                 aiLearnings.push(`${getMoscowTime()}: ${symbol} ${tf} — Совпадение границ Nadaraya и боковика усиливает сигнал (+10% к confidence).`);
-                saveData();
+                await saveData();
             }
             confidence = Math.min(100, Math.round(confidence));
         }
