@@ -78,12 +78,12 @@ async function saveData() {
 // Загрузка данных при старте
 loadData().then(() => console.log('Сервер готов к работе'));
 
-// Начальная загрузка цен через HTTP
+// Начальная загрузка цен через HTTP (Binance.us)
 async function initialPriceLoad() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`); // Переключение на Binance.com
+            const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
             lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
             console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
         } catch (error) {
@@ -93,12 +93,12 @@ async function initialPriceLoad() {
 }
 initialPriceLoad();
 
-// Резервное обновление цен через HTTP каждые 5 секунд
+// Резервное обновление цен через HTTP каждые 5 секунд (Binance.us)
 async function updatePricesFallback() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
             const newPrice = parseFloat(data.price) || lastPrices[symbol];
             if (newPrice !== lastPrices[symbol]) {
                 lastPrices[symbol] = newPrice;
@@ -135,7 +135,7 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
 }
 async function fetchKlines(symbol, timeframe) { 
     try { 
-        return await fetchWithRetry(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`); // Переключение на Binance.com
+        return await fetchWithRetry(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
     } catch (error) { 
         console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message); 
         return []; 
@@ -143,33 +143,39 @@ async function fetchKlines(symbol, timeframe) {
 }
 
 // WebSocket для цен в реальном времени с Binance.com
-const ws = new WebSocket('wss://stream.binance.com:9443/ws');
-ws.on('open', () => {
-    console.log('WebSocket сервер запущен (Binance.com)');
-    ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
-        ws.send(JSON.stringify({
-            method: 'SUBSCRIBE',
-            params: [`${symbol}@ticker`],
-            id: 1
-        }));
+function connectWebSocket() {
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws');
+    ws.on('open', () => {
+        console.log('WebSocket сервер запущен (Binance.com)');
+        ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
+            ws.send(JSON.stringify({
+                method: 'SUBSCRIBE',
+                params: [`${symbol}@ticker`],
+                id: 1
+            }));
+        });
     });
-});
-ws.on('message', (data) => {
-    try {
-        const msg = JSON.parse(data);
-        if (msg.s && msg.c) {
-            const symbol = msg.s.toUpperCase();
-            lastPrices[symbol] = parseFloat(msg.c);
-            console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
-            checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-            checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+    ws.on('message', (data) => {
+        try {
+            const msg = JSON.parse(data);
+            if (msg.s && msg.c) {
+                const symbol = msg.s.toUpperCase();
+                lastPrices[symbol] = parseFloat(msg.c);
+                console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
+                checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+            }
+        } catch (error) {
+            console.error('Ошибка обработки WebSocket-сообщения:', error.message);
         }
-    } catch (error) {
-        console.error('Ошибка обработки WebSocket-сообщения:', error.message);
-    }
-});
-ws.on('error', (error) => console.error('WebSocket ошибка:', error));
-ws.on('close', () => console.log('WebSocket закрыт'));
+    });
+    ws.on('error', (error) => console.error('WebSocket ошибка:', error));
+    ws.on('close', () => {
+        console.log('WebSocket закрыт, переподключение через 5 секунд...');
+        setTimeout(connectWebSocket, 5000); // Переподключение через 5 секунд
+    });
+}
+connectWebSocket();
 
 function gauss(x, h) { return Math.exp(-(Math.pow(x, 2) / (h * h * 2))); }
 function calculateNadarayaWatsonEnvelope(closes) { 
@@ -236,6 +242,7 @@ function getTrend(klines) {
     return avgEnd > avgStart ? 'вверх' : avgEnd < avgStart ? 'вниз' : 'боковик'; 
 }
 function getWick(klines) { 
+    if (!klines.length) return { upper: 0, lower: 0 }; // Проверка на пустой массив
     const last = klines[klines.length - 1]; 
     const high = parseFloat(last[2]); 
     const low = parseFloat(last[3]); 
@@ -243,12 +250,14 @@ function getWick(klines) {
     return { upper: high - close, lower: close - low }; 
 }
 function getSpike(klines) { 
+    if (klines.length < 2) return 0; // Проверка на недостаток данных
     const last = klines[klines.length - 1]; 
     const prev = klines[klines.length - 2]; 
     const change = Math.abs(parseFloat(last[4]) - parseFloat(prev[4])) / parseFloat(prev[4]) * 100; 
     return change > 1 ? change : 0; 
 }
 function getEngulfing(klines) { 
+    if (klines.length < 2) return 'нет'; // Проверка на недостаток данных
     const last = klines[klines.length - 1]; 
     const prev = klines[klines.length - 2]; 
     const lastOpen = parseFloat(last[1]); 
@@ -262,7 +271,7 @@ function getEngulfing(klines) {
 function getLevels(klines) { 
     const highs = klines.map(k => parseFloat(k[2])).filter(h => !isNaN(h)); 
     const lows = klines.map(k => parseFloat(k[3])).filter(l => !isNaN(l)); 
-    return { resistance: Math.max(...highs), support: Math.min(...lows) }; 
+    return { resistance: highs.length ? Math.max(...highs) : 0, support: lows.length ? Math.min(...lows) : 0 }; 
 }
 async function checkCorrelation(symbol, klines) { 
     try { 
@@ -283,8 +292,8 @@ function checkAccumulation(klines) {
     const last10 = klines.slice(-10); 
     const volumes = last10.map(k => parseFloat(k[5])); 
     const avgVolume = volumes.reduce((a, b) => a + b, 0) / 10; 
-    const priceRange = Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))); 
-    return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0][0]] || 0) * 0.005; 
+    const priceRange = last10.length ? Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))) : 0;
+    return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005; 
 }
 
 function detectFlat(klines, nw) {
@@ -302,7 +311,7 @@ function detectFlat(klines, nw) {
     if (lows.length < 3 || highs.length < 3) return { isFlat: false, flatLow: nw.lower, flatHigh: nw.upper };
     const flatLow = lows.reduce((a, b) => a + b, 0) / lows.length;
     const flatHigh = highs.reduce((a, b) => a + b, 0) / highs.length;
-    const nwChange = Math.abs(nw.upper - nw.lower - (klines[klines.length - 50][4] - klines[klines.length - 50][3])) / nw.upper;
+    const nwChange = Math.abs(nw.upper - nw.lower - (klines[klines.length - 50]?.[4] - klines[klines.length - 50]?.[3] || 0)) / nw.upper;
     const isFlat = nwChange < 0.005;
     return { isFlat, flatLow, flatHigh };
 }
