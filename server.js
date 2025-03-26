@@ -114,7 +114,7 @@ function connectWebSocket() {
             console.log(`Подписка на ${stream} отправлена`);
         });
     });
-    ws.on('message', async (data) => {
+    ws.on('message', async (data) => { // Исправлено: добавлено async
         try {
             const msg = JSON.parse(data);
             if (msg.s && msg.c) { // @ticker
@@ -552,7 +552,7 @@ async function aiTradeDecision(symbol) {
         const volatility = klines.length > 1 ? calculateVolatility(klines) : 0;
         const ema50 = klines.length > 1 ? calculateEMA(closes, 50) : price;
         const ema200 = klines.length > 1 ? calculateEMA(closes, 200) : price;
-        const fib = klines.length > 1 ? calculateFibonacci(klines) : { 0.5: price 0.618: price };
+        const fib = klines.length > 1 ? calculateFibonacci(klines) : { 0.5: price, 0.618: price };
         const lastKline = klines[klines.length - 1] || [0, 0, 0, 0, 0, 0];
         const vol = parseFloat(lastKline[5]) || 0;
         const avgVol = klines.slice(-5).reduce((a, k) => a + parseFloat(k[5]), 0) / 5 || 0;
