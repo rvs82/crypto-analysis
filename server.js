@@ -3,7 +3,6 @@ const WebSocket = require('ws');
 const fs = require('fs').promises;
 const app = express();
 
-// Настройка статической папки
 app.use(express.static('public'));
 
 // Глобальные переменные
@@ -21,8 +20,8 @@ let tradesTest = {
 let aiLogs = [];
 let aiLearnings = [];
 let aiMistakes = [];
-const TRADE_AMOUNT = 100; // Размер сделки в USDT
-const BINANCE_FEE = 0.001; // Комиссия Binance Futures
+const TRADE_AMOUNT = 100;
+const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = {
@@ -70,7 +69,6 @@ async function saveData() {
     }
 }
 
-// Инициализация загрузки данных
 loadData().then(() => console.log('Сервер готов к работе'));
 
 // Получение времени в Москве (UTC+3)
@@ -87,8 +85,8 @@ function connectWebSocket() {
         const symbols = ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'];
         const streams = [];
         symbols.forEach(symbol => {
-            streams.push(`${symbol}@ticker`); // Подписка на цены
-            streams.push(`${symbol}@kline_5m`); // Подписка на 5-минутные свечи
+            streams.push(`${symbol}@ticker`);
+            streams.push(`${symbol}@kline_5m`);
         });
         streams.forEach(stream => {
             ws.send(JSON.stringify({
@@ -99,11 +97,10 @@ function connectWebSocket() {
             console.log(`Подписка на ${stream} отправлена`);
         });
     });
-
     ws.on('message', async (data) => {
         try {
             const msg = JSON.parse(data);
-            if (msg.s && msg.c) { // Обработка данных о ценах (@ticker)
+            if (msg.s && msg.c) { // @ticker
                 const symbol = msg.s.toUpperCase();
                 const newPrice = parseFloat(msg.c);
                 if (newPrice !== lastPrices[symbol]) {
@@ -113,7 +110,7 @@ function connectWebSocket() {
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
-            } else if (msg.e === 'kline' && msg.k) { // Обработка данных о свечах (@kline_5m)
+            } else if (msg.e === 'kline' && msg.k) { // @kline_5m
                 const symbol = msg.s.toUpperCase();
                 const tf = msg.k.i;
                 if (!klinesByTimeframe[symbol][tf]) klinesByTimeframe[symbol][tf] = [];
@@ -146,7 +143,6 @@ function connectWebSocket() {
             console.error('Ошибка обработки WebSocket-сообщения:', error.message);
         }
     });
-
     ws.on('error', (error) => console.error('WebSocket ошибка:', error.message));
     ws.on('close', () => {
         console.log('WebSocket закрыт, переподключение через 500 мс...');
@@ -175,10 +171,10 @@ function aggregateKlines(baseKlines, targetTimeframe) {
             currentStart = start;
             currentKline = [start, kline[1], kline[2], kline[3], kline[4], parseFloat(kline[5])];
         } else {
-            currentKline[2] = Math.max(parseFloat(currentKline[2]), parseFloat(kline[2])); // High
-            currentKline[3] = Math.min(parseFloat(currentKline[3]), parseFloat(kline[3])); // Low
-            currentKline[4] = kline[4]; // Close
-            currentKline[5] += parseFloat(kline[5]); // Volume
+            currentKline[2] = Math.max(parseFloat(currentKline[2]), parseFloat(kline[2]));
+            currentKline[3] = Math.min(parseFloat(currentKline[3]), parseFloat(kline[3]));
+            currentKline[4] = kline[4];
+            currentKline[5] += parseFloat(kline[5]);
         }
     });
     if (currentKline) aggregated.push(currentKline);
@@ -194,8 +190,8 @@ function calculateNadarayaWatsonEnvelope(closes, repaint = true) {
     const n = closes.length;
     if (n < 2) return { upper: closes[0] * 1.05, lower: closes[0] * 0.95, smooth: closes[0] };
 
-    const h = 8; // bandwidth=8, как в LuxAlgo
-    const mult = 3; // multiplier=3, как в LuxAlgo
+    const h = 8; // Bandwidth=8, как в LuxAlgo
+    const mult = 3; // Multiplier=3, как в LuxAlgo
 
     if (!repaint) {
         // Режим без перерисовки (Endpoint Mode)
@@ -213,7 +209,6 @@ function calculateNadarayaWatsonEnvelope(closes, repaint = true) {
         }
         out /= den;
 
-        // Расчёт MAE для границ
         let sae = 0;
         for (let i = 0; i < Math.min(500, n); i++) {
             let sum = 0, sumw = 0;
@@ -233,7 +228,6 @@ function calculateNadarayaWatsonEnvelope(closes, repaint = true) {
         let nwe = [];
         let sae = 0;
 
-        // Расчёт значений для последних 500 свечей
         for (let i = 0; i < Math.min(500, n); i++) {
             let sum = 0, sumw = 0;
             for (let j = 0; j < Math.min(500, n); j++) {
@@ -247,7 +241,7 @@ function calculateNadarayaWatsonEnvelope(closes, repaint = true) {
         }
 
         sae = (sae / Math.min(500, n)) * mult || closes[0] * 0.05;
-        const latestSmooth = nwe[0]; // Возвращаем только последнюю точку для совместимости
+        const latestSmooth = nwe[0]; // Последняя точка для совместимости
 
         return { upper: latestSmooth + sae, lower: latestSmooth - sae, smooth: latestSmooth };
     }
@@ -377,7 +371,6 @@ function detectFlat(klines, nw) {
     return { isFlat, flatLow, flatHigh };
 }
 
-// Проверка статуса сделок
 async function checkTradeStatus(symbol, currentPrice, trades) {
     const tradeData = trades[symbol];
     if (tradeData && tradeData.active) {
@@ -446,7 +439,6 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
     }
 }
 
-// Принятие торговых решений ИИ
 async function aiTradeDecision(symbol) {
     const price = lastPrices[symbol] || 0;
     let recommendations = {};
@@ -456,7 +448,7 @@ async function aiTradeDecision(symbol) {
     for (const tf of TIMEFRAMES) {
         const klines = klinesByTimeframe[symbol][tf] || [];
         const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
-        const nw = calculateNadarayaWatsonEnvelope(closes, true); // Режим перерисовки по умолчанию
+        const nw = calculateNadarayaWatsonEnvelope(closes, true); // Repainting mode
         const volume = klines.length > 1 ? calculateVolume(klines) : 0;
         const volatility = klines.length > 1 ? calculateVolatility(klines) : 0;
         const ema50 = klines.length > 1 ? calculateEMA(closes, 50) : price;
@@ -571,7 +563,6 @@ async function aiTradeDecision(symbol) {
     return recommendations;
 }
 
-// Маршрут для получения данных
 app.get('/data', async (req, res) => {
     try {
         const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
@@ -609,7 +600,6 @@ app.get('/data', async (req, res) => {
     }
 });
 
-// Маршруты для сброса статистики
 app.post('/reset-stats-main', (req, res) => {
     for (const symbol in tradesMain) {
         tradesMain[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
@@ -624,13 +614,11 @@ app.post('/reset-stats-test', (req, res) => {
     saveData().then(() => res.sendStatus(200));
 });
 
-// Запуск сервера
 const port = process.env.PORT || 10000;
 app.listen(port, () => {
     console.log(`Сервер запущен на порту ${port}`);
 });
 
-// Обработка завершения работы
 process.on('SIGINT', async () => {
     console.log('Сервер завершает работу, сохраняю данные...');
     await saveData();
