@@ -80,7 +80,7 @@ async function initialPriceLoad() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api-gcp.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://data.binance.com/api/v3/ticker/price?symbol=${symbol}`);
             lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
             console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
         } catch (error) {
@@ -94,7 +94,7 @@ async function updatePricesFallback() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api-gcp.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://data.binance.com/api/v3/ticker/price?symbol=${symbol}`);
             const newPrice = parseFloat(data.price) || lastPrices[symbol];
             if (newPrice !== lastPrices[symbol]) {
                 lastPrices[symbol] = newPrice;
@@ -133,7 +133,7 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
 
 async function fetchKlines(symbol, timeframe) { 
     try { 
-        return await fetchWithRetry(`https://api-gcp.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+        return await fetchWithRetry(`https://data.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
     } catch (error) { 
         console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message); 
         return []; 
@@ -166,6 +166,9 @@ function connectWebSocket() {
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
+            } else if (msg.ping) {
+                ws.send(JSON.stringify({ pong: msg.ping }));
+                console.log('Отправлен pong в ответ на ping');
             }
         } catch (error) {
             console.error('Ошибка обработки WebSocket-сообщения:', error.message);
