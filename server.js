@@ -78,6 +78,21 @@ async function saveData() {
 // Загрузка данных при старте
 loadData().then(() => console.log('Сервер готов к работе'));
 
+// Начальная загрузка цен через HTTP
+async function initialPriceLoad() {
+    const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
+    for (const symbol of symbols) {
+        try {
+            const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
+            lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
+            console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
+        } catch (error) {
+            console.error(`Ошибка начальной загрузки цены для ${symbol}:`, error.message);
+        }
+    }
+}
+initialPriceLoad();
+
 function getMoscowTime() { 
     const now = new Date(); 
     return new Date(now.getTime() + 3 * 60 * 60 * 1000).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }); 
@@ -124,6 +139,7 @@ ws.on('message', (data) => {
     if (msg.s && msg.c) {
         const symbol = msg.s.toUpperCase();
         lastPrices[symbol] = parseFloat(msg.c);
+        console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
         checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
         checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
     }
@@ -537,7 +553,7 @@ app.get('/data', async (req, res) => {
         const avgVolume = totalVolume / (symbols.length * TIMEFRAMES.length); 
         const dominantTrend = trendCount.up > trendCount.down && trendCount.up > trendCount.flat ? 'восходящий' : 
                              trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'нисходящий' : 'боковой'; 
-        marketOverview = `На данный момент рынок в целом демонстрирует ${dominantTrend} характер. Средняя волатильность составляет ${avgVolatility.toFixed(4)}, что указывает на ${avgVolatility > 0.01 * lastPrices[symbols[0]] ? 'высокую активность' : 'спокойствие'}. Объёмы торгов в среднем ${avgVolume.toFixed(2)}, что говорит о ${avgVolume > 0 ? 'преобладании покупателей' : 'преобладании продавцов или равновесии'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`; 
+        marketOverview = `На данный момент рынок в целом демонстрирует ${dominantTrend} характер. Средняя волатильность составляет ${avgVolatility.toFixed(4)}, что указывает на ${avgVolatility > 0.01 * (lastPrices[symbols[0]] || 0) ? 'высокую активность' : 'спокойствие'}. Объёмы торгов в среднем ${avgVolume.toFixed(2)}, что говорит о ${avgVolume > 0 ? 'преобладании покупателей' : 'преобладании продавцов или равновесии'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`; 
 
         res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes, marketOverview }); 
     } catch (error) { 
@@ -552,6 +568,7 @@ app.post('/reset-stats-main', (req, res) => {
     } 
     saveData().then(() => res.sendStatus(200));
 });
+
 app.post('/reset-stats-test', (req, res) => { 
     for (const symbol in tradesTest) { 
         tradesTest[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 }; 
