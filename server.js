@@ -54,7 +54,9 @@ async function loadData() {
     } catch (error) {
         console.log('Нет сохранённых данных или ошибка загрузки:', error.message);
         TIMEFRAMES.forEach(tf => {
-            Object.keys(klinesByTimeframe).forEach(symbol => klinesByTimeframe[symbol][tf] = [];
+            Object.keys(klinesByTimeframe).forEach(symbol => {
+                klinesByTimeframe[symbol][tf] = [];
+            });
         });
     }
 }
@@ -436,7 +438,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 aiLogs.push(`Ошибка: ${symbol} ${timeframe} Шорт не сработал. Цена ${currentPrice} превысила ${stopLoss}. Вывод: ложный сигнал. Влияние: Снизил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Буду учитывать ложные пробои.`);
                 const now = Date.now();
                 if (now - lastSuggestionTime >= 300000) {
-                    aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор RSI с периодом 14 и уровнями перекупленности 70, перепроданности 30 для фильтрации ложных пробоев.`);
+                    aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор RSI с периодом 14 и уровнями перекупленности 70, перепроданности 30. Основание: частые ложные пробои верхней границы.`);
                     lastSuggestionTime = now;
                     if (aiSuggestions.length > 100) aiSuggestions.shift();
                 }
@@ -657,12 +659,12 @@ async function aiTradeDecision(symbol) {
         const activity = vol > avgVol * 1.5 ? 'высокая' : vol < avgVol * 0.5 ? 'низкая' : 'средняя';
         const recommendation = direction === 'Лонг' ? 'готовиться к покупке после пробоя' : direction === 'Шорт' ? 'готовиться к продаже после пробоя' : 'ждать пробоя канала для чёткого сигнала';
         const reasoning = isFlat
-            ? `Консолидация. Цена ${price} в границах ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}). Тренд ${trend}, объёмы ${volChange}, текущий объём ${vol.toFixed(2)} против среднего ${avgVol.toFixed(2)}, волатильность ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, хвосты свечи: верхний ${wick.upper.toFixed(4)}, нижний ${wick.lower.toFixed(4)}. Скачок ${spike.toFixed(2)}% и поглощение ${engulfing} показывают ${activity} активность. Уровень сопротивления ${levels.resistance.toFixed(4)} и поддержка ${levels.support.toFixed(4)} ограничивают движение. Границы канала движутся ${boundaryTrend}. Рекомендация: ${recommendation}.`
-            : `Рынок сейчас в состоянии ${market}, цена ${price} находится ${outsideChannel ? 'вне' : 'внутри'} канала ${nw.lower}–${nw.upper}. Тренд ${trend}, объёмы ${volChange}, текущий объём ${vol.toFixed(2)} против среднего ${avgVol.toFixed(2)}, волатильность ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, хвосты свечи: верхний ${wick.upper.toFixed(4)}, нижний ${wick.lower.toFixed(4)}. Скачок ${spike.toFixed(2)}% и поглощение ${engulfing} показывают ${activity} активность. Уровень сопротивления ${levels.resistance.toFixed(4)} и поддержка ${levels.support.toFixed(4)} ограничивают движение. Границы канала движутся ${boundaryTrend}. Рекомендация: ${recommendation}.`;
+            ? `Консолидация. Цена ${price} в границах ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}). Тренд ${trend === 'вверх' ? 'бычий' : trend === 'вниз' ? 'медвежий' : 'флет'}, объёмы ${volChange}, текущий объём ${vol.toFixed(2)} против среднего ${avgVol.toFixed(2)}, волатильность ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, хвосты свечи: верхний ${wick.upper.toFixed(4)}, нижний ${wick.lower.toFixed(4)}. Скачок ${spike.toFixed(2)}% и поглощение ${engulfing} показывают ${activity} активность. Уровень сопротивления ${levels.resistance.toFixed(4)} и поддержка ${levels.support.toFixed(4)} ограничивают движение. Границы канала движутся ${boundaryTrend}. Рекомендация: ${recommendation}.`
+            : `Рынок сейчас в состоянии ${market}, цена ${price} находится ${outsideChannel ? 'вне' : 'внутри'} канала ${nw.lower}–${nw.upper}. Тренд ${trend === 'вверх' ? 'бычий' : trend === 'вниз' ? 'медвежий' : 'флет'}, объёмы ${volChange}, текущий объём ${vol.toFixed(2)} против среднего ${avgVol.toFixed(2)}, волатильность ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, хвосты свечи: верхний ${wick.upper.toFixed(4)}, нижний ${wick.lower.toFixed(4)}. Скачок ${spike.toFixed(2)}% и поглощение ${engulfing} показывают ${activity} активность. Уровень сопротивления ${levels.resistance.toFixed(4)} и поддержка ${levels.support.toFixed(4)} ограничивают движение. Границы канала движутся ${boundaryTrend}. Рекомендация: ${recommendation}.`;
         const shortReasoning = isFlat
             ? `Консолидация. Цена ${price} в границах ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}), объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`
-            : `Тренд ${trend}. Цена ${price} ${outsideChannel ? 'вне' : 'внутри'} ${nw.lower}–${nw.upper}, объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`;
-        const noTradeReasoning = tradesMain[symbol].active || (['5m', '15m'].includes(tf) && tradesTest[symbol][tf]) ? '' : `Нет активных сделок. Причины: ${outsideChannel ? 'пробой канала есть, но уверенность ${confidence}% ниже 50%' : 'цена внутри канала, нет пробоя'}. Тренд ${trend}, объёмы ${volChange}, волатильность ${volatilityStatus}.`;
+            : `Тренд ${trend === 'вверх' ? 'бычий' : trend === 'вниз' ? 'медвежий' : 'флет'}. Цена ${price} ${outsideChannel ? 'вне' : 'внутри'} ${nw.lower}–${nw.upper}, объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`;
+        const noTradeReasoning = tradesMain[symbol].active || (['5m', '15m'].includes(tf) && tradesTest[symbol][tf]) ? '' : `Нет активных сделок. Причины: ${outsideChannel ? 'пробой канала есть, но уверенность ' + confidence + '% ниже 50%' : 'цена внутри канала, нет пробоя'}. Тренд ${trend}, объёмы ${volChange}, волатильность ${volatilityStatus}.`;
 
         recommendations[tf] = { direction, confidence, outsideChannel, touchesBoundary, entry, stopLoss, takeProfit, market, trend, trendDirection, pivot: nw.smooth, reasoning, shortReasoning, forecast, isFlat, noTradeReasoning };
     }
