@@ -80,7 +80,7 @@ async function initialPriceLoad() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://api-gcp.binance.com/api/v3/ticker/price?symbol=${symbol}`);
             lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
             console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
         } catch (error) {
@@ -94,7 +94,7 @@ async function updatePricesFallback() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://api-gcp.binance.com/api/v3/ticker/price?symbol=${symbol}`);
             const newPrice = parseFloat(data.price) || lastPrices[symbol];
             if (newPrice !== lastPrices[symbol]) {
                 lastPrices[symbol] = newPrice;
@@ -133,7 +133,7 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
 
 async function fetchKlines(symbol, timeframe) { 
     try { 
-        return await fetchWithRetry(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+        return await fetchWithRetry(`https://api-gcp.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
     } catch (error) { 
         console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message); 
         return []; 
@@ -141,9 +141,9 @@ async function fetchKlines(symbol, timeframe) {
 }
 
 function connectWebSocket() {
-    const ws = new WebSocket('wss://stream.binance.com:9443/ws');
+    const ws = new WebSocket('wss://fstream.binance.com/ws');
     ws.on('open', () => {
-        console.log('WebSocket сервер запущен (Binance.com)');
+        console.log('WebSocket сервер запущен (Binance Futures)');
         const streams = ['ldousdt@ticker', 'avaxusdt@ticker', 'aaveusdt@ticker', 'btcusdt@ticker', 'ethusdt@ticker'];
         streams.forEach(stream => {
             ws.send(JSON.stringify({
