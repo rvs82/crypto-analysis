@@ -5,76 +5,20 @@
     <meta name="robots" content="noindex">
     <title>Crypto Trading</title>
     <style>
-        body {
-            font-family: 'Arial Narrow', Arial, sans-serif;
-            margin: 20px;
-            background-color: #f0f0f0;
-            overflow-y: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background-color: white;
-        }
-        th, td {
-            padding: 8px;
-            border: 1px solid #ddd;
-            text-align: center;
-            font-size: 12px;
-        }
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
+        body { font-family: 'Arial Narrow', Arial, sans-serif; margin: 20px; background-color: #f0f0f0; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: center; font-size: 12px; }
+        th { background-color: #4CAF50; color: white; }
         .long { color: green; }
         .short { color: red; }
         .neutral { color: black; }
-        .market-flat {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border: 1px solid black;
-            background-color: yellow;
-            vertical-align: middle;
-            margin-left: 4px;
-        }
-        .market-up {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border: 1px solid black;
-            background-color: #90ee90;
-            vertical-align: middle;
-            margin-left: 4px;
-        }
-        .market-down {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border: 1px solid black;
-            background-color: red;
-            vertical-align: middle;
-            margin-left: 4px;
-        }
-        .up {
-            color: green;
-            font-size: 14px;
-            vertical-align: middle;
-            margin-right: 4px;
-        }
-        .down {
-            color: red;
-            font-size: 14px;
-            vertical-align: middle;
-            margin-right: 4px;
-        }
-        .blink-green {
-            animation: blinkGreen 2s infinite;
-        }
-        .blink-red {
-            animation: blinkRed 2s infinite;
-        }
+        .market-flat { display: inline-block; width: 8px; height: 8px; border: 1px solid black; background-color: yellow; vertical-align: middle; margin-left: 4px; }
+        .market-up { display: inline-block; width: 8px; height: 8px; border: 1px solid black; background-color: #90ee90; vertical-align: middle; margin-left: 4px; }
+        .market-down { display: inline-block; width: 8px; height: 8px; border: 1px solid black; background-color: red; vertical-align: middle; margin-left: 4px; }
+        .up { color: green; font-size: 14px; vertical-align: middle; margin-right: 4px; }
+        .down { color: red; font-size: 14px; vertical-align: middle; margin-right: 4px; }
+        .blink-green { animation: blinkGreen 2s infinite; }
+        .blink-red { animation: blinkRed 2s infinite; }
         @keyframes blinkGreen {
             0% { background-color: white; }
             50% { background-color: rgba(0, 255, 0, 0.1); }
@@ -85,112 +29,27 @@
             50% { background-color: rgba(255, 0, 0, 0.1); }
             100% { background-color: white; }
         }
-        #marketMood {
-            width: 100%;
-            height: 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: white;
-            font-size: 14px;
-            transition: background 1s ease;
-        }
-        #marketMood .longs {
-            flex: 1;
-            text-align: left;
-            padding-left: 10px;
-        }
-        #marketMood .shorts {
-            flex: 1;
-            text-align: right;
-            padding-right: 10px;
-        }
-        #tradeMain, #tradeTest {
-            margin-top: 15px;
-            font-size: 13px;
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-        #tradeMain strong, #tradeTest strong {
-            font-weight: bold;
-        }
-        #reasoningMain, #reasoningTest {
-            margin-top: 8px;
-            font-size: 13px;
-        }
-        #statsMain, #statsTest {
-            margin-top: 8px;
-            font-size: 13px;
-            border: 1px solid #ddd;
-            padding: 8px;
-            display: flex;
-            align-items: center;
-        }
-        #marketReasoning {
-            margin-top: 15px;
-            font-size: 13px;
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-        #marketReasoning select {
-            margin-right: 10px;
-            font-size: 12px;
-            padding: 2px;
-        }
-        details {
-            margin-top: 5px;
-            width: 100%;
-        }
-        summary {
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-        summary::marker {
-            content: "Ў ";
-            font-size: 10px;
-            margin-right: 4px;
-        }
-        #forecastAI, #aiLog {
-            font-family: 'Arial Narrow', Arial, sans-serif;
-            font-size: 12px;
-        }
-        #forecastAI details, #aiLog details {
-            margin-bottom: 8px;
-        }
-        #forecastAI .block, #aiLog .block {
-            border: 1px solid #ddd;
-            padding: 5px;
-            margin-bottom: 5px;
-        }
-        .tech-block {
-            border: 1px solid #ddd;
-            padding: 8px;
-            margin-top: 5px;
-            font-size: 11px;
-        }
-        h2 {
-            font-family: 'Arial Narrow', Arial, sans-serif;
-            font-size: 14px;
-            margin: 0 0 5px 0;
-        }
-        button {
-            padding: 4px 8px;
-            margin-left: 8px;
-            background-color: #cccccc;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        button:hover {
-            background-color: #999999;
-        }
-        .new-learning {
-            color: green;
-        }
-        .new-mistake {
-            color: red;
-        }
+        #marketMood { width: 100%; height: 40px; display: flex; justify-content: space-between; align-items: center; color: white; font-size: 14px; transition: background 1s ease; }
+        #marketMood .longs { flex: 1; text-align: left; padding-left: 10px; }
+        #marketMood .shorts { flex: 1; text-align: right; padding-right: 10px; }
+        #tradeMain, #tradeTest { margin-top: 15px; font-size: 13px; border: 1px solid #ddd; padding: 8px; }
+        #tradeMain strong, #tradeTest strong { font-weight: bold; }
+        #reasoningMain, #reasoningTest { margin-top: 8px; font-size: 13px; }
+        #statsMain, #statsTest { margin-top: 8px; font-size: 13px; border: 1px solid #ddd; padding: 8px; display: flex; align-items: center; }
+        #marketReasoning { margin-top: 15px; font-size: 13px; border: 1px solid #ddd; padding: 8px; }
+        #marketReasoning select { margin-right: 10px; font-size: 12px; padding: 2px; }
+        details { margin-top: 5px; width: 100%; }
+        summary { cursor: pointer; display: flex; align-items: center; }
+        summary::marker { content: "Ў "; font-size: 10px; margin-right: 4px; }
+        #forecastAI, #aiLog { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 12px; }
+        #forecastAI details, #aiLog details { margin-bottom: 8px; }
+        #forecastAI .block, #aiLog .block { border: 1px solid #ddd; padding: 5px; margin-bottom: 5px; }
+        .tech-block { border: 1px solid #ddd; padding: 8px; margin-top: 5px; font-size: 11px; }
+        h2 { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 14px; margin: 0 0 5px 0; }
+        button { padding: 4px 8px; margin-left: 8px; background-color: #cccccc; border: none; cursor: pointer; font-size: 12px; }
+        button:hover { background-color: #999999; }
+        .new-learning { color: green; }
+        .new-mistake { color: red; }
     </style>
 </head>
 <body>
@@ -244,7 +103,7 @@
     <details class="tech-block">
         <summary>Техническое задание</summary>
         <strong>Новый вариант (обновлено 26.03.2025):</strong><br>
-        Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи обучения ИИ и архив логов. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для бесплатного тарифа Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures для получения цен и свечей в реальном времени, данные обновляются каждые 10 секунд с учётом UTC+3 (Москва). Логи планируется архивировать в Google Drive.<br><br>
+        Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок и логи обучения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для бесплатного тарифа Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures для получения цен и свечей в реальном времени, обновление данных каждые 10 секунд с учётом UTC+3 (Москва). Логи планируется архивировать в Google Drive.<br><br>
         Дизайн и стили:<br>
         - Фон сайта: светло-серый (#F0F0F0).<br>
         - Таблица данных: белый (#FFFFFF) с границами светло-серого (#DDD).<br>
@@ -257,9 +116,9 @@
         - Полоса настроения рынка: градиент от зелёного (#008000) слева до красного (#FF0000) справа, ширина 100%, высота 40px, текст белый (#FFFFFF).<br>
         - Выпадающие меню: фон белый (#FFFFFF), рамка 1px чёрная (#000000), текст чёрный (#000000).<br>
         - Кнопки "Сбросить": фон серый (#CCCCCC), текст чёрный (#000000), при наведении тёмно-серый (#999999).<br>
-        - Шрифт: Arial Narrow, без засечек; заголовки (h2) 14px полужирный, таблица/прогнозы/логи 12px, статистика/сделки/рассуждения 13px, техзадание 11px.<br>
-        - Значки выпадающих меню: треугольник вниз (Ў), размер 10px, чёрный (#000000), в одной строке с названием через CSS display: inline.<br>
-        - Мигание ячеек: зелёное (от #FFFFFF до rgba(0, 255, 0, 0.1)) при пробое канала вверх (сигнал "Шорт"), красное (от #FFFFFF до rgba(255, 0, 0, 0.1)) при пробое вниз (сигнал "Лонг"), анимация 2 секунды.<br><br>
+        - Шрифт: Arial Narrow; заголовки (h2) 14px полужирный, таблица/прогнозы/логи 12px, статистика/сделки/рассуждения 13px, техзадание 11px.<br>
+        - Значки выпадающих меню: треугольник вниз (Ў), размер 10px, чёрный (#000000).<br>
+        - Мигание ячеек: зелёное (от #FFFFFF до rgba(0, 255, 0, 0.1)) при пробое канала вверх (сигнал "Шорт"), красное (от #FFFFFF до rgba(255, 0, 0, 0.1)) при пробое вниз (сигнал "Лонг"), анимация 2 секунды, срабатывает только при outsideChannel и confidence >= 50%.<br><br>
         Структура и расположение блоков:<br>
         - Шапка: полоса настроения рынка (100% ширины, 40px высоты), текст "Лонги" слева (padding-left: 10px), "Шорты" справа (padding-right: 10px), выравнивание по центру по вертикали.<br>
         - Основной контент:<br>
@@ -278,7 +137,7 @@
           - "Как работает сайт" (блок с рамкой 1px #ddd, 100% ширины), текст слева, отступы внутри 8px, по умолчанию свёрнут.<br>
           - Чекбокс "Звук" (слева, высота авто), отступ сверху 10px.<br><br>
         Функциональность:<br>
-        - Таблица данных: показывает сигналы ("Лонг", "Шорт", "Нет"), % вероятности, квадратики рынка, стрелки тренда (не исчезают, только обновляют направление раз в 5 свечей); обновляется каждые 10 секунд. В колонке "Пара" под названием валюты — актуальная цена.<br>
+        - Таблица данных: показывает сигналы ("Лонг", "Шорт", "Нет"), % вероятности, квадратики рынка, стрелки тренда (обновляются раз в 5 свечей, не исчезают); обновляется каждые 10 секунд через WebSocket. В колонке "Пара" под названием валюты — актуальная цена.<br>
         - "Сделка": отображает текущую основную сделку (валюта, таймфрейм, направление, % вероятности, цены входа, стоп-лосса, профита), открывается только при пробое канала Nadaraya с уверенностью >=50%.<br>
           - "Сделка (тест 5m)": то же, но только для 5m-таймфрейма.<br>
         - "Рассуждения ИИ": текст о текущей сделке (условия, выводы), обновляется с новой сделкой.<br>
@@ -286,43 +145,38 @@
         - "Рассуждения ИИ о рынке": динамический анализ состояния рынка, настроений покупателей/продавцов, изменений тенденций, объёмов, волатильности, активности и рекомендаций, обновляется каждые 10 секунд. По умолчанию общий анализ, при выборе валюты и таймфрейма — специфический, шрифт 13px.<br>
         - "Прогноз ИИ": прогнозы по таймфреймам (рост/падение/стабильность, точка разворота, рассуждения в блоках с рамкой, включая границы боковика при консолидации), не сворачивается при обновлении.<br>
         - "Лог ИИ": 10 последних записей (дата в UTC+3, сделка, результат, анализ, выводы, действия) в блоке с рамкой под таблицей.<br>
-        - Звук: колокольчик (5 секунд, https://freesound.org/data/previews/339/339810_5121236-lq.mp3) при пробое канала Nadaraya, управляется чекбоксом "Звук".<br><br>
+        - Звук: колокольчик (5 секунд, https://freesound.org/data/previews/339/339810_5121236-lq.mp3) при пробое канала Nadaraya с уверенностью >=50%, управляется чекбоксом "Звук".<br><br>
         Требования к ИИ:<br>
-        - Использует Nadaraya-Watson Envelope (Repainting Smoothing, bandwidth=8, multiplier=3, limit=1000 свечей) для прогнозов ("рост"/"падение"/"стабильность") и % вероятности, синхронизировано с TradingView.<br>
-        - EMA: периоды 50 и 200 для определения тренда и уровней поддержки/сопротивления, по закрытиям свечей.<br>
-        - Учитывает: расстояние от границ канала, объёмы, EMA50/200, Фибоначчи (0.5, 0.618), BTC/ETH (снижает корреляцию при низкой зависимости), тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс (50% покупатели/продавцы), уровни разворота, направление границ канала, частые выходы за границы без возврата к середине, накопление (рост объёмов в узком диапазоне как сигнал разворота или продолжения), ретесты уровней с ликвидностью, консолидацию (≥3 отскока от уровней с горизонтальным Nadaraya).<br>
-        - Прогнозы: обновляются каждые 10 секунд, стабильны, без резких смен, числа округляются до 0.0001, тренд и состояния на русском ("боковик", "вверх", "вниз", "бычье", "медвежье", "нет").<br>
-        - Вероятность успешности: зависит от всех факторов, включая консолидацию (усиление сигнала при совпадении границ Nadaraya и боковика на +10% к confidence), цены без скобок.<br>
-        - Обучение ИИ: онлайн, корректирует веса факторов (+5% при прибыли, -5% при убытке) после каждой сделки. При низкой корреляции с BTC/ETH уменьшает их вес. Накопление усиливает вес объёмов. При консолидации и совпадении границ Nadaraya с боковиком усиливает вес фактора консолидации. Ведёт лог в "Лог ИИ" (10 записей): дата (UTC+3), сделка, результат, анализ, выводы, действия.<br><br>
+        - Использует Nadaraya-Watson Envelope (Repainting Smoothing, bandwidth=8, multiplier=3, 500 свечей), синхронизировано с LuxAlgo на TradingView.<br>
+        - EMA: периоды 50 и 200 для тренда и уровней, по закрытиям свечей.<br>
+        - Учитывает: расстояние от границ канала, объёмы, EMA50/200, Фибоначчи (0.5, 0.618), BTC/ETH (снижает корреляцию при низкой зависимости), тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс (50% покупатели/продавцы), уровни разворота, направление границ канала, частые выходы за границы, накопление объёмов, ретесты уровней, консолидацию (≥3 отскока, горизонтальность Nadaraya <0.5%).<br>
+        - Прогнозы: обновляются каждые 10 секунд, стабильны, числа округляются до 0.0001, состояния на русском ("боковик", "вверх", "вниз", "бычье", "медвежье", "нет").<br>
+        - Вероятность: зависит от факторов, усиливается при консолидации (+10% при совпадении Nadaraya и боковика).<br>
+        - Обучение ИИ: онлайн, корректирует веса (+5% при прибыли, -5% при убытке). Низкая корреляция с BTC/ETH уменьшает их вес, накопление усиливает объёмы, консолидация усиливает вес боковика. Лог: 10 записей (дата UTC+3, сделка, результат, анализ, выводы, действия).<br><br>
         Причины функциональных элементов:<br>
-        - Мигание ячеек: зелёное при пробое канала вверх (сигнал "Шорт"), красное при пробое вниз (сигнал "Лонг"), только при outsideChannel и confidence >=50%.<br>
+        - Мигание ячеек: зелёное при пробое вверх (сигнал "Шорт"), красное при пробое вниз (сигнал "Лонг"), только при outsideChannel и confidence >=50%.<br>
         - Стрелки тренда: зелёная ^ при росте, красная v при падении, обновляются раз в 5 свечей, не исчезают.<br>
-        - Квадратики рынка: жёлтый (Флет) — консолидация или цена в канале, зелёный (Восходящий) — пробой вверх, красный (Нисходящий) — пробой вниз.<br>
-        - Процент вероятности: растёт при сильном сигнале (дальше от границы, больше объёмов, консолидация с совпадением границ), падает при слабости.<br>
+        - Квадратики рынка: жёлтый (Флет) — консолидация, зелёный (Восходящий) — пробой вверх, красный (Нисходящий) — пробой вниз.<br>
+        - Процент вероятности: растёт при сильном сигнале (дальше от границы, больше объёмов, консолидация), падает при слабости.<br>
         - Прогноз "рост"/"падение": "рост" — пробой вверх, "падение" — пробой вниз, "стабильность" — консолидация.<br>
-        - Обновление данных: каждые 10 секунд через WebSocket для актуальности.<br>
-        - Звук: колокольчик при пробое канала для сигнала о сделке.<br>
-        - Кнопка "Сбросить": обнуляет статистику сделок.<br>
+        - Обновление данных: каждые 10 секунд через WebSocket.<br>
+        - Звук: колокольчик при пробое канала с уверенностью >=50%.<br>
+        - Кнопка "Сбросить": обнуляет статистику.<br>
     </details>
     <details class="tech-block" id="howItWorks">
         <summary>Как работает сайт</summary>
-        Этот сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая сигналы для сделок и анализируя рынок с помощью ИИ. Вот как это работает:<br><br>
-        Сайт использует индикатор Nadaraya-Watson Envelope — рамку вокруг цены, которая показывает нормальный диапазон движения. Границы канала строятся на основе сглаживания цен за последние 499 свечей (bandwidth=8, multiplier=3, Repainting), синхронизировано с TradingView. Если цена пробивает верхнюю границу — сигнал "Шорт" (продажа), нижнюю — "Лонг" (покупка), ячейка мигает: зелёное при пробое вверх, красное при пробое вниз. ИИ ждёт пробоя канала с уверенностью >=50% для открытия сделок, так как это указывает на выход из консолидации или тренда. Консолидация (боковик) определяется, когда цена многократно (≥3 раза) отскакивает от приблизительно одинаковых уровней поддержки и сопротивления, а границы Nadaraya почти горизонтальны (изменение < 0.5%). В этом случае ИИ рассчитывает границы боковика как средние значения цен касаний (min/max) и сравнивает их с Nadaraya. Если они совпадают (±1%), сигнал усиливается (+10% к confidence), так как это подтверждает устойчивость консолидации. Сделки открываются только за пределами канала Nadaraya, чтобы поймать пробой вверх или вниз.<br><br>
-        ИИ учитывает множество факторов: расстояние от границ канала, объёмы, EMA (50 и 200, по закрытиям свечей), Фибоначчи (0.5, 0.618), корреляцию с BTC/ETH, тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс покупателей/продавцов, уровни разворота, накопление объёмов и консолидацию. Он выбирает сделку с вероятностью успеха ≥50%, открывая её при пробое канала. Размер сделки — 100 USDT, с фиксированными стоп-лоссом (0.5%) и тейк-профитом (1%). В консолидации ИИ прогнозирует "стабильность" до пробоя, а при пробое — "рост" или "падение". Обучение ИИ происходит онлайн: при прибыли веса факторов увеличиваются (+5%), при убытке уменьшаются (-5%). Совпадение границ Nadaraya и боковика усиливает вес консолидации, а низкая корреляция с BTC/ETH снижает их влияние.<br><br>
-        Данные о ценах и объёмах берутся с Binance Futures через WebSocket в реальном времени, обновляются каждые 10 секунд. ИИ смотрит до 1000 свечей для анализа, но канал Nadaraya строит по 499. В таблице показаны сигналы ("Лонг", "Шорт", "Нет") с вероятностью, квадратики рынка (жёлтый — консолидация, зелёный — рост, красный — падение) и стрелки тренда (обновляются раз в 5 свечей). Колонка "Пара" включает актуальную цену под названием валюты. При пробое канала звучит колокольчик (если включён звук). Под таблицей — текущая сделка, статистика, прогноз ИИ (с границами боковика при консолидации) и лог ИИ. Сайт оптимизирован для Render и работает плавно.<br><br>
+        Этот сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая сигналы и анализ рынка через ИИ. Вот как это работает:<br><br>
+        Сайт использует индикатор Nadaraya-Watson Envelope (как LuxAlgo на TradingView: bandwidth=8, multiplier=3, 500 свечей) для определения диапазона цен. В режиме перерисовки (repainting) он строит канал, пробой верхней границы — сигнал "Шорт" (зелёное мигание ячейки), нижней — "Лонг" (красное мигание), срабатывает при confidence >=50%. Консолидация определяется ≥3 отскоками от уровней с горизонтальностью Nadaraya <0.5%, усиливает сигнал (+10% к confidence) при совпадении границ с боковиком. Сделки открываются только при пробое канала с уверенностью >=50%.<br><br>
+        ИИ учитывает: расстояние от канала, объёмы, EMA (50 и 200, по закрытиям), Фибоначчи (0.5, 0.618), корреляцию с BTC/ETH, тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс покупателей/продавцов, уровни разворота, накопление объёмов, ретесты. Сделки: 100 USDT, стоп-лосс 0.5%, тейк-профит 1%. Обучение: +5% веса при прибыли, -5% при убытке, корректировка весов для BTC/ETH, объёмов и консолидации.<br><br>
+        Данные поступают через WebSocket Binance Futures (@ticker и @kline_5m), обновляются каждые 10 секунд (UTC+3). Таблица: сигналы, % вероятности, квадратики (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный), стрелки тренда (^/v, обновление раз в 5 свечей). Цены под парами в реальном времени. При пробое канала: звук (колокольчик, если включён), мигание ячеек (зелёное/красное). Под таблицей: сделки, статистика, прогнозы (с границами боковика), лог ИИ (10 записей). Оптимизировано для Render.<br><br>
         <strong>Чему научился ИИ:</strong><br>
-        Здесь ИИ записывает выводы за всё время работы. Новые данные — зелёным.<br>
         Пока нет данных<br><br>
         <strong>Ошибки ИИ:</strong><br>
-        Здесь ИИ записывает промахи. Новые данные — красным.<br>
         Пока нет данных
     </details>
-    <div>
-        <input type="checkbox" id="channelExitCheckbox" checked> Звук
-    </div>
+    <div><input type="checkbox" id="channelExitCheckbox" checked> Звук</div>
 
     <script>
-        // Элементы DOM
         const tbody = document.getElementById('data');
         const tradeMainDiv = document.getElementById('tradeMain');
         const reasoningMainDiv = document.getElementById('reasoningMain');
@@ -337,15 +191,12 @@
         const forecastAIDiv = document.getElementById('forecastAI');
         const aiLogDiv = document.getElementById('aiLog');
         const marketMood = document.getElementById('marketMood');
-
-        // Переменные для состояния
         let lastSignal = {};
         let trendUpdateCounter = {};
         let openDetails = {};
         let lastTrends = {};
         let lastData = null;
 
-        // Функция троттлинга для предотвращения избыточных обновлений
         function throttle(func, limit) {
             let inThrottle;
             return function (...args) {
@@ -357,7 +208,6 @@
             };
         }
 
-        // Основная функция обновления данных
         async function updateData() {
             try {
                 const response = await fetch('/data', { cache: 'no-store' });
@@ -380,7 +230,6 @@
             }
         }
 
-        // Функция отрисовки интерфейса
         function renderUI(data) {
             tbody.innerHTML = '';
             let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
@@ -477,7 +326,6 @@
             }
         }
 
-        // Функции сброса статистики
         function resetStatsMain() {
             fetch('/reset-stats-main', { method: 'POST' })
                 .then(() => updateData())
@@ -490,7 +338,6 @@
                 .catch(error => console.error('Ошибка сброса статистики (test):', error));
         }
 
-        // Обработка кликов по details
         document.addEventListener('click', (e) => {
             const summary = e.target.closest('summary');
             if (summary) {
@@ -499,7 +346,6 @@
             }
         });
 
-        // Константы и запуск
         const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
         const throttledUpdate = throttle(updateData, 10000);
 
