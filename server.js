@@ -144,7 +144,13 @@ function connectWebSocket() {
     const ws = new WebSocket('wss://fstream.binance.com/ws');
     ws.on('open', () => {
         console.log('WebSocket сервер запущен (Binance Futures)');
-        const streams = ['ldousdt@ticker', 'avaxusdt@ticker', 'aaveusdt@ticker', 'btcusdt@ticker', 'ethusdt@ticker'];
+        const streams = [
+            'ldousdt@ticker', 'ldousdt@markPrice',
+            'avaxusdt@ticker', 'avaxusdt@markPrice',
+            'aaveusdt@ticker', 'aaveusdt@markPrice',
+            'btcusdt@ticker', 'btcusdt@markPrice',
+            'ethusdt@ticker', 'ethusdt@markPrice'
+        ];
         streams.forEach(stream => {
             ws.send(JSON.stringify({
                 method: 'SUBSCRIBE',
@@ -157,12 +163,12 @@ function connectWebSocket() {
     ws.on('message', async (data) => {
         try {
             const msg = JSON.parse(data);
-            if (msg.s && msg.c) {
+            if (msg.s && (msg.c || msg.p)) { // c для @ticker, p для @markPrice
                 const symbol = msg.s.toUpperCase();
-                const newPrice = parseFloat(msg.c);
+                const newPrice = parseFloat(msg.c || msg.p); // Используем c или p
                 if (newPrice !== lastPrices[symbol]) {
                     lastPrices[symbol] = newPrice;
-                    console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
+                    console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]} (${msg.c ? '@ticker' : '@markPrice'})`);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
