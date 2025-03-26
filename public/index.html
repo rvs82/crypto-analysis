@@ -32,6 +32,8 @@
         #marketMood { width: 100%; height: 40px; display: flex; justify-content: space-between; align-items: center; color: white; font-size: 14px; transition: background 1s ease; }
         #marketMood .longs { flex: 1; text-align: left; padding-left: 10px; }
         #marketMood .shorts { flex: 1; text-align: right; padding-right: 10px; }
+        #timeframeSelect { text-align: center; margin-top: 5px; }
+        #timeframeSelect label { margin: 0 10px; font-size: 12px; }
         #tradeMain, #tradeTest { margin-top: 15px; font-size: 13px; border: 1px solid #ddd; padding: 8px; }
         #tradeMain strong, #tradeTest strong { font-weight: bold; }
         #reasoningMain, #reasoningTest { margin-top: 8px; font-size: 13px; }
@@ -41,21 +43,53 @@
         details { margin-top: 5px; width: 100%; }
         summary { cursor: pointer; display: flex; align-items: center; }
         summary::marker { content: "Ў "; font-size: 10px; margin-right: 4px; }
-        #forecastAI, #aiLog { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 12px; }
-        #forecastAI details, #aiLog details { margin-bottom: 8px; }
-        #forecastAI .block, #aiLog .block { border: 1px solid #ddd; padding: 5px; margin-bottom: 5px; }
+        #forecastAI, #aiLog, #aiSuggestions { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 12px; }
+        #forecastAI details, #aiLog details, #aiSuggestions details { margin-bottom: 8px; }
+        #forecastAI .block, #aiLog .block, #aiSuggestions .block { border: 1px solid #ddd; padding: 5px; margin-bottom: 5px; max-height: 200px; overflow-y: auto; }
         .tech-block { border: 1px solid #ddd; padding: 8px; margin-top: 5px; font-size: 11px; }
         h2 { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 14px; margin: 0 0 5px 0; }
         button { padding: 4px 8px; margin-left: 8px; background-color: #cccccc; border: none; cursor: pointer; font-size: 12px; }
         button:hover { background-color: #999999; }
-        .new-learning { color: green; }
-        .new-mistake { color: red; }
+        .new-learning, .success { color: green; }
+        .new-mistake, .error { color: red; }
+        .pair-name { font-weight: bold; }
+        .price-up { animation: fadeGreen 1s ease-in-out; }
+        .price-down { animation: fadeRed 1s ease-in-out; }
+        @keyframes fadeGreen {
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+            50% { box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+        }
+        @keyframes fadeRed {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+            50% { box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+        #loadIndicator { display: inline-block; margin-left: 20px; font-size: 13px; }
     </style>
 </head>
 <body>
     <div id="marketMood">
         <div class="longs">Лонги 0%</div>
         <div class="shorts">Шорты 0%</div>
+    </div>
+    <div id="timeframeSelect">
+        <label><input type="checkbox" name="timeframe" value="5m"> 5м</label>
+        <label><input type="checkbox" name="timeframe" value="15m"> 15м</label>
+        <label><input type="checkbox" name="timeframe" value="1h" checked> 1ч</label>
+        <label><input type="checkbox" name="timeframe" value="4h"> 4ч</label>
+        <label><input type="checkbox" name="timeframe" value="1d"> 1д</label>
+        <label><input type="checkbox" name="timeframe" value="1w"> 1н</label>
+    </div>
+    <div id="marketReasoning">
+        <strong>Рассуждения ИИ о рынке:</strong>
+        <select id="currencySelect">
+            <option value="all">Все валюты</option>
+            <option value="LDOUSDT">LDOUSDT</option>
+            <option value="AVAXUSDT">AVAXUSDT</option>
+            <option value="AAVEUSDT">AAVEUSDT</option>
+        </select>
+        <div id="reasoningText">Загрузка...</div>
     </div>
     <table>
         <thead>
@@ -75,106 +109,57 @@
     <div id="tradeMain"><strong>Сделка:</strong> Нет</div>
     <div id="reasoningMain"></div>
     <div id="statsMain"><strong>Статистика:</strong> Загрузка... <button onclick="resetStatsMain()">Сбросить</button></div>
-    <div id="tradeTest"><strong>Сделка (тест 5m):</strong> Нет</div>
+    <div id="tradeTest"><strong>Сделка (тест 5m/15m):</strong> Нет</div>
     <div id="reasoningTest"></div>
-    <div id="statsTest"><strong>Статистика (тест 5m):</strong> Загрузка... <button onclick="resetStatsTest()">Сбросить</button></div>
-    <div id="marketReasoning">
-        <strong>Рассуждения ИИ о рынке:</strong>
-        <select id="currencySelect">
-            <option value="all">Все валюты</option>
-            <option value="LDOUSDT">LDOUSDT</option>
-            <option value="AVAXUSDT">AVAXUSDT</option>
-            <option value="AAVEUSDT">AAVEUSDT</option>
-        </select>
-        <select id="timeframeSelect">
-            <option value="all">Все таймфреймы</option>
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="30m">30m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
-            <option value="1d">1d</option>
-            <option value="1w">1w</option>
-        </select>
-        <div id="reasoningText">Загрузка...</div>
-    </div>
+    <div id="statsTest"><strong>Статистика (тест 5m/15m):</strong> Загрузка... <button onclick="resetStatsTest()">Сбросить</button></div>
     <div id="forecastAI"><h2>Прогноз ИИ:</h2><br></div>
-    <div id="aiLog"><h2>Лог ИИ:</h2><div class="block"><br></div></div>
+    <div id="aiLog"><h2>Обучение ИИ:</h2><div class="block"><br></div></div>
+    <div id="aiSuggestions"><h2>Предложения ИИ:</h2><div class="block"><br></div></div>
     <details class="tech-block">
         <summary>Техническое задание</summary>
         <strong>Новый вариант (обновлено 26.03.2025):</strong><br>
-        Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок и логи обучения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для бесплатного тарифа Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures для получения цен и свечей в реальном времени, обновление данных каждые 10 секунд с учётом UTC+3 (Москва). Логи планируется архивировать в Google Drive.<br><br>
+        Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Логи архивируются в Google Drive.<br><br>
         Дизайн и стили:<br>
         - Фон сайта: светло-серый (#F0F0F0).<br>
-        - Таблица данных: белый (#FFFFFF) с границами светло-серого (#DDD).<br>
+        - Таблица: белый (#FFFFFF), границы светло-серые (#DDD).<br>
         - Заголовки таблицы: зелёный (#4CAF50), текст белый (#FFFFFF).<br>
-        - Текст "Лонг": зелёный (#008000).<br>
-        - Текст "Шорт": красный (#FF0000).<br>
-        - Текст "Нет": чёрный (#000000).<br>
-        - Квадратики рынка: Флет — жёлтый (#FFFF00), Восходящий — светло-зелёный (#90EE90), Нисходящий — красный (#FF0000), граница чёрная (#000000), размер 8x8px.<br>
-        - Стрелки тренда: зелёная (#008000) для ^, красная (#FF0000) для v, размер 14px.<br>
-        - Полоса настроения рынка: градиент от зелёного (#008000) слева до красного (#FF0000) справа, ширина 100%, высота 40px, текст белый (#FFFFFF).<br>
-        - Выпадающие меню: фон белый (#FFFFFF), рамка 1px чёрная (#000000), текст чёрный (#000000).<br>
-        - Кнопки "Сбросить": фон серый (#CCCCCC), текст чёрный (#000000), при наведении тёмно-серый (#999999).<br>
-        - Шрифт: Arial Narrow; заголовки (h2) 14px полужирный, таблица/прогнозы/логи 12px, статистика/сделки/рассуждения 13px, техзадание 11px.<br>
-        - Значки выпадающих меню: треугольник вниз (Ў), размер 10px, чёрный (#000000).<br>
-        - Мигание ячеек: зелёное (от #FFFFFF до rgba(0, 255, 0, 0.1)) при пробое канала вверх (сигнал "Шорт"), красное (от #FFFFFF до rgba(255, 0, 0, 0.1)) при пробое вниз (сигнал "Лонг"), анимация 2 секунды, срабатывает только при outsideChannel и confidence >= 50%.<br><br>
-        Структура и расположение блоков:<br>
-        - Шапка: полоса настроения рынка (100% ширины, 40px высоты), текст "Лонги" слева (padding-left: 10px), "Шорты" справа (padding-right: 10px), выравнивание по центру по вертикали.<br>
-        - Основной контент:<br>
-          - Таблица данных (100% ширины, высота авто), текст центрирован, отступы 8px, в колонке "Пара" под названием валюты — актуальная цена с фиксированной шириной.<br>
-          - "Сделка" (100% ширины, высота авто), текст слева, отступ сверху 15px, рамка 1px #ddd.<br>
-          - "Рассуждения ИИ" для основной сделки (100% ширины, высота авто), текст слева, отступ сверху 8px.<br>
-          - "Статистика" для основной сделки (100% ширины, высота авто), текст слева, кнопка "Сбросить" справа, отступ сверху 8px, рамка 1px #ddd.<br>
-          - "Сделка (тест 5m)" (100% ширины, высота авто), текст слева, отступ сверху 15px, рамка 1px #ddd.<br>
-          - "Рассуждения ИИ" для тестовой сделки (100% ширины, высота авто), текст слева, отступ сверху 8px.<br>
-          - "Статистика (тест 5m)" (100% ширины, высота авто), текст слева, кнопка "Сбросить" справа, отступ сверху 8px, рамка 1px #ddd.<br>
-          - "Рассуждения ИИ о рынке" (100% ширины, высота авто), текст слева, отступ сверху 15px, рамка 1px #ddd, с выбором валюты и таймфрейма через выпадающие списки.<br>
-          - "Прогноз ИИ" (выпадающее меню, 100% ширины), текст слева, отступы внутри 5px, данные в блоках с рамкой 1px #ddd.<br>
-          - "Лог ИИ" (блок с рамкой 1px #ddd под таблицей, 100% ширины), текст слева, отступы внутри 5px.<br>
-        - Подвал:<br>
-          - "Техническое задание" (блок с рамкой 1px #ddd, 100% ширины), текст слева, отступы внутри 8px, по умолчанию свёрнут.<br>
-          - "Как работает сайт" (блок с рамкой 1px #ddd, 100% ширины), текст слева, отступы внутри 8px, по умолчанию свёрнут.<br>
-          - Чекбокс "Звук" (слева, высота авто), отступ сверху 10px.<br><br>
+        - "Лонг": зелёный (#008000), "Шорт": красный (#FF0000), "Нет": чёрный (#000000).<br>
+        - Квадратики: Флет — жёлтый (#FFFF00), Восходящий — светло-зелёный (#90EE90), Нисходящий — красный (#FF0000), граница чёрная (#000000), 8x8px.<br>
+        - Стрелки: зелёная ^ (#008000), красная v (#FF0000), 14px.<br>
+        - Полоса настроения: градиент зелёный (#008000) слева, красный (#FF0000) справа, ширина 100%, высота 40px, текст белый (#FFFFFF).<br>
+        - Кнопки "Сбросить": серый (#CCCCCC), при наведении тёмно-серый (#999999).<br>
+        - Шрифт: Arial Narrow; заголовки 14px полужирный, таблица/прогнозы/логи 12px, статистика/сделки/рассуждения 13px, техзадание 11px.<br>
+        - Мигание: зелёное (rgba(0, 255, 0, 0.1)) при пробое вверх ("Шорт"), красное (rgba(255, 0, 0, 0.1)) при пробое вниз ("Лонг"), 2 секунды, при outsideChannel.<br>
+        - Цена: подсветка градиентом зелёным (рост) или красным (падение), отступ 1px, плавное появление/затухание.<br><br>
+        Структура:<br>
+        - Шапка: полоса настроения, галочки таймфреймов (5m, 15m, 1h, 4h, 1d, 1w), рассуждения ИИ о рынке.<br>
+        - Таблица данных, сделки, статистика, прогноз ИИ, обучение ИИ, предложения ИИ.<br>
+        - Подвал: техзадание, "Как работает", "Звук", индикатор нагрузки.<br><br>
         Функциональность:<br>
-        - Таблица данных: показывает сигналы ("Лонг", "Шорт", "Нет"), % вероятности, квадратики рынка, стрелки тренда (обновляются раз в 5 свечей, не исчезают); обновляется каждые 10 секунд через WebSocket. В колонке "Пара" под названием валюты — актуальная цена.<br>
-        - "Сделка": отображает текущую основную сделку (валюта, таймфрейм, направление, % вероятности, цены входа, стоп-лосса, профита), открывается только при пробое канала Nadaraya с уверенностью >=50%.<br>
-          - "Сделка (тест 5m)": то же, но только для 5m-таймфрейма.<br>
-        - "Рассуждения ИИ": текст о текущей сделке (условия, выводы), обновляется с новой сделкой.<br>
-        - "Статистика": открытые/закрытые сделки, стопы, профиты, прибыль/убыток в USDT; кнопка "Сбросить" обнуляет всё.<br>
-        - "Рассуждения ИИ о рынке": динамический анализ состояния рынка, настроений покупателей/продавцов, изменений тенденций, объёмов, волатильности, активности и рекомендаций, обновляется каждые 10 секунд. По умолчанию общий анализ, при выборе валюты и таймфрейма — специфический, шрифт 13px.<br>
-        - "Прогноз ИИ": прогнозы по таймфреймам (рост/падение/стабильность, точка разворота, рассуждения в блоках с рамкой, включая границы боковика при консолидации), не сворачивается при обновлении.<br>
-        - "Лог ИИ": 10 последних записей (дата в UTC+3, сделка, результат, анализ, выводы, действия) в блоке с рамкой под таблицей.<br>
-        - Звук: колокольчик (5 секунд, https://freesound.org/data/previews/339/339810_5121236-lq.mp3) при пробое канала Nadaraya с уверенностью >=50%, управляется чекбоксом "Звук".<br><br>
+        - Таблица: сигналы, % вероятности, квадратики (тренд ИИ: Флет — боковик, Восходящий — вверх, Нисходящий — вниз), стрелки (к границе после пересечения), обновление 10 сек.<br>
+        - Полоса настроения: для выбранного таймфрейма (по умолчанию 1ч), % по прогнозу ИИ, целые числа.<br>
+        - Сделки: 1 основная (100 USDT), тестовые 5m/15m (100 USDT), открытие при confidence >=50%, цены без округления, комиссии Binance Futures.<br>
+        - Рассуждения ИИ: причины сделок/их отсутствия с деталями.<br>
+        - Статистика: с учётом комиссий (0.04%).<br>
+        - Прогноз ИИ: рост (зелёный), падение (красный), стабильность (чёрный).<br>
+        - Обучение ИИ: 20 записей, прокрутка до 100, ошибки/успехи с влиянием.<br>
+        - Предложения ИИ: 10 записей, прокрутка до 100, 1 каждые 5 мин, с настройками индикаторов.<br>
+        - Индикатор нагрузки: в подвале, "Нагрузка: X%", обновление 10 сек.<br>
+        - Звук: колокольчик при пробое с confidence >=50%.<br><br>
         Требования к ИИ:<br>
-        - Использует Nadaraya-Watson Envelope (Repainting Smoothing, bandwidth=8, multiplier=3, 500 свечей), синхронизировано с LuxAlgo на TradingView.<br>
-        - EMA: периоды 50 и 200 для тренда и уровней, по закрытиям свечей.<br>
-        - Учитывает: расстояние от границ канала, объёмы, EMA50/200, Фибоначчи (0.5, 0.618), BTC/ETH (снижает корреляцию при низкой зависимости), тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс (50% покупатели/продавцы), уровни разворота, направление границ канала, частые выходы за границы, накопление объёмов, ретесты уровней, консолидацию (≥3 отскока, горизонтальность Nadaraya <0.5%).<br>
-        - Прогнозы: обновляются каждые 10 секунд, стабильны, числа округляются до 0.0001, состояния на русском ("боковик", "вверх", "вниз", "бычье", "медвежье", "нет").<br>
-        - Вероятность: зависит от факторов, усиливается при консолидации (+10% при совпадении Nadaraya и боковика).<br>
-        - Обучение ИИ: онлайн, корректирует веса (+5% при прибыли, -5% при убытке). Низкая корреляция с BTC/ETH уменьшает их вес, накопление усиливает объёмы, консолидация усиливает вес боковика. Лог: 10 записей (дата UTC+3, сделка, результат, анализ, выводы, действия).<br><br>
-        Причины функциональных элементов:<br>
-        - Мигание ячеек: зелёное при пробое вверх (сигнал "Шорт"), красное при пробое вниз (сигнал "Лонг"), только при outsideChannel и confidence >=50%.<br>
-        - Стрелки тренда: зелёная ^ при росте, красная v при падении, обновляются раз в 5 свечей, не исчезают.<br>
-        - Квадратики рынка: жёлтый (Флет) — консолидация, зелёный (Восходящий) — пробой вверх, красный (Нисходящий) — пробой вниз.<br>
-        - Процент вероятности: растёт при сильном сигнале (дальше от границы, больше объёмов, консолидация), падает при слабости.<br>
-        - Прогноз "рост"/"падение": "рост" — пробой вверх, "падение" — пробой вниз, "стабильность" — консолидация.<br>
-        - Обновление данных: каждые 10 секунд через WebSocket.<br>
-        - Звук: колокольчик при пробое канала с уверенностью >=50%.<br>
-        - Кнопка "Сбросить": обнуляет статистику.<br>
+        - Nadaraya-Watson (bandwidth=8, multiplier=3, 500 свечей), EMA 50/200, объёмы, Фибоначчи, BTC/ETH корреляция, тренд, хвосты, скачки, поглощения, консолидация (≥3 отскока, горизонтальность <0.5%).<br>
+        - Обучение: +5% при прибыли, -5% при убытке, корректировка весов.<br>
     </details>
     <details class="tech-block" id="howItWorks">
         <summary>Как работает сайт</summary>
-        Этот сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая сигналы и анализ рынка через ИИ. Вот как это работает:<br><br>
-        Сайт использует индикатор Nadaraya-Watson Envelope (как LuxAlgo на TradingView: bandwidth=8, multiplier=3, 500 свечей) для определения диапазона цен. В режиме перерисовки (repainting) он строит канал, пробой верхней границы — сигнал "Шорт" (зелёное мигание ячейки), нижней — "Лонг" (красное мигание), срабатывает при confidence >=50%. Консолидация определяется ≥3 отскоками от уровней с горизонтальностью Nadaraya <0.5%, усиливает сигнал (+10% к confidence) при совпадении границ с боковиком. Сделки открываются только при пробое канала с уверенностью >=50%.<br><br>
-        ИИ учитывает: расстояние от канала, объёмы, EMA (50 и 200, по закрытиям), Фибоначчи (0.5, 0.618), корреляцию с BTC/ETH, тренд (50 свечей), хвосты свечей, скачки, поглощения, реакцию рынка, баланс покупателей/продавцов, уровни разворота, накопление объёмов, ретесты. Сделки: 100 USDT, стоп-лосс 0.5%, тейк-профит 1%. Обучение: +5% веса при прибыли, -5% при убытке, корректировка весов для BTC/ETH, объёмов и консолидации.<br><br>
-        Данные поступают через WebSocket Binance Futures (@ticker и @kline_5m), обновляются каждые 10 секунд (UTC+3). Таблица: сигналы, % вероятности, квадратики (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный), стрелки тренда (^/v, обновление раз в 5 свечей). Цены под парами в реальном времени. При пробое канала: звук (колокольчик, если включён), мигание ячеек (зелёное/красное). Под таблицей: сделки, статистика, прогнозы (с границами боковика), лог ИИ (10 записей). Оптимизировано для Render.<br><br>
-        <strong>Чему научился ИИ:</strong><br>
-        Пока нет данных<br><br>
-        <strong>Ошибки ИИ:</strong><br>
-        Пока нет данных
+        Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание), вниз — "Лонг" (красное), только при outsideChannel. Квадратики: тренд ИИ (Флет — боковик, Восходящий — вверх, Нисходящий — вниз). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, 10 сек, UTC+3. Индикатор нагрузки в подвале (% CPU). Обучение ИИ: 20 записей (до 100), предложения ИИ: 10 записей (до 100), 1/5 мин с настройками индикаторов.<br><br>
+        <strong>Обучение ИИ:</strong><br>Пока нет данных<br><br>
+        <strong>Предложения ИИ:</strong><br>Пока нет данных
     </details>
-    <div><input type="checkbox" id="channelExitCheckbox" checked> Звук</div>
+    <div>
+        <input type="checkbox" id="channelExitCheckbox" checked> Звук
+        <span id="loadIndicator">Нагрузка: 0%</span>
+    </div>
 
     <script>
         const tbody = document.getElementById('data');
@@ -186,15 +171,18 @@
         const statsTestDiv = document.getElementById('statsTest');
         const marketReasoningDiv = document.getElementById('marketReasoning');
         const currencySelect = document.getElementById('currencySelect');
-        const timeframeSelect = document.getElementById('timeframeSelect');
         const reasoningTextDiv = document.getElementById('reasoningText');
         const forecastAIDiv = document.getElementById('forecastAI');
         const aiLogDiv = document.getElementById('aiLog');
+        const aiSuggestionsDiv = document.getElementById('aiSuggestions');
         const marketMood = document.getElementById('marketMood');
+        const timeframeSelect = document.getElementById('timeframeSelect');
+        const loadIndicator = document.getElementById('loadIndicator');
         let lastSignal = {};
         let trendUpdateCounter = {};
         let openDetails = {};
         let lastTrends = {};
+        let lastPrices = {};
         let lastData = null;
 
         function throttle(func, limit) {
@@ -225,7 +213,8 @@
                 console.error('Ошибка обработки данных:', error);
                 tbody.innerHTML = '<tr><td colspan="8">Ошибка загрузки данных: ' + error.message + '</td></tr>';
                 forecastAIDiv.innerHTML = '<h2>Прогноз ИИ:</h2> Ошибка загрузки: ' + error.message;
-                aiLogDiv.innerHTML = '<h2>Лог ИИ:</h2><div class="block">Ошибка загрузки: ' + error.message + '</div>';
+                aiLogDiv.innerHTML = '<h2>Обучение ИИ:</h2><div class="block">Ошибка загрузки: ' + error.message + '</div>';
+                aiSuggestionsDiv.innerHTML = '<h2>Предложения ИИ:</h2><div class="block">Ошибка загрузки: ' + error.message + '</div>';
                 reasoningTextDiv.innerHTML = 'Ошибка загрузки: ' + error.message;
             }
         }
@@ -233,33 +222,38 @@
         function renderUI(data) {
             tbody.innerHTML = '';
             let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
-            let logHtml = '<h2>Лог ИИ:</h2><div class="block">';
+            let logHtml = '<h2>Обучение ИИ:</h2><div class="block">';
+            let suggestionsHtml = '<h2>Предложения ИИ:</h2><div class="block">';
             const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
             let totalLongs = 0;
             let totalShorts = 0;
             let totalCount = 0;
 
+            const selectedTimeframe = Array.from(timeframeSelect.querySelectorAll('input[name="timeframe"]')).find(input => input.checked)?.value || '1h';
+
             for (const symbol of symbols) {
                 const rec = data.recommendations[symbol] || {};
                 const tradeMain = data.tradesMain[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-                const tradeTest = data.tradesTest[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+                const tradeTest = data.tradesTest[symbol] || { '5m': null, '15m': null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
                 const row = document.createElement('tr');
 
                 trendUpdateCounter[symbol] = trendUpdateCounter[symbol] || {};
                 lastTrends[symbol] = lastTrends[symbol] || {};
                 forecastHtml += `<details ${openDetails[symbol] ? 'open' : ''}><summary>${symbol}</summary>`;
 
+                const priceClass = lastPrices[symbol] ? (data.prices[symbol] > lastPrices[symbol] ? 'price-up' : data.prices[symbol] < lastPrices[symbol] ? 'price-down' : '') : '';
+                lastPrices[symbol] = data.prices[symbol];
                 row.innerHTML = `
-                    <td style="width: 100px; white-space: nowrap;">${symbol}<br>${data.prices[symbol].toFixed(4)}</td>
+                    <td style="width: 100px; white-space: nowrap;"><span class="pair-name">${symbol}</span><br><span class="${priceClass}">${data.prices[symbol]}</span></td>
                     ${TIMEFRAMES.map(tf => {
-                        const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', pivot: data.prices[symbol] || 0, reasoning: 'Нет данных', shortReasoning: 'Нет данных', forecast: 'падение', outsideChannel: false, touchesBoundary: false, isFlat: false };
+                        const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', trendDirection: 'боковик', pivot: data.prices[symbol] || 0, reasoning: 'Нет данных', shortReasoning: 'Нет данных', forecast: 'падение', outsideChannel: false, touchesBoundary: false, isFlat: false, noTradeReasoning: '' };
                         const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
                         const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
                         trendUpdateCounter[symbol][tf] = (trendUpdateCounter[symbol][tf] || 0) + 1;
-                        const trendArrow = (trendUpdateCounter[symbol][tf] % 5 === 0 || !lastTrends[symbol][tf]) ? (r.trend === 'вверх' ? '^' : r.trend === 'вниз' ? 'v' : '^') : lastTrends[symbol][tf];
+                        const trendArrow = (trendUpdateCounter[symbol][tf] % 5 === 0 || !lastTrends[symbol][tf]) ? (r.trendDirection === 'вверх' ? '^' : 'v') : lastTrends[symbol][tf];
                         lastTrends[symbol][tf] = trendArrow;
                         const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
-                        const blinkCls = r.outsideChannel && r.confidence >= 50 ? (r.direction === 'Шорт' ? 'blink-green' : 'blink-red') : '';
+                        const blinkCls = r.outsideChannel ? (r.direction === 'Шорт' ? 'blink-green' : 'blink-red') : '';
                         if (r.outsideChannel && lastSignal[signalKey] !== true && document.getElementById('channelExitCheckbox').checked && r.confidence >= 50) {
                             const audio = new Audio('https://freesound.org/data/previews/339/339810_5121236-lq.mp3');
                             audio.play().catch(() => console.log(`Колокольчик для ${symbol} не воспроизведён`));
@@ -268,9 +262,12 @@
                             lastSignal[signalKey] = false;
                         }
                         forecastHtml += `<div class="block">${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : r.forecast === 'падение' ? 'down' : 'neutral'}">${r.forecast}</span>, ${r.shortReasoning}</div>`;
-                        if (r.direction === 'Лонг') { totalLongs += r.confidence; totalCount++; }
-                        else if (r.direction === 'Шорт') { totalShorts += r.confidence; totalCount++; }
-                        return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span> ${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''} <span class="${r.trend === 'вверх' ? 'up' : 'down'}">${trendArrow}</span></td>`;
+                        if (tf === selectedTimeframe) {
+                            if (r.forecast === 'рост') { totalLongs++; totalCount++; }
+                            else if (r.forecast === 'падение') { totalShorts++; totalCount++; }
+                            else totalCount++;
+                        }
+                        return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span> ${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''} <span class="${r.trendDirection === 'вверх' ? 'up' : 'down'}">${trendArrow}</span></td>`;
                     }).join('')}
                 `;
                 forecastHtml += `</details>`;
@@ -278,52 +275,43 @@
 
                 if (tradeMain.active) {
                     const cls = tradeMain.active.direction === 'Лонг' ? 'long' : 'short';
-                    tradeMainDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${tradeMain.active.timeframe}) <span class="${cls}">${tradeMain.active.direction}</span> (${rec[tradeMain.active.timeframe]?.confidence || 0}%), Открытие: ${tradeMain.active.entry.toFixed(4)}, Стоп: ${tradeMain.active.stopLoss.toFixed(4)}, Профит: ${tradeMain.active.takeProfit.toFixed(4)}`;
-                    reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[tradeMain.active.timeframe]?.reasoning || 'Нет данных'}`;
+                    tradeMainDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${tradeMain.active.timeframe}) <span class="${cls}">${tradeMain.active.direction}</span> (${rec[tradeMain.active.timeframe]?.confidence || 0}%), Открытие: ${tradeMain.active.entry}, Стоп: ${tradeMain.active.stopLoss}, Профит: ${tradeMain.active.takeProfit}`;
+                    reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Причина открытия: ${tradeMain.active.reason}`;
                 } else {
                     tradeMainDiv.innerHTML = '<strong>Сделка:</strong> Нет';
-                    reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec['5m']?.reasoning || 'Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya или недостаточная вероятность (>50%).'}`;
+                    reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec['5m']?.noTradeReasoning || 'Нет активных сделок. Причины: цена внутри канала или недостаточная вероятность.'}`;
                 }
                 statsMainDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${tradeMain.openCount}, Закрыто: ${tradeMain.closedCount}, Стоп: ${tradeMain.stopCount}, Профит: ${tradeMain.profitCount}, Прибыль: ${tradeMain.totalProfit.toFixed(2)} USDT, Убыток: ${tradeMain.totalLoss.toFixed(2)} USDT <button onclick="resetStatsMain()">Сбросить</button>`;
 
-                if (tradeTest.active) {
-                    const cls = tradeTest.active.direction === 'Лонг' ? 'long' : 'short';
-                    tradeTestDiv.innerHTML = `<strong>Сделка (тест 5m):</strong> ${symbol} (${tradeTest.active.timeframe}) <span class="${cls}">${tradeTest.active.direction}</span> (${rec[tradeTest.active.timeframe]?.confidence || 0}%), Открытие: ${tradeTest.active.entry.toFixed(4)}, Стоп: ${tradeTest.active.stopLoss.toFixed(4)}, Профит: ${tradeTest.active.takeProfit.toFixed(4)}`;
-                    reasoningTestDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec[tradeTest.active.timeframe]?.reasoning || 'Нет данных'}`;
-                } else {
-                    tradeTestDiv.innerHTML = '<strong>Сделка (тест 5m):</strong> Нет';
-                    reasoningTestDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec['5m']?.reasoning || 'Нет активных сделок. Возможные причины: цена не пробила уровни Nadaraya или недостаточная вероятность (>50%).'}`;
-                }
-                statsTestDiv.innerHTML = `<strong>Статистика (тест 5m):</strong> Открыто: ${tradeTest.openCount}, Закрыто: ${tradeTest.closedCount}, Стоп: ${tradeTest.stopCount}, Профит: ${tradeTest.profitCount}, Прибыль: ${tradeTest.totalProfit.toFixed(2)} USDT, Убыток: ${tradeTest.totalLoss.toFixed(2)} USDT <button onclick="resetStatsTest()">Сбросить</button>`;
+                const testTrades = ['5m', '15m'].map(tf => tradeTest[tf] ? `<div><strong>${tf}:</strong> ${symbol} (${tf}) <span class="${tradeTest[tf].direction === 'Лонг' ? 'long' : 'short'}">${tradeTest[tf].direction}</span> (${rec[tf]?.confidence || 0}%), Открытие: ${tradeTest[tf].entry}, Стоп: ${tradeTest[tf].stopLoss}, Профит: ${tradeTest[tf].takeProfit}</div>` : '').filter(Boolean).join('');
+                const testReasoning = ['5m', '15m'].map(tf => tradeTest[tf] ? `<div><strong>${tf}:</strong> Причина открытия: ${tradeTest[tf].reason}</div>` : '').filter(Boolean).join('') || `<strong>Рассуждения ИИ:</strong> ${rec['5m']?.noTradeReasoning || 'Нет активных сделок. Причины: цена внутри канала или недостаточная вероятность.'}`;
+                tradeTestDiv.innerHTML = `<strong>Сделка (тест 5m/15m):</strong> ${testTrades || 'Нет'}`;
+                reasoningTestDiv.innerHTML = testReasoning;
+                statsTestDiv.innerHTML = `<strong>Статистика (тест 5m/15m):</strong> Открыто: ${tradeTest.openCount}, Закрыто: ${tradeTest.closedCount}, Стоп: ${tradeTest.stopCount}, Профит: ${tradeTest.profitCount}, Прибыль: ${tradeTest.totalProfit.toFixed(2)} USDT, Убыток: ${tradeTest.totalLoss.toFixed(2)} USDT <button onclick="resetStatsTest()">Сбросить</button>`;
             }
 
             const selectedCurrency = currencySelect.value;
-            const selectedTimeframe = timeframeSelect.value;
-            if (selectedCurrency === 'all' || selectedTimeframe === 'all') {
+            if (selectedCurrency === 'all') {
                 reasoningTextDiv.innerHTML = data.marketOverview || 'Нет данных о рынке';
             } else {
                 reasoningTextDiv.innerHTML = data.recommendations[selectedCurrency][selectedTimeframe]?.reasoning || 'Нет данных для выбранной валюты и таймфрейма';
             }
 
-            const longPercent = totalCount > 0 ? Math.round(totalLongs / totalCount) : 0;
-            const shortPercent = totalCount > 0 ? Math.round(totalShorts / totalCount) : 0;
+            const longPercent = totalCount > 0 ? Math.round((totalLongs / totalCount) * 100) : 0;
+            const shortPercent = totalCount > 0 ? Math.round((totalShorts / totalCount) * 100) : 0;
             marketMood.style.background = `linear-gradient(to right, green ${longPercent}%, red ${longPercent}%)`;
             marketMood.querySelector('.longs').textContent = `Лонги ${longPercent}%`;
             marketMood.querySelector('.shorts').textContent = `Шорты ${shortPercent}%`;
 
             forecastAIDiv.innerHTML = forecastHtml || '<h2>Прогноз ИИ:</h2> Нет данных';
-            logHtml += (data.aiLogs || []).map(log => `<p>${log}</p>`).join('') || 'Нет записей';
+            logHtml += (data.aiLogs || []).slice(-20).map(log => `<p class="${log.includes('Ошибка') ? 'error' : 'success'}">${log}</p>`).join('') || 'Нет записей';
             logHtml += '</div>';
             aiLogDiv.innerHTML = logHtml;
+            suggestionsHtml += (data.aiSuggestions || []).slice(-10).map(suggestion => `<p>${suggestion}</p>`).join('') || 'Нет записей';
+            suggestionsHtml += '</div>';
+            aiSuggestionsDiv.innerHTML = suggestionsHtml;
 
-            const howItWorks = document.getElementById('howItWorks');
-            if (howItWorks) {
-                const learnings = (data.aiLearnings || []).map((learn, i) => i === data.aiLearnings.length - 1 ? `<span class="new-learning">${learn}</span>` : learn).join('<br>');
-                const mistakes = (data.aiMistakes || []).map((mistake, i) => i === data.aiMistakes.length - 1 ? `<span class="new-mistake">${mistake}</span>` : mistake).join('<br>');
-                howItWorks.innerHTML = howItWorks.innerHTML.split('<strong>Чему научился ИИ:</strong>')[0] +
-                    `<strong>Чему научился ИИ:</strong><br>${learnings || 'Пока нет данных'}<br><br>` +
-                    `<strong>Ошибки ИИ:</strong><br>${mistakes || 'Пока нет данных'}`;
-            }
+            loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
         }
 
         function resetStatsMain() {
@@ -346,6 +334,14 @@
             }
         });
 
+        timeframeSelect.addEventListener('change', (e) => {
+            const checkboxes = timeframeSelect.querySelectorAll('input[name="timeframe"]');
+            checkboxes.forEach(cb => {
+                if (cb !== e.target) cb.checked = false;
+            });
+            updateData();
+        });
+
         const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
         const throttledUpdate = throttle(updateData, 10000);
 
@@ -354,7 +350,6 @@
             updateData();
             setInterval(throttledUpdate, 10000);
             currencySelect.addEventListener('change', updateData);
-            timeframeSelect.addEventListener('change', updateData);
         });
     </script>
 </body>
