@@ -103,7 +103,7 @@ async function updatePricesFallback() {
                 checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
             }
         } catch (error) {
-            console.error(`Ошибка резервного обновления цены для ${symbol}:`, error.message);
+            console.error(`Ошибка резервSkого обновления цены для ${symbol}:`, error.message);
         }
     }
 }
@@ -139,14 +139,16 @@ async function fetchKlines(symbol, timeframe) {
 }
 
 function connectWebSocket() {
-    const ws = new WebSocket('wss://eapi.binance.com/eapi/ws');
+    const ws = new WebSocket('wss://stream.binance.us:9443/ws');
     ws.on('open', () => {
-        console.log('WebSocket сервер запущен (Binance Options)');
-        ws.send(JSON.stringify({
-            method: 'SUBSCRIBE',
-            params: ['AVAXUSDT@ticker'],
-            id: 1
-        }));
+        console.log('WebSocket сервер запущен (Binance.us)');
+        ['ldousdt@ticker', 'avaxusdt@ticker', 'aaveusdt@ticker', 'btcusdt@ticker', 'ethusdt@ticker'].forEach(stream => {
+            ws.send(JSON.stringify({
+                method: 'SUBSCRIBE',
+                params: [stream],
+                id: 1
+            }));
+        });
     });
     ws.on('message', (data) => {
         try {
