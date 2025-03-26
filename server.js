@@ -1,7 +1,6 @@
 const express = require('express');
-const fetch = require('node-fetch');
-const fs = require('fs').promises;
 const WebSocket = require('ws');
+const fs = require('fs').promises;
 const app = express();
 
 app.use(express.static('public'));
@@ -17,6 +16,9 @@ const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = {};
+let klinesByTimeframe = {
+    LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {}
+};
 
 async function loadData() {
     try {
@@ -66,7 +68,7 @@ async function loadData() {
 
 async function saveData() {
     try {
-        const dataToSave = { tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes, learningWeights };
+        const dataToSave = { tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes, learningWeights, klinesByTimeframe };
         await fs.writeFile('trades.json', JSON.stringify(dataToSave, null, 2), 'utf8');
         console.log('Данные сохранены в trades.json');
     } catch (error) {
@@ -76,81 +78,21 @@ async function saveData() {
 
 loadData().then(() => console.log('Сервер готов к работе'));
 
-async function initialPriceLoad() {
-    const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
-    for (const symbol of symbols) {
-        try {
-            const data = await fetchWithRetry(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${symbol}`);
-            lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
-            console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
-        } catch (error) {
-            console.error(`Ошибка начальной загрузки цены для ${symbol}:`, error.message);
-        }
-    }
-}
-initialPriceLoad();
-
-async function updatePricesFallback() {
-    const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
-    for (const symbol of symbols) {
-        try {
-            const data = await fetchWithRetry(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${symbol}`);
-            const newPrice = parseFloat(data.price) || lastPrices[symbol];
-            if (newPrice !== lastPrices[symbol]) {
-                lastPrices[symbol] = newPrice;
-                console.log(`Резервное обновление цены для ${symbol}: ${lastPrices[symbol]}`);
-                await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-                await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
-            }
-        } catch (error) {
-            console.error(`Ошибка резервного обновления цены для ${symbol}:`, error.message);
-        }
-    }
-}
-setInterval(updatePricesFallback, 1000);
-
 function getMoscowTime() { 
     const now = new Date(); 
     return new Date(now.getTime() + 3 * 60 * 60 * 1000).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }); 
-}
-
-async function fetchWithRetry(url, retries = 3, delay = 1000) { 
-    for (let i = 0; i < retries; i++) { 
-        try { 
-            const response = await fetch(url); 
-            if (!response.ok) throw new Error(`HTTP error: ${response.status}`); 
-            return await response.json(); 
-        } catch (error) { 
-            if (i < retries - 1) { 
-                console.log(`Попытка ${i + 1} не удалась: ${error.message}. Повтор через ${delay}мс`); 
-                await new Promise(resolve => setTimeout(resolve, delay)); 
-            } else { 
-                throw error; 
-            } 
-        } 
-    } 
-}
-
-async function fetchKlines(symbol, timeframe) { 
-    try { 
-        return await fetchWithRetry(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
-    } catch (error) { 
-        console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message); 
-        return []; 
-    } 
 }
 
 function connectWebSocket() {
     const ws = new WebSocket('wss://fstream.binance.com/ws');
     ws.on('open', () => {
         console.log('WebSocket сервер запущен (Binance Futures)');
-        const streams = [
-            'ldousdt@ticker', 'ldousdt@markPrice',
-            'avaxusdt@ticker', 'avaxusdt@markPrice',
-            'aaveusdt@ticker', 'aaveusdt@markPrice',
-            'btcusdt@ticker', 'btcusdt@markPrice',
-            'ethusdt@ticker', 'ethusdt@markPrice'
-        ];
+        const symbols = ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'];
+        const streams = [];
+        symbols.forEach(symbol => {
+            streams.push(`${symbol}@ticker`, `${symbol}@markPrice`);
+            TIMEFRAMES.forEach(tf => streams.push(`${symbol}@kline_${tf}`));
+        });
         streams.forEach(stream => {
             ws.send(JSON.stringify({
                 method: 'SUBSCRIBE',
@@ -172,6 +114,26 @@ function connectWebSocket() {
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
+            } else if (msg.e === 'kline' && msg.k) { // Обработка свечей
+                const symbol = msg.s.toUpperCase();
+                const tf = msg.k.i;
+                if (!klinesByTimeframe[symbol][tf]) klinesByTimeframe[symbol][tf] = [];
+                const kline = [
+                    msg.k.t, // Время открытия
+                    msg.k.o, // Цена открытия
+                    msg.k.h, // Максимум
+                    msg.k.l, // Минимум
+                    msg.k.c, // Цена закрытия
+                    msg.k.v  // Объём
+                ];
+                const klineList = klinesByTimeframe[symbol][tf];
+                if (klineList.length && klineList[klineList.length - 1][0] === kline[0]) {
+                    klineList[klineList.length - 1] = kline; // Обновляем последнюю свечу
+                } else {
+                    klineList.push(kline); // Добавляем новую свечу
+                    if (klineList.length > 1000) klineList.shift(); // Ограничиваем до 1000
+                }
+                console.log(`Обновлена свеча через WebSocket для ${symbol} ${tf}`);
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
                 console.log('Отправлен pong в ответ на ping');
@@ -282,11 +244,12 @@ function getLevels(klines) {
     const lows = klines.map(k => parseFloat(k[3])).filter(l => !isNaN(l)); 
     return { resistance: highs.length ? Math.max(...highs) : 0, support: lows.length ? Math.min(...lows) : 0 }; 
 }
-async function checkCorrelation(symbol, klines) { 
+async function checkCorrelation(symbol) { 
+    const klines = klinesByTimeframe[symbol]['5m'] || [];
     try { 
         const last50 = klines.slice(-50).map(k => parseFloat(k[4])); 
-        const btcKlines = await fetchKlines('BTCUSDT', '5m'); 
-        const ethKlines = await fetchKlines('ETHUSDT', '5m'); 
+        const btcKlines = klinesByTimeframe['BTCUSDT']['5m'] || [];
+        const ethKlines = klinesByTimeframe['ETHUSDT']['5m'] || [];
         const btcLast50 = btcKlines.slice(-50).map(k => parseFloat(k[4])); 
         const ethLast50 = ethKlines.slice(-50).map(k => parseFloat(k[4])); 
         const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500); 
@@ -304,7 +267,6 @@ function checkAccumulation(klines) {
     const priceRange = last10.length ? Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))) : 0;
     return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005; 
 }
-
 function detectFlat(klines, nw) {
     const lows = []; 
     const highs = [];
@@ -393,13 +355,13 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
     } 
 }
 
-async function aiTradeDecision(symbol, klinesByTimeframe) {
+async function aiTradeDecision(symbol) {
     const price = lastPrices[symbol] || 0;
     let recommendations = {};
     const btcPrice = lastPrices['BTCUSDT'];
     const ethPrice = lastPrices['ETHUSDT'];
     for (const tf of TIMEFRAMES) {
-        const klines = klinesByTimeframe[tf] || [];
+        const klines = klinesByTimeframe[symbol][tf] || [];
         const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
         const nw = closes.length > 1 ? calculateNadarayaWatsonEnvelope(closes) : { upper: price * 1.05, lower: price * 0.95, smooth: price };
         const volume = klines.length > 1 ? calculateVolume(klines) : 0;
@@ -417,7 +379,7 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
         const levels = getLevels(klines);
         const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'вверх' : 'вниз';
         const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
-        const lowBtcEthCorr = await checkCorrelation(symbol, klines);
+        const lowBtcEthCorr = await checkCorrelation(symbol);
         const accumulation = checkAccumulation(klines);
         const outsideChannel = price > nw.upper || price < nw.lower;
         const touchesBoundary = price >= nw.upper || price <= nw.lower;
@@ -491,15 +453,9 @@ async function aiTradeDecision(symbol, klinesByTimeframe) {
 app.get('/data', async (req, res) => { 
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT']; 
     let recommendations = {}; 
-    let allKlines = {}; 
     try { 
         for (const symbol of symbols) { 
-            let klinesByTimeframe = {}; 
-            for (const tf of TIMEFRAMES) { 
-                klinesByTimeframe[tf] = await fetchKlines(symbol, tf); 
-            } 
-            recommendations[symbol] = await aiTradeDecision(symbol, klinesByTimeframe); 
-            allKlines[symbol] = klinesByTimeframe; 
+            recommendations[symbol] = await aiTradeDecision(symbol); 
             console.log(`Рекомендации для ${symbol}:`, recommendations[symbol]); 
         } 
 
@@ -584,7 +540,7 @@ app.get('/data', async (req, res) => {
         symbols.forEach(symbol => { 
             TIMEFRAMES.forEach(tf => { 
                 const rec = recommendations[symbol][tf]; 
-                totalVolatility += calculateVolatility(allKlines[symbol][tf] || []); 
+                totalVolatility += calculateVolatility(klinesByTimeframe[symbol][tf] || []); 
                 totalVolume += rec.volume || 0; 
                 if (rec.trend === 'вверх') trendCount.up++; 
                 else if (rec.trend === 'вниз') trendCount.down++; 
