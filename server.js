@@ -165,7 +165,7 @@ function connectWebSocket() {
             const msg = JSON.parse(data);
             if (msg.s && (msg.c || msg.p)) { // c для @ticker, p для @markPrice
                 const symbol = msg.s.toUpperCase();
-                const newPrice = parseFloat(msg.c || msg.p); // Используем c или p
+                const newPrice = parseFloat(msg.c || msg.p);
                 if (newPrice !== lastPrices[symbol]) {
                     lastPrices[symbol] = newPrice;
                     console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]} (${msg.c ? '@ticker' : '@markPrice'})`);
@@ -304,6 +304,7 @@ function checkAccumulation(klines) {
     const priceRange = last10.length ? Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))) : 0;
     return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005; 
 }
+
 function detectFlat(klines, nw) {
     const lows = []; 
     const highs = [];
