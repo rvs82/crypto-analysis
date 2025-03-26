@@ -83,7 +83,7 @@ async function initialPriceLoad() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`); // Переключение на Binance.com
             lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
             console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
         } catch (error) {
@@ -92,6 +92,26 @@ async function initialPriceLoad() {
     }
 }
 initialPriceLoad();
+
+// Резервное обновление цен через HTTP каждые 5 секунд
+async function updatePricesFallback() {
+    const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
+    for (const symbol of symbols) {
+        try {
+            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const newPrice = parseFloat(data.price) || lastPrices[symbol];
+            if (newPrice !== lastPrices[symbol]) {
+                lastPrices[symbol] = newPrice;
+                console.log(`Резервное обновление цены для ${symbol}: ${lastPrices[symbol]}`);
+                checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+            }
+        } catch (error) {
+            console.error(`Ошибка резервного обновления цены для ${symbol}:`, error.message);
+        }
+    }
+}
+setInterval(updatePricesFallback, 5000);
 
 function getMoscowTime() { 
     const now = new Date(); 
@@ -115,17 +135,17 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
 }
 async function fetchKlines(symbol, timeframe) { 
     try { 
-        return await fetchWithRetry(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`); 
+        return await fetchWithRetry(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`); // Переключение на Binance.com
     } catch (error) { 
         console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message); 
         return []; 
     } 
 }
 
-// WebSocket для цен в реальном времени
-const ws = new WebSocket('wss://stream.binance.us:9443/ws');
+// WebSocket для цен в реальном времени с Binance.com
+const ws = new WebSocket('wss://stream.binance.com:9443/ws');
 ws.on('open', () => {
-    console.log('WebSocket сервер запущен');
+    console.log('WebSocket сервер запущен (Binance.com)');
     ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
         ws.send(JSON.stringify({
             method: 'SUBSCRIBE',
@@ -135,13 +155,17 @@ ws.on('open', () => {
     });
 });
 ws.on('message', (data) => {
-    const msg = JSON.parse(data);
-    if (msg.s && msg.c) {
-        const symbol = msg.s.toUpperCase();
-        lastPrices[symbol] = parseFloat(msg.c);
-        console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
-        checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-        checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+    try {
+        const msg = JSON.parse(data);
+        if (msg.s && msg.c) {
+            const symbol = msg.s.toUpperCase();
+            lastPrices[symbol] = parseFloat(msg.c);
+            console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]}`);
+            checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+            checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+        }
+    } catch (error) {
+        console.error('Ошибка обработки WebSocket-сообщения:', error.message);
     }
 });
 ws.on('error', (error) => console.error('WebSocket ошибка:', error));
