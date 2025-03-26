@@ -99,8 +99,8 @@ async function updatePricesFallback() {
             if (newPrice !== lastPrices[symbol]) {
                 lastPrices[symbol] = newPrice;
                 console.log(`Резервное обновление цены для ${symbol}: ${lastPrices[symbol]}`);
-                checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-                checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+                await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
             }
         } catch (error) {
             console.error(`Ошибка резервного обновления цены для ${symbol}:`, error.message);
@@ -313,6 +313,74 @@ function detectFlat(klines, nw) {
     const nwChange = Math.abs(nw.upper - nw.lower - (klines[klines.length - 50]?.[4] - klines[klines.length - 50]?.[3] || 0)) / nw.upper;
     const isFlat = nwChange < 0.005;
     return { isFlat, flatLow, flatHigh };
+}
+
+async function checkTradeStatus(symbol, currentPrice, trades) { 
+    const tradeData = trades[symbol]; 
+    if (tradeData && tradeData.active) { 
+        const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active; 
+        if (direction === 'Лонг') { 
+            if (currentPrice <= stopLoss) { 
+                const loss = TRADE_AMOUNT * (entry - stopLoss) / entry; 
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2; 
+                tradeData.totalLoss += loss + commission; 
+                tradeData.stopCount++; 
+                tradeData.closedCount++; 
+                tradeData.openCount--; 
+                learningWeights[symbol].distance *= 0.95; 
+                learningWeights[symbol].volume *= 0.95; 
+                aiLogs.push(`${getMoscowTime()} | ${symbol} ${timeframe} Лонг | Убыток -${(loss + commission).toFixed(2)} USDT | Цена упала до ${currentPrice.toFixed(4)}, стоп-лосс ${stopLoss.toFixed(4)}. Снижаю вес расстояния и объёмов.`); 
+                aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Лонг не сработал. Цена ${currentPrice.toFixed(4)} не удержалась выше ${stopLoss.toFixed(4)}. Вывод: слабый сигнал.`); 
+                if (aiLogs.length > 10) aiLogs.shift(); 
+                tradeData.active = null; 
+                await saveData();
+            } else if (currentPrice >= takeProfit) { 
+                const profit = TRADE_AMOUNT * (takeProfit - entry) / entry; 
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2; 
+                tradeData.totalProfit += profit - commission; 
+                tradeData.profitCount++; 
+                tradeData.closedCount++; 
+                tradeData.openCount--; 
+                learningWeights[symbol].distance *= 1.05; 
+                learningWeights[symbol].volume *= 1.05; 
+                aiLogs.push(`${getMoscowTime()} | ${symbol} ${timeframe} Лонг | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена выросла до ${currentPrice.toFixed(4)}, профит ${takeProfit.toFixed(4)}. Повышаю вес расстояния и объёмов.`); 
+                aiLearnings.push(`Успех: ${symbol} ${timeframe} Лонг сработал. Цена ${currentPrice.toFixed(4)} достигла ${takeProfit.toFixed(4)}. Вывод: точный сигнал.`); 
+                if (aiLogs.length > 10) aiLogs.shift(); 
+                tradeData.active = null; 
+                await saveData();
+            } 
+        } else if (direction === 'Шорт') { 
+            if (currentPrice >= stopLoss) { 
+                const loss = TRADE_AMOUNT * (stopLoss - entry) / entry; 
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2; 
+                tradeData.totalLoss += loss + commission; 
+                tradeData.stopCount++; 
+                tradeData.closedCount++; 
+                tradeData.openCount--; 
+                learningWeights[symbol].distance *= 0.95; 
+                learningWeights[symbol].volume *= 0.95; 
+                aiLogs.push(`${getMoscowTime()} | ${symbol} ${timeframe} Шорт | Убыток -${(loss + commission).toFixed(2)} USDT | Цена выросла до ${currentPrice.toFixed(4)}, стоп-лосс ${stopLoss.toFixed(4)}. Снижаю вес расстояния и объёмов.`); 
+                aiMistakes.push(`Ошибка: ${symbol} ${timeframe} Шорт не сработал. Цена ${currentPrice.toFixed(4)} превысила ${stopLoss.toFixed(4)}. Вывод: ложный сигнал.`); 
+                if (aiLogs.length > 10) aiLogs.shift(); 
+                tradeData.active = null; 
+                await saveData();
+            } else if (currentPrice <= takeProfit) { 
+                const profit = TRADE_AMOUNT * (entry - takeProfit) / entry; 
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2; 
+                tradeData.totalProfit += profit - commission; 
+                tradeData.profitCount++; 
+                tradeData.closedCount++; 
+                tradeData.openCount--; 
+                learningWeights[symbol].distance *= 1.05; 
+                learningWeights[symbol].volume *= 1.05; 
+                aiLogs.push(`${getMoscowTime()} | ${symbol} ${timeframe} Шорт | Прибыль +${(profit - commission).toFixed(2)} USDT | Цена упала до ${currentPrice.toFixed(4)}, профит ${takeProfit.toFixed(4)}. Повышаю вес расстояния и объёмов.`); 
+                aiLearnings.push(`Успех: ${symbol} ${timeframe} Шорт сработал. Цена ${currentPrice.toFixed(4)} достигла ${takeProfit.toFixed(4)}. Вывод: точный сигнал.`); 
+                if (aiLogs.length > 10) aiLogs.shift(); 
+                tradeData.active = null; 
+                await saveData();
+            } 
+        } 
+    } 
 }
 
 async function aiTradeDecision(symbol, klinesByTimeframe) {
