@@ -98,7 +98,7 @@ function connectWebSocket() {
         const symbols = ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'];
         const streams = [];
         symbols.forEach(symbol => {
-            streams.push(`${symbol}@ticker`, `${symbol}@kline_5m`); // Ограничиваемся 5m для стабильности
+            streams.push(`${symbol}@ticker`, `${symbol}@kline_5m`);
         });
         streams.forEach(stream => {
             ws.send(JSON.stringify({
@@ -136,16 +136,14 @@ function connectWebSocket() {
                 const klineList = klinesByTimeframe[symbol][tf];
                 const existingIndex = klineList.findIndex(k => k[0] === kline[0]);
                 if (existingIndex >= 0) {
-                    klineList[existingIndex] = kline; // Обновляем существующую свечу
+                    klineList[existingIndex] = kline;
                 } else {
-                    klineList.push(kline); // Добавляем новую свечу
-                    if (klineList.length > 1000) klineList.shift(); // Ограничиваем до 1000
+                    klineList.push(kline);
+                    if (klineList.length > 1000) klineList.shift();
                 }
                 console.log(`Обновлена свеча через WebSocket для ${symbol} ${tf}`);
-                // Экстраполируем для других таймфреймов
                 TIMEFRAMES.filter(t => t !== '5m').forEach(tf => {
-                    const baseKlines = klinesByTimeframe[symbol]['5m'];
-                    klinesByTimeframe[symbol][tf] = aggregateKlines(baseKlines, tf);
+                    klinesByTimeframe[symbol][tf] = aggregateKlines(klinesByTimeframe[symbol]['5m'], tf);
                 });
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
@@ -180,21 +178,22 @@ function aggregateKlines(baseKlines, targetTimeframe) {
         if (start !== currentStart) {
             if (currentKline) aggregated.push(currentKline);
             currentStart = start;
-            currentKline = [start, kline[1], kline[2], kline[3], kline[4], kline[5]];
+            currentKline = [start, kline[1], kline[2], kline[3], kline[4], parseFloat(kline[5])];
         } else {
-            currentKline[2] = Math.max(currentKline[2], kline[2]); // High
-            currentKline[3] = Math.min(currentKline[3], kline[3]); // Low
+            currentKline[2] = Math.max(parseFloat(currentKline[2]), parseFloat(kline[2])); // High
+            currentKline[3] = Math.min(parseFloat(currentKline[3]), parseFloat(kline[3])); // Low
             currentKline[4] = kline[4]; // Close
-            currentKline[5] = parseFloat(currentKline[5]) + parseFloat(kline[5]); // Volume
+            currentKline[5] += parseFloat(kline[5]); // Volume
         }
     });
     if (currentKline) aggregated.push(currentKline);
-    return aggregated.slice(-1000); // Ограничиваем до 1000
+    return aggregated.slice(-1000);
 }
 
 function gauss(x, h) { return Math.exp(-(Math.pow(x, 2) / (h * h * 2))); }
 function calculateNadarayaWatsonEnvelope(closes) { 
     const n = closes.length; 
+    if (n < 2) return { upper: closes[0] * 1.05, lower: closes[0] * 0.95, smooth: closes[0] };
     let smooth = 0, sumWeights = 0;
     for (let j = 0; j < Math.min(499, n - 1); j++) { 
         const w = gauss(0 - j, 8); 
@@ -250,8 +249,8 @@ function calculateFibonacci(klines) {
 }
 function getTrend(klines) { 
     const last50 = klines.slice(-50).map(k => parseFloat(k[4])); 
-    const avgStart = last50.slice(0, 5).reduce((a, b) => a + b, 0) / 5; 
-    const avgEnd = last50.slice(-5).reduce((a, b) => a + b, 0) / 5; 
+    const avgStart = last50.slice(0, 5).reduce((a, b) => a + b, 0) / 5 || last50[0]; 
+    const avgEnd = last50.slice(-5).reduce((a, b) => a + b, 0) / 5 || last50[last50.length - 1]; 
     return avgEnd > avgStart ? 'вверх' : avgEnd < avgStart ? 'вниз' : 'боковик'; 
 }
 function getWick(klines) { 
@@ -400,8 +399,8 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
 async function aiTradeDecision(symbol) {
     const price = lastPrices[symbol] || 0;
     let recommendations = {};
-    const btcPrice = lastPrices['BTCUSDT'];
-    const ethPrice = lastPrices['ETHUSDT'];
+    const btcPrice = lastPrices['BTCUSDT'] || 0;
+    const ethPrice = lastPrices['ETHUSDT'] || 0;
     for (const tf of TIMEFRAMES) {
         const klines = klinesByTimeframe[symbol][tf] || [];
         const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
@@ -448,7 +447,6 @@ async function aiTradeDecision(symbol) {
             } else {
                 learningWeights[symbol].btcEth *= 0.95;
                 aiLearnings.push(`${getMoscowTime()}: ${symbol} ${tf} — Низкая корреляция с BTC/ETH, уменьшил их вес до ${learningWeights[symbol].btcEth.toFixed(2)}.`);
-                await saveData();
             }
             if (trend === 'вверх' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
             if (trend === 'вниз' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
@@ -464,9 +462,36 @@ async function aiTradeDecision(symbol) {
             if (isFlat && Math.abs(nw.lower - flatLow) < flatLow * 0.01 && Math.abs(nw.upper - flatHigh) < flatHigh * 0.01) {
                 confidence += 10 * learningWeights[symbol].flat;
                 aiLearnings.push(`${getMoscowTime()}: ${symbol} ${tf} — Совпадение границ Nadaraya и боковика усиливает сигнал (+10% к confidence).`);
-                await saveData();
             }
             confidence = Math.min(100, Math.round(confidence));
+
+            // Открытие сделок
+            if (confidence >= 50 && outsideChannel) {
+                if (!tradesMain[symbol].active) {
+                    tradesMain[symbol].active = { 
+                        direction, 
+                        entry: price, 
+                        stopLoss: direction === 'Лонг' ? price * 0.995 : price * 1.005, 
+                        takeProfit: direction === 'Лонг' ? price * 1.01 : price * 0.99, 
+                        timeframe: tf 
+                    };
+                    tradesMain[symbol].openCount++;
+                    aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${direction} | Открыта сделка с уверенностью ${confidence}%. Условия выполнены: пробой канала, цена ${price.toFixed(4)}.`);
+                    console.log('Открыта основная сделка:', tradesMain[symbol]);
+                }
+                if (tf === '5m' && !tradesTest[symbol].active) {
+                    tradesTest[symbol].active = { 
+                        direction, 
+                        entry: price, 
+                        stopLoss: direction === 'Лонг' ? price * 0.995 : price * 1.005, 
+                        takeProfit: direction === 'Лонг' ? price * 1.01 : price * 0.99, 
+                        timeframe: tf 
+                    };
+                    tradesTest[symbol].openCount++;
+                    aiLogs.push(`${getMoscowTime()} | ${symbol} 5m ${direction} | Открыта тестовая сделка с уверенностью ${confidence}%. Условия выполнены: пробой канала, цена ${price.toFixed(4)}.`);
+                    console.log('Открыта тестовая сделка:', tradesTest[symbol]);
+                }
+            }
         }
 
         const market = isFlat ? 'Флет' : outsideChannel ? (price > nw.upper ? 'Восходящий' : 'Нисходящий') : 'Флет';
@@ -489,6 +514,7 @@ async function aiTradeDecision(symbol) {
         recommendations[tf] = { direction, confidence, outsideChannel, touchesBoundary, entry, stopLoss, takeProfit, market, trend, pivot: nw.smooth, reasoning, shortReasoning, forecast, isFlat };
     }
     lastRecommendations[symbol] = recommendations;
+    await saveData();
     return recommendations;
 }
 
@@ -501,101 +527,27 @@ app.get('/data', async (req, res) => {
             console.log(`Рекомендации для ${symbol}:`, recommendations[symbol]); 
         } 
 
-        let activeTradeSymbolMain = null; 
-        for (const s in tradesMain) { 
-            if (tradesMain[s].active) { 
-                activeTradeSymbolMain = s; 
-                break; 
-            } 
-        } 
-
-        if (!activeTradeSymbolMain) { 
-            let bestTrade = null; 
-            for (const sym of symbols) { 
-                for (const tf of TIMEFRAMES) { 
-                    const rec = recommendations[sym][tf]; 
-                    if (rec.direction !== 'Нет' && rec.confidence >= 50 && rec.outsideChannel) { 
-                        if (!bestTrade || rec.confidence > bestTrade.confidence) { 
-                            bestTrade = { symbol: sym, timeframe: tf, ...rec }; 
-                        } 
-                    } 
-                } 
-            } 
-            if (bestTrade) { 
-                tradesMain[bestTrade.symbol].active = { 
-                    direction: bestTrade.direction, 
-                    entry: bestTrade.entry, 
-                    stopLoss: bestTrade.stopLoss, 
-                    takeProfit: bestTrade.takeProfit, 
-                    timeframe: bestTrade.timeframe 
-                }; 
-                tradesMain[bestTrade.symbol].openCount++; 
-                aiLogs.push(`${getMoscowTime()} | ${bestTrade.symbol} ${bestTrade.timeframe} ${bestTrade.direction} | Открыта сделка с уверенностью ${bestTrade.confidence}%. Условия выполнены: пробой канала, цена ${bestTrade.entry.toFixed(4)}.`); 
-                console.log('Открыта основная сделка:', tradesMain[bestTrade.symbol]); 
-                await saveData();
-            } else { 
-                aiLogs.push(`${getMoscowTime()} | Нет сделок | Условия не выполнены: нет сигнала с уверенностью >= 50% и пробоем канала.`); 
-            } 
-            if (aiLogs.length > 10) aiLogs.shift(); 
-        } 
-
-        let activeTradeSymbolTest = null; 
-        for (const s in tradesTest) { 
-            if (tradesTest[s].active) { 
-                activeTradeSymbolTest = s; 
-                break; 
-            } 
-        } 
-
-        if (!activeTradeSymbolTest) { 
-            let bestTrade = null; 
-            for (const sym of symbols) { 
-                const rec = recommendations[sym]['5m']; 
-                if (rec.direction !== 'Нет' && rec.confidence >= 50 && rec.outsideChannel) { 
-                    if (!bestTrade || rec.confidence > bestTrade.confidence) { 
-                        bestTrade = { symbol: sym, timeframe: '5m', ...rec }; 
-                    } 
-                } 
-            } 
-            if (bestTrade) { 
-                tradesTest[bestTrade.symbol].active = { 
-                    direction: bestTrade.direction, 
-                    entry: bestTrade.entry, 
-                    stopLoss: bestTrade.stopLoss, 
-                    takeProfit: bestTrade.takeProfit, 
-                    timeframe: bestTrade.timeframe 
-                }; 
-                tradesTest[bestTrade.symbol].openCount++; 
-                aiLogs.push(`${getMoscowTime()} | ${bestTrade.symbol} 5m ${bestTrade.direction} | Открыта тестовая сделка с уверенностью ${bestTrade.confidence}%. Условия выполнены: пробой канала, цена ${bestTrade.entry.toFixed(4)}.`); 
-                console.log('Открыта тестовая сделка:', tradesTest[bestTrade.symbol]); 
-                await saveData();
-            } else { 
-                aiLogs.push(`${getMoscowTime()} | Нет тестовых сделок (5m) | Условия не выполнены: нет сигнала с уверенностью >= 50% и пробоем канала.`); 
-            } 
-            if (aiLogs.length > 10) aiLogs.shift(); 
-        } 
-
-        let marketOverview = ''; 
-        let totalVolatility = 0; 
-        let totalVolume = 0; 
-        let trendCount = { up: 0, down: 0, flat: 0 }; 
-        symbols.forEach(symbol => { 
-            TIMEFRAMES.forEach(tf => { 
-                const rec = recommendations[symbol][tf]; 
-                totalVolatility += calculateVolatility(klinesByTimeframe[symbol][tf] || []); 
-                totalVolume += rec.volume || 0; 
-                if (rec.trend === 'вверх') trendCount.up++; 
-                else if (rec.trend === 'вниз') trendCount.down++; 
-                else trendCount.flat++; 
-            }); 
-        }); 
-        const avgVolatility = totalVolatility / (symbols.length * TIMEFRAMES.length); 
-        const avgVolume = totalVolume / (symbols.length * TIMEFRAMES.length); 
+        let marketOverview = '';
+        let totalVolatility = 0;
+        let totalVolume = 0;
+        let trendCount = { up: 0, down: 0, flat: 0 };
+        symbols.forEach(symbol => {
+            TIMEFRAMES.forEach(tf => {
+                const rec = recommendations[symbol][tf];
+                totalVolatility += calculateVolatility(klinesByTimeframe[symbol][tf] || []);
+                totalVolume += rec.volume || 0;
+                if (rec.trend === 'вверх') trendCount.up++;
+                else if (rec.trend === 'вниз') trendCount.down++;
+                else trendCount.flat++;
+            });
+        });
+        const avgVolatility = totalVolatility / (symbols.length * TIMEFRAMES.length);
+        const avgVolume = totalVolume / (symbols.length * TIMEFRAMES.length);
         const dominantTrend = trendCount.up > trendCount.down && trendCount.up > trendCount.flat ? 'восходящий' : 
-                             trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'нисходящий' : 'боковой'; 
-        marketOverview = `На данный момент рынок в целом демонстрирует ${dominantTrend} характер. Средняя волатильность составляет ${avgVolatility.toFixed(4)}, что указывает на ${avgVolatility > 0.01 * (lastPrices[symbols[0]] || 0) ? 'высокую активность' : 'спокойствие'}. Объёмы торгов в среднем ${avgVolume.toFixed(2)}, что говорит о ${avgVolume > 0 ? 'преобладании покупателей' : 'преобладании продавцов или равновесии'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`; 
+                             trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'нисходящий' : 'боковой';
+        marketOverview = `На данный момент рынок в целом демонстрирует ${dominantTrend} характер. Средняя волатильность составляет ${avgVolatility.toFixed(4)}, что указывает на ${avgVolatility > 0.01 * (lastPrices[symbols[0]] || 0) ? 'высокую активность' : 'спокойствие'}. Объёмы торгов в среднем ${avgVolume.toFixed(2)}, что говорит о ${avgVolume > 0 ? 'преобладании покупателей' : 'преобладании продавцов или равновесии'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
 
-        res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes, marketOverview }); 
+        res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiLearnings, aiMistakes, marketOverview });
     } catch (error) { 
         console.error('Ошибка /data:', error); 
         res.status(500).json({ error: 'Ошибка сервера', details: error.message }); 
