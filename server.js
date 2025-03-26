@@ -16,9 +16,7 @@ const BINANCE_FEE = 0.001;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = {};
-let klinesByTimeframe = {
-    LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {}
-};
+let klinesByTimeframe = { LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {} };
 
 async function loadData() {
     try {
@@ -42,6 +40,12 @@ async function loadData() {
             AVAXUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 }, 
             AAVEUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 } 
         };
+        klinesByTimeframe = parsed.klinesByTimeframe || { LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {} };
+        TIMEFRAMES.forEach(tf => {
+            Object.keys(klinesByTimeframe).forEach(symbol => {
+                if (!klinesByTimeframe[symbol][tf]) klinesByTimeframe[symbol][tf] = [];
+            });
+        });
         console.log('Данные загружены из trades.json');
     } catch (error) {
         console.log('Нет сохранённых данных или ошибка загрузки:', error.message);
@@ -63,6 +67,10 @@ async function loadData() {
             AVAXUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 }, 
             AAVEUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 } 
         };
+        klinesByTimeframe = { LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {} };
+        TIMEFRAMES.forEach(tf => {
+            Object.keys(klinesByTimeframe).forEach(symbol => klinesByTimeframe[symbol][tf] = []);
+        });
     }
 }
 
@@ -90,8 +98,7 @@ function connectWebSocket() {
         const symbols = ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'];
         const streams = [];
         symbols.forEach(symbol => {
-            streams.push(`${symbol}@ticker`, `${symbol}@markPrice`);
-            TIMEFRAMES.forEach(tf => streams.push(`${symbol}@kline_${tf}`));
+            streams.push(`${symbol}@ticker`, `${symbol}@kline_5m`); // Ограничиваемся 5m для стабильности
         });
         streams.forEach(stream => {
             ws.send(JSON.stringify({
@@ -105,16 +112,16 @@ function connectWebSocket() {
     ws.on('message', async (data) => {
         try {
             const msg = JSON.parse(data);
-            if (msg.s && (msg.c || msg.p)) { // c для @ticker, p для @markPrice
+            if (msg.s && msg.c) { // @ticker
                 const symbol = msg.s.toUpperCase();
-                const newPrice = parseFloat(msg.c || msg.p);
+                const newPrice = parseFloat(msg.c);
                 if (newPrice !== lastPrices[symbol]) {
                     lastPrices[symbol] = newPrice;
-                    console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]} (${msg.c ? '@ticker' : '@markPrice'})`);
+                    console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]} (@ticker)`);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
-            } else if (msg.e === 'kline' && msg.k) { // Обработка свечей
+            } else if (msg.e === 'kline' && msg.k) { // @kline_5m
                 const symbol = msg.s.toUpperCase();
                 const tf = msg.k.i;
                 if (!klinesByTimeframe[symbol][tf]) klinesByTimeframe[symbol][tf] = [];
@@ -127,13 +134,19 @@ function connectWebSocket() {
                     msg.k.v  // Объём
                 ];
                 const klineList = klinesByTimeframe[symbol][tf];
-                if (klineList.length && klineList[klineList.length - 1][0] === kline[0]) {
-                    klineList[klineList.length - 1] = kline; // Обновляем последнюю свечу
+                const existingIndex = klineList.findIndex(k => k[0] === kline[0]);
+                if (existingIndex >= 0) {
+                    klineList[existingIndex] = kline; // Обновляем существующую свечу
                 } else {
                     klineList.push(kline); // Добавляем новую свечу
                     if (klineList.length > 1000) klineList.shift(); // Ограничиваем до 1000
                 }
                 console.log(`Обновлена свеча через WebSocket для ${symbol} ${tf}`);
+                // Экстраполируем для других таймфреймов
+                TIMEFRAMES.filter(t => t !== '5m').forEach(tf => {
+                    const baseKlines = klinesByTimeframe[symbol]['5m'];
+                    klinesByTimeframe[symbol][tf] = aggregateKlines(baseKlines, tf);
+                });
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
                 console.log('Отправлен pong в ответ на ping');
@@ -149,6 +162,35 @@ function connectWebSocket() {
     });
 }
 connectWebSocket();
+
+function aggregateKlines(baseKlines, targetTimeframe) {
+    const timeframeMs = {
+        '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000, '30m': 30 * 60 * 1000,
+        '1h': 60 * 60 * 1000, '4h': 4 * 60 * 60 * 1000, '1d': 24 * 60 * 60 * 1000,
+        '1w': 7 * 24 * 60 * 60 * 1000
+    };
+    const targetMs = timeframeMs[targetTimeframe];
+    const aggregated = [];
+    let currentStart = null;
+    let currentKline = null;
+
+    baseKlines.forEach(kline => {
+        const timestamp = kline[0];
+        const start = Math.floor(timestamp / targetMs) * targetMs;
+        if (start !== currentStart) {
+            if (currentKline) aggregated.push(currentKline);
+            currentStart = start;
+            currentKline = [start, kline[1], kline[2], kline[3], kline[4], kline[5]];
+        } else {
+            currentKline[2] = Math.max(currentKline[2], kline[2]); // High
+            currentKline[3] = Math.min(currentKline[3], kline[3]); // Low
+            currentKline[4] = kline[4]; // Close
+            currentKline[5] = parseFloat(currentKline[5]) + parseFloat(kline[5]); // Volume
+        }
+    });
+    if (currentKline) aggregated.push(currentKline);
+    return aggregated.slice(-1000); // Ограничиваем до 1000
+}
 
 function gauss(x, h) { return Math.exp(-(Math.pow(x, 2) / (h * h * 2))); }
 function calculateNadarayaWatsonEnvelope(closes) { 
