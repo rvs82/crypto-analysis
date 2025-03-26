@@ -80,7 +80,7 @@ async function initialPriceLoad() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
             lastPrices[symbol] = parseFloat(data.price) || lastPrices[symbol];
             console.log(`Начальная цена для ${symbol}: ${lastPrices[symbol]}`);
         } catch (error) {
@@ -94,7 +94,7 @@ async function updatePricesFallback() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
         try {
-            const data = await fetchWithRetry(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await fetchWithRetry(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
             const newPrice = parseFloat(data.price) || lastPrices[symbol];
             if (newPrice !== lastPrices[symbol]) {
                 lastPrices[symbol] = newPrice;
@@ -113,6 +113,7 @@ function getMoscowTime() {
     const now = new Date(); 
     return new Date(now.getTime() + 3 * 60 * 60 * 1000).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }); 
 }
+
 async function fetchWithRetry(url, retries = 3, delay = 1000) { 
     for (let i = 0; i < retries; i++) { 
         try { 
@@ -129,9 +130,10 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
         } 
     } 
 }
+
 async function fetchKlines(symbol, timeframe) { 
     try { 
-        return await fetchWithRetry(`https://api.binance.us/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
+        return await fetchWithRetry(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=1000`);
     } catch (error) { 
         console.error(`Ошибка свечей ${symbol} ${timeframe}:`, error.message); 
         return []; 
@@ -139,9 +141,9 @@ async function fetchKlines(symbol, timeframe) {
 }
 
 function connectWebSocket() {
-    const ws = new WebSocket('wss://stream.binance.us:9443/ws');
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws');
     ws.on('open', () => {
-        console.log('WebSocket сервер запущен (Binance.us)');
+        console.log('WebSocket сервер запущен (Binance.com)');
         const streams = ['ldousdt@ticker', 'avaxusdt@ticker', 'aaveusdt@ticker', 'btcusdt@ticker', 'ethusdt@ticker'];
         streams.forEach(stream => {
             ws.send(JSON.stringify({
@@ -164,14 +166,12 @@ function connectWebSocket() {
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
-            } else {
-                console.log('Получено сообщение без цены:', msg);
             }
         } catch (error) {
             console.error('Ошибка обработки WebSocket-сообщения:', error.message);
         }
     });
-    ws.on('error', (error) => console.error('WebSocket ошибка:', error));
+    ws.on('error', (error) => console.error('WebSocket ошибка:', error.message));
     ws.on('close', () => {
         console.log('WebSocket закрыт, переподключение через 1 секунду...');
         setTimeout(connectWebSocket, 1000);
@@ -182,8 +182,7 @@ connectWebSocket();
 function gauss(x, h) { return Math.exp(-(Math.pow(x, 2) / (h * h * 2))); }
 function calculateNadarayaWatsonEnvelope(closes) { 
     const n = closes.length; 
-    let smooth = 0; 
-    let sumWeights = 0; 
+    let smooth = 0, sumWeights = 0;
     for (let j = 0; j < Math.min(499, n - 1); j++) { 
         const w = gauss(0 - j, 8); 
         sumWeights += w; 
@@ -192,8 +191,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
     smooth /= sumWeights; 
     let sae = 0; 
     for (let i = 0; i < Math.min(499, n - 1); i++) { 
-        let sum = 0; 
-        let sumw = 0; 
+        let sum = 0, sumw = 0; 
         for (let j = 0; j < Math.min(499, n - 1); j++) { 
             const w = gauss(i - j, 8); 
             sum += closes[n - 1 - j] * w; 
@@ -297,7 +295,6 @@ function checkAccumulation(klines) {
     const priceRange = last10.length ? Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))) : 0;
     return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005; 
 }
-
 function detectFlat(klines, nw) {
     const lows = []; 
     const highs = [];
