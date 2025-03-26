@@ -18,7 +18,6 @@ const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = {};
 
-// Загрузка данных из файла при старте
 async function loadData() {
     try {
         const data = await fs.readFile('trades.json', 'utf8');
@@ -75,10 +74,8 @@ async function saveData() {
     }
 }
 
-// Загрузка данных при старте
 loadData().then(() => console.log('Сервер готов к работе'));
 
-// Начальная загрузка цен через HTTP (Binance.us)
 async function initialPriceLoad() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
@@ -93,7 +90,6 @@ async function initialPriceLoad() {
 }
 initialPriceLoad();
 
-// Резервное обновление цен через HTTP каждые 5 секунд (Binance.us)
 async function updatePricesFallback() {
     const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT', 'BTCUSDT', 'ETHUSDT'];
     for (const symbol of symbols) {
@@ -142,18 +138,15 @@ async function fetchKlines(symbol, timeframe) {
     } 
 }
 
-// WebSocket для цен в реальном времени с Binance.com
 function connectWebSocket() {
-    const ws = new WebSocket('wss://stream.binance.com:9443/ws');
+    const ws = new WebSocket('wss://eapi.binance.com/eapi/ws');
     ws.on('open', () => {
-        console.log('WebSocket сервер запущен (Binance.com)');
-        ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'].forEach(symbol => {
-            ws.send(JSON.stringify({
-                method: 'SUBSCRIBE',
-                params: [`${symbol}@ticker`],
-                id: 1
-            }));
-        });
+        console.log('WebSocket сервер запущен (Binance Options)');
+        ws.send(JSON.stringify({
+            method: 'SUBSCRIBE',
+            params: ['AVAXUSDT@ticker'],
+            id: 1
+        }));
     });
     ws.on('message', (data) => {
         try {
@@ -172,7 +165,7 @@ function connectWebSocket() {
     ws.on('error', (error) => console.error('WebSocket ошибка:', error));
     ws.on('close', () => {
         console.log('WebSocket закрыт, переподключение через 5 секунд...');
-        setTimeout(connectWebSocket, 5000); // Переподключение через 5 секунд
+        setTimeout(connectWebSocket, 5000);
     });
 }
 connectWebSocket();
@@ -242,7 +235,7 @@ function getTrend(klines) {
     return avgEnd > avgStart ? 'вверх' : avgEnd < avgStart ? 'вниз' : 'боковик'; 
 }
 function getWick(klines) { 
-    if (!klines.length) return { upper: 0, lower: 0 }; // Проверка на пустой массив
+    if (!klines.length) return { upper: 0, lower: 0 }; 
     const last = klines[klines.length - 1]; 
     const high = parseFloat(last[2]); 
     const low = parseFloat(last[3]); 
@@ -250,14 +243,14 @@ function getWick(klines) {
     return { upper: high - close, lower: close - low }; 
 }
 function getSpike(klines) { 
-    if (klines.length < 2) return 0; // Проверка на недостаток данных
+    if (klines.length < 2) return 0; 
     const last = klines[klines.length - 1]; 
     const prev = klines[klines.length - 2]; 
     const change = Math.abs(parseFloat(last[4]) - parseFloat(prev[4])) / parseFloat(prev[4]) * 100; 
     return change > 1 ? change : 0; 
 }
 function getEngulfing(klines) { 
-    if (klines.length < 2) return 'нет'; // Проверка на недостаток данных
+    if (klines.length < 2) return 'нет'; 
     const last = klines[klines.length - 1]; 
     const prev = klines[klines.length - 2]; 
     const lastOpen = parseFloat(last[1]); 
@@ -614,7 +607,6 @@ app.listen(port, () => {
     console.log(`Сервер запущен на порту ${port}`); 
 });
 
-// Сохранение данных при завершении работы
 process.on('SIGINT', async () => {
     console.log('Сервер завершает работу, сохраняю данные...');
     await saveData();
