@@ -42,24 +42,22 @@
             margin: 10px 0;
             border-radius: 5px;
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            justify-content: space-between;
+            align-items: center;
         }
         .market-reasoning h3 {
             font-size: 14px;
             font-weight: bold;
-            margin: 0 0 5px 0;
-            width: 100%;
+            margin: 0 10px 0 0;
         }
-        .reasoning-block {
-            background-color: #F9F9F9;
-            border: 1px solid #CCC;
-            padding: 10px;
-            border-radius: 3px;
-            flex: 1 1 300px;
+        .reasoning-content {
+            flex-grow: 1;
+            font-size: 13px;
         }
-        .reasoning-block strong {
-            font-weight: bold;
+        .market-reasoning select {
+            margin: 0 10px;
+            padding: 5px;
+            font-size: 13px;
         }
         .timeframe-controls {
             margin: 10px 0;
@@ -107,10 +105,9 @@
             font-weight: bold;
         }
         .pair-price {
-            width: 100%;
-            height: 100%;
             display: block;
-            padding-top: 5px;
+            font-size: 11px;
+            color: #555;
         }
         .long { color: #008000; }
         .short { color: #FF0000; }
@@ -179,7 +176,24 @@
             <label><input type="radio" name="moodTf" value="1d"> 1д</label>
             <label><input type="radio" name="moodTf" value="1w"> 1н</label>
         </div>
-        <div class="market-reasoning" id="marketReasoning"><h3>Рассуждения ИИ о рынке</h3></div>
+        <div class="market-reasoning" id="marketReasoning">
+            <h3>Рассуждения ИИ о рынке</h3>
+            <select id="reasoningSymbol">
+                <option value="LDOUSDT">LDOUSDT</option>
+                <option value="AVAXUSDT">AVAXUSDT</option>
+                <option value="AAVEUSDT">AAVEUSDT</option>
+            </select>
+            <select id="reasoningTf">
+                <option value="5m">5m</option>
+                <option value="15m">15m</option>
+                <option value="30m">30m</option>
+                <option value="1h">1h</option>
+                <option value="4h">4h</option>
+                <option value="1d">1d</option>
+                <option value="1w">1w</option>
+            </select>
+            <div class="reasoning-content" id="reasoningContent"></div>
+        </div>
     </div>
     <div class="timeframe-controls">
         <label><input type="checkbox" value="5m" checked> 5м</label>
@@ -195,7 +209,6 @@
         <thead>
             <tr>
                 <th>Пара</th>
-                <th>Цена</th>
                 <th>5м</th>
                 <th>15м</th>
                 <th>30м</th>
@@ -208,17 +221,17 @@
         <tbody id="priceTable"></tbody>
     </table>
     <div class="deal-section" id="dealSection">
-        <h3>Сделки (5m)</h3>
-        <div id="dealMain5m"></div>
-        <div class="deal-comment" id="dealMainReasoning5m"></div>
-        <div class="stats" id="statsMain5m"></div>
-        <button class="reset-btn" onclick="resetStats('main5m')">Сбросить</button>
+        <h3>Сделка</h3>
+        <div id="dealMain">Нет</div>
+        <div class="deal-comment" id="dealMainReasoning"></div>
+        <div class="stats" id="statsMain"></div>
+        <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>
 
-        <h3>Сделки (15m)</h3>
-        <div id="dealMain15m"></div>
-        <div class="deal-comment" id="dealMainReasoning15m"></div>
-        <div class="stats" id="statsMain15m">Портфель: 1000 USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button></div>
-        <button class="reset-btn" onclick="resetStats('main15m')">Сбросить</button>
+        <h3>Сделка (тест 5m/15m)</h3>
+        <div id="dealTest">Нет</div>
+        <div class="deal-comment" id="dealTestReasoning"></div>
+        <div class="stats" id="statsTest">Портфель: 1000 USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button></div>
+        <button class="reset-btn" onclick="resetStats('test')">Сбросить</button>
     </div>
     <div class="forecast-section" id="forecast"><h3>Прогноз ИИ</h3></div>
     <div class="log-section" id="aiLogs"><h3>Обучение ИИ</h3></div>
@@ -227,7 +240,7 @@
         <h3>Техническое задание</h3>
         <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
         <h3>Как работает сайт</h3>
-        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): до 3 на валюту (5m и 15m), общий портфель 1000 USDT с учётом комиссий Binance Futures. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
+        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
         <div>Звук <span id="loadIndicator">Нагрузка: 0%</span></div>
     </div>
 
@@ -236,20 +249,23 @@
         let aiLogs = [];
         let aiSuggestions = [];
         let portfolio = 1000; // Общий портфель для всех таймфреймов
-        let activeTrades = { '5m': {}, '15m': {} };
+        let activeTrades = { 'main': null, 'test': null };
 
         function updateUI(data) {
             console.log('Полученные данные:', JSON.stringify(data));
             const moodBar = document.getElementById('moodBar');
             const marketState = document.getElementById('marketState');
             const marketReasoning = document.getElementById('marketReasoning');
+            const reasoningContent = document.getElementById('reasoningContent');
+            const reasoningSymbol = document.getElementById('reasoningSymbol');
+            const reasoningTf = document.getElementById('reasoningTf');
             const priceTable = document.getElementById('priceTable');
-            const dealMain5m = document.getElementById('dealMain5m');
-            const dealMainReasoning5m = document.getElementById('dealMainReasoning5m');
-            const statsMain5m = document.getElementById('statsMain5m');
-            const dealMain15m = document.getElementById('dealMain15m');
-            const dealMainReasoning15m = document.getElementById('dealMainReasoning15m');
-            const statsMain15m = document.getElementById('statsMain15m');
+            const dealMain = document.getElementById('dealMain');
+            const dealMainReasoning = document.getElementById('dealMainReasoning');
+            const statsMain = document.getElementById('statsMain');
+            const dealTest = document.getElementById('dealTest');
+            const dealTestReasoning = document.getElementById('dealTestReasoning');
+            const statsTest = document.getElementById('statsTest');
             const forecast = document.getElementById('forecast');
             const aiLogsDiv = document.getElementById('aiLogs');
             const aiSuggestionsDiv = document.getElementById('aiSuggestions');
@@ -258,41 +274,34 @@
             console.log('Шаг 1: Обновление полосы настроения');
             const selectedTf = document.querySelector('input[name="moodTf"]:checked').value;
             let totalLong = 0, totalShort = 0;
-            Object.keys(data.recommendations || {}).forEach(symbol => {
-                const rec = data.recommendations[symbol][selectedTf];
-                if (rec && rec.direction === 'Long') totalLong++;
-                if (rec && rec.direction === 'Short') totalShort++;
+            const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
+            symbols.forEach(symbol => {
+                const rec = data.recommendations?.[symbol]?.[selectedTf];
+                if (rec && rec.forecast === 'growth') totalLong++;
+                if (rec && rec.forecast === 'decline') totalShort++;
             });
-            const total = totalLong + totalShort + (3 - totalLong - totalShort);
+            const total = symbols.length;
             const longPercent = Math.round((totalLong / total) * 100);
             const shortPercent = Math.round((totalShort / total) * 100);
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}% (${selectedTf})`;
 
             console.log('Шаг 2: Обновление рассуждений ИИ');
-            marketReasoning.innerHTML = '<h3>Рассуждения ИИ о рынке</h3>';
-            const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
-            symbols.forEach(symbol => {
-                const block = document.createElement('div');
-                block.className = 'reasoning-block';
-                let content = `<strong>${symbol}</strong><br>`;
-                const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
-                TIMEFRAMES.forEach(tf => {
-                    const rec = data.recommendations?.[symbol]?.[tf];
-                    if (rec) {
-                        const forecastColor = rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability';
-                        const trendText = rec.trend === 'up' ? 'бычий' : rec.trend === 'down' ? 'медвежий' : 'боковик';
-                        const trendColor = rec.trend === 'up' ? 'long' : rec.trend === 'down' ? 'short' : 'none';
-                        const volumeMatch = rec.shortReasoning?.match(/volume (-?\d+\.\d+)/)?.[1];
-                        const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
-                        const channel = rec.shortReasoning?.match(/inside ([\d.]+)–([\d.]+)/);
-                        const channelLow = channel ? channel[1] : 'N/A';
-                        const channelHigh = channel ? channel[2] : 'N/A';
-                        content += `<strong>${tf}</strong>: прогноз: <span class="${forecastColor}">${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, Тренд <span class="${trendColor}">${trendText}</span>. Цена: ${data.prices[symbol]}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны'}<br>`;
-                    }
-                });
-                block.innerHTML = content;
-                marketReasoning.appendChild(block);
-            });
+            const selectedSymbol = reasoningSymbol.value;
+            const selectedReasonTf = reasoningTf.value;
+            const rec = data.recommendations?.[selectedSymbol]?.[selectedReasonTf];
+            if (rec) {
+                const forecastColor = rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability';
+                const trendText = rec.trend === 'up' ? 'бычий' : rec.trend === 'down' ? 'медвежий' : 'боковик';
+                const trendColor = rec.trend === 'up' ? 'long' : rec.trend === 'down' ? 'short' : 'none';
+                const volumeMatch = rec.shortReasoning?.match(/volume (-?\d+\.\d+)/)?.[1];
+                const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
+                const channel = rec.shortReasoning?.match(/inside ([\d.]+)–([\d.]+)/);
+                const channelLow = channel ? channel[1] : 'N/A';
+                const channelHigh = channel ? channel[2] : 'N/A';
+                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, Тренд <span class="${trendColor}">${trendText}</span>. Цена: ${data.prices[selectedSymbol]}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны'}`;
+            } else {
+                reasoningContent.innerHTML = 'Нет данных';
+            }
 
             console.log('Шаг 3: Обновление состояния рынка');
             marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview ? `Текущий рынок в целом показывает ${data.marketOverview.includes('sideways') ? 'боковой характер' : data.marketOverview.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.` : 'Нет данных'}`;
@@ -303,19 +312,8 @@
                 const row = document.createElement('tr');
                 const nameCell = document.createElement('td');
                 nameCell.className = 'pair-name';
-                nameCell.textContent = symbol;
+                nameCell.innerHTML = `${symbol}<br><span class="pair-price">${data.prices[symbol]}</span>`;
                 row.appendChild(nameCell);
-
-                const priceCell = document.createElement('td');
-                const newPrice = data.prices?.[symbol] || 0;
-                priceCell.textContent = newPrice;
-                priceCell.className = 'pair-price';
-                if (lastPrices[symbol] !== undefined) {
-                    if (newPrice > lastPrices[symbol]) priceCell.classList.add('highlight-green');
-                    else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
-                }
-                lastPrices[symbol] = newPrice;
-                row.appendChild(priceCell);
 
                 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                 TIMEFRAMES.forEach(tf => {
@@ -339,92 +337,79 @@
             });
 
             console.log('Шаг 5: Обновление сделок');
-            const commissionRate = 0.04 / 100; // Binance Futures комиссия (не BNB)
-            const tradeSize = 100; // USDT за сделку
+            const commissionRate = 0.04 / 100;
+            const tradeSize = 100;
             const openCommission = tradeSize * commissionRate;
             const closeCommission = tradeSize * commissionRate;
 
-            // Сделки 5m
-            dealMain5m.innerHTML = '<h4>Сделки (5m)</h4>';
-            dealMainReasoning5m.innerHTML = '';
-            symbols.forEach(symbol => {
-                const trade = Object.values(data.tradesMain || {}).find(t => t.symbol === symbol && t.tf === '5m' && t.active) || { symbol, tf: '5m', direction: 'Нет', reason: data.recommendations?.[symbol]?.['5m']?.noTradeReasoning || 'Нет активных сделок', entry: data.prices[symbol], stopLoss: data.prices[symbol] * 0.99, takeProfit: data.prices[symbol] * 1.01 };
-                const tradeBlock = document.createElement('div');
-                tradeBlock.className = 'reasoning-block';
-
-                if (trade.direction === 'Нет' && data.recommendations?.[symbol]?.['5m']?.confidence >= 50 && portfolio >= tradeSize + openCommission) {
-                    trade.direction = data.recommendations[symbol]['5m'].direction;
-                    trade.entry = data.prices[symbol];
-                    trade.stopLoss = data.recommendations[symbol]['5m'].stopLoss;
-                    trade.takeProfit = data.recommendations[symbol]['5m'].takeProfit;
-                    trade.reason = `Открыта сделка ${trade.direction} из-за пробоя канала (${data.recommendations[symbol]['5m'].reasoning}). Стоп: ${trade.stopLoss} (1% ниже), Профит: ${trade.takeProfit} (1% выше).`;
-                    activeTrades['5m'][symbol] = { ...trade, active: true };
+            // Основная сделка
+            const mainTrade = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок', entry: 0, stopLoss: 0, takeProfit: 0 };
+            if (mainTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)]; // Случайная валюта для теста
+                const rec = data.recommendations?.[symbol]?.['1h'];
+                if (rec?.confidence >= 50) {
+                    mainTrade.direction = rec.direction;
+                    mainTrade.entry = data.prices[symbol];
+                    mainTrade.stopLoss = rec.stopLoss;
+                    mainTrade.takeProfit = rec.takeProfit;
+                    mainTrade.reason = `Открыта сделка ${mainTrade.direction} на ${symbol} из-за пробоя канала (${rec.reasoning}).`;
+                    activeTrades['main'] = { ...mainTrade, active: true, symbol };
                     portfolio -= (tradeSize + openCommission);
                 }
-
-                if (activeTrades['5m'][symbol]?.active) {
-                    const currentPrice = data.prices[symbol];
-                    if (currentPrice <= activeTrades['5m'][symbol].stopLoss) {
-                        const loss = (activeTrades['5m'][symbol].direction === 'Long' ? (activeTrades['5m'][symbol].entry - activeTrades['5m'][symbol].stopLoss) : (activeTrades['5m'][symbol].stopLoss - activeTrades['5m'][symbol].entry)) * tradeSize;
-                        const remaining = tradeSize - loss;
-                        portfolio += (remaining - closeCommission);
-                        activeTrades['5m'][symbol].active = false;
-                        aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${symbol} 5m ${activeTrades['5m'][symbol].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                    } else if ((activeTrades['5m'][symbol].direction === 'Long' && currentPrice >= activeTrades['5m'][symbol].takeProfit) || (activeTrades['5m'][symbol].direction === 'Short' && currentPrice <= activeTrades['5m'][symbol].takeProfit)) {
-                        const profit = (activeTrades['5m'][symbol].direction === 'Long' ? (activeTrades['5m'][symbol].takeProfit - activeTrades['5m'][symbol].entry) : (activeTrades['5m'][symbol].entry - activeTrades['5m'][symbol].takeProfit)) * tradeSize;
-                        portfolio += (tradeSize + profit - closeCommission);
-                        activeTrades['5m'][symbol].active = false;
-                        aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${symbol} 5m ${activeTrades['5m'][symbol].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                    }
+            }
+            if (activeTrades['main']?.active) {
+                const currentPrice = data.prices[activeTrades['main'].symbol];
+                if (currentPrice <= activeTrades['main'].stopLoss) {
+                    const loss = (activeTrades['main'].direction === 'Long' ? (activeTrades['main'].entry - activeTrades['main'].stopLoss) : (activeTrades['main'].stopLoss - activeTrades['main'].entry)) * tradeSize;
+                    const remaining = tradeSize - loss;
+                    portfolio += (remaining - closeCommission);
+                    activeTrades['main'].active = false;
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['main'].symbol} 1h ${activeTrades['main'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
+                } else if ((activeTrades['main'].direction === 'Long' && currentPrice >= activeTrades['main'].takeProfit) || (activeTrades['main'].direction === 'Short' && currentPrice <= activeTrades['main'].takeProfit)) {
+                    const profit = (activeTrades['main'].direction === 'Long' ? (activeTrades['main'].takeProfit - activeTrades['main'].entry) : (activeTrades['main'].entry - activeTrades['main'].takeProfit)) * tradeSize;
+                    portfolio += (tradeSize + profit - closeCommission);
+                    activeTrades['main'].active = false;
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['main'].symbol} 1h ${activeTrades['main'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
                 }
+            }
+            dealMain.textContent = activeTrades['main']?.active ? activeTrades['main'].direction : 'Нет';
+            dealMainReasoning.textContent = `Комментарии: ${activeTrades['main']?.reason || mainTrade.reason}`;
+            statsMain.textContent = `Статистика: Открыто: ${activeTrades['main']?.active ? 1 : 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}`;
 
-                const profit = activeTrades['5m'][symbol]?.active ? ((activeTrades['5m'][symbol].direction === 'Long' ? (activeTrades['5m'][symbol].takeProfit - activeTrades['5m'][symbol].entry) : (activeTrades['5m'][symbol].entry - activeTrades['5m'][symbol].takeProfit)) * tradeSize) : 0;
-                const loss = activeTrades['5m'][symbol]?.active ? ((activeTrades['5m'][symbol].direction === 'Long' ? (activeTrades['5m'][symbol].entry - activeTrades['5m'][symbol].stopLoss) : (activeTrades['5m'][symbol].stopLoss - activeTrades['5m'][symbol].entry)) * tradeSize) : 0;
-                tradeBlock.innerHTML = `<strong>${symbol}</strong>: ${activeTrades['5m'][symbol]?.active ? activeTrades['5m'][symbol].direction : 'Нет'}<br>Вход: ${activeTrades['5m'][symbol]?.entry || trade.entry}<br>Стоп: ${activeTrades['5m'][symbol]?.stopLoss || trade.stopLoss}<br>Профит: ${activeTrades['5m'][symbol]?.takeProfit || trade.takeProfit}<br>Причина: ${activeTrades['5m'][symbol]?.reason || trade.reason}${activeTrades['5m'][symbol]?.active ? `<br>Прибыль: ${profit.toFixed(2)} USDT<br>Убыток: ${loss.toFixed(2)} USDT` : ''}`;
-                dealMain5m.appendChild(tradeBlock);
-            });
-            statsMain5m.textContent = `Статистика: Открыто: ${Object.values(activeTrades['5m']).filter(t => t.active).length}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}`;
-
-            // Сделки 15m
-            dealMain15m.innerHTML = '<h4>Сделки (15m)</h4>';
-            dealMainReasoning15m.innerHTML = '';
-            symbols.forEach(symbol => {
-                const trade = Object.values(data.tradesMain || {}).find(t => t.symbol === symbol && t.tf === '15m' && t.active) || { symbol, tf: '15m', direction: 'Нет', reason: data.recommendations?.[symbol]?.['15m']?.noTradeReasoning || 'Нет активных сделок', entry: data.prices[symbol], stopLoss: data.prices[symbol] * 0.99, takeProfit: data.prices[symbol] * 1.01 };
-                const tradeBlock = document.createElement('div');
-                tradeBlock.className = 'reasoning-block';
-
-                if (trade.direction === 'Нет' && data.recommendations?.[symbol]?.['15m']?.confidence >= 50 && portfolio >= tradeSize + openCommission) {
-                    trade.direction = data.recommendations[symbol]['15m'].direction;
-                    trade.entry = data.prices[symbol];
-                    trade.stopLoss = data.recommendations[symbol]['15m'].stopLoss;
-                    trade.takeProfit = data.recommendations[symbol]['15m'].takeProfit;
-                    trade.reason = `Открыта сделка ${trade.direction} из-за пробоя канала (${data.recommendations[symbol]['15m'].reasoning}). Стоп: ${trade.stopLoss} (1% ниже), Профит: ${trade.takeProfit} (1% выше).`;
-                    activeTrades['15m'][symbol] = { ...trade, active: true };
+            // Тестовая сделка (5m/15m)
+            const testTrade = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.', entry: 0, stopLoss: 0, takeProfit: 0 };
+            if (testTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                const tf = Math.random() > 0.5 ? '5m' : '15m';
+                const rec = data.recommendations?.[symbol]?.[tf];
+                if (rec?.confidence >= 50) {
+                    testTrade.direction = rec.direction;
+                    testTrade.entry = data.prices[symbol];
+                    testTrade.stopLoss = rec.stopLoss;
+                    testTrade.takeProfit = rec.takeProfit;
+                    testTrade.reason = `Открыта тестовая сделка ${testTrade.direction} на ${symbol} (${tf}) из-за пробоя канала (${rec.reasoning}).`;
+                    activeTrades['test'] = { ...testTrade, active: true, symbol, tf };
                     portfolio -= (tradeSize + openCommission);
                 }
-
-                if (activeTrades['15m'][symbol]?.active) {
-                    const currentPrice = data.prices[symbol];
-                    if (currentPrice <= activeTrades['15m'][symbol].stopLoss) {
-                        const loss = (activeTrades['15m'][symbol].direction === 'Long' ? (activeTrades['15m'][symbol].entry - activeTrades['15m'][symbol].stopLoss) : (activeTrades['15m'][symbol].stopLoss - activeTrades['15m'][symbol].entry)) * tradeSize;
-                        const remaining = tradeSize - loss;
-                        portfolio += (remaining - closeCommission);
-                        activeTrades['15m'][symbol].active = false;
-                        aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${symbol} 15m ${activeTrades['15m'][symbol].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                    } else if ((activeTrades['15m'][symbol].direction === 'Long' && currentPrice >= activeTrades['15m'][symbol].takeProfit) || (activeTrades['15m'][symbol].direction === 'Short' && currentPrice <= activeTrades['15m'][symbol].takeProfit)) {
-                        const profit = (activeTrades['15m'][symbol].direction === 'Long' ? (activeTrades['15m'][symbol].takeProfit - activeTrades['15m'][symbol].entry) : (activeTrades['15m'][symbol].entry - activeTrades['15m'][symbol].takeProfit)) * tradeSize;
-                        portfolio += (tradeSize + profit - closeCommission);
-                        activeTrades['15m'][symbol].active = false;
-                        aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${symbol} 15m ${activeTrades['15m'][symbol].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                    }
+            }
+            if (activeTrades['test']?.active) {
+                const currentPrice = data.prices[activeTrades['test'].symbol];
+                if (currentPrice <= activeTrades['test'].stopLoss) {
+                    const loss = (activeTrades['test'].direction === 'Long' ? (activeTrades['test'].entry - activeTrades['test'].stopLoss) : (activeTrades['test'].stopLoss - activeTrades['test'].entry)) * tradeSize;
+                    const remaining = tradeSize - loss;
+                    portfolio += (remaining - closeCommission);
+                    activeTrades['test'].active = false;
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['test'].symbol} ${activeTrades['test'].tf} ${activeTrades['test'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
+                } else if ((activeTrades['test'].direction === 'Long' && currentPrice >= activeTrades['test'].takeProfit) || (activeTrades['test'].direction === 'Short' && currentPrice <= activeTrades['test'].takeProfit)) {
+                    const profit = (activeTrades['test'].direction === 'Long' ? (activeTrades['test'].takeProfit - activeTrades['test'].entry) : (activeTrades['test'].entry - activeTrades['test'].takeProfit)) * tradeSize;
+                    portfolio += (tradeSize + profit - closeCommission);
+                    activeTrades['test'].active = false;
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['test'].symbol} ${activeTrades['test'].tf} ${activeTrades['test'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
                 }
-
-                const profit = activeTrades['15m'][symbol]?.active ? ((activeTrades['15m'][symbol].direction === 'Long' ? (activeTrades['15m'][symbol].takeProfit - activeTrades['15m'][symbol].entry) : (activeTrades['15m'][symbol].entry - activeTrades['15m'][symbol].takeProfit)) * tradeSize) : 0;
-                const loss = activeTrades['15m'][symbol]?.active ? ((activeTrades['15m'][symbol].direction === 'Long' ? (activeTrades['15m'][symbol].entry - activeTrades['15m'][symbol].stopLoss) : (activeTrades['15m'][symbol].stopLoss - activeTrades['15m'][symbol].entry)) * tradeSize) : 0;
-                tradeBlock.innerHTML = `<strong>${symbol}</strong>: ${activeTrades['15m'][symbol]?.active ? activeTrades['15m'][symbol].direction : 'Нет'}<br>Вход: ${activeTrades['15m'][symbol]?.entry || trade.entry}<br>Стоп: ${activeTrades['15m'][symbol]?.stopLoss || trade.stopLoss}<br>Профит: ${activeTrades['15m'][symbol]?.takeProfit || trade.takeProfit}<br>Причина: ${activeTrades['15m'][symbol]?.reason || trade.reason}${activeTrades['15m'][symbol]?.active ? `<br>Прибыль: ${profit.toFixed(2)} USDT<br>Убыток: ${loss.toFixed(2)} USDT` : ''}`;
-                dealMain15m.appendChild(tradeBlock);
-            });
-            statsMain15m.innerHTML = `Статистика: Открыто: ${Object.values(activeTrades['5m']).filter(t => t.active).length + Object.values(activeTrades['15m']).filter(t => t.active).length}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}, Портфель: ${portfolio.toFixed(2)} USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button>`;
+            }
+            dealTest.textContent = activeTrades['test']?.active ? activeTrades['test'].direction : 'Нет';
+            dealTestReasoning.textContent = `Комментарии: ${activeTrades['test']?.reason || testTrade.reason}`;
+            statsTest.innerHTML = `Статистика: Открыто: ${activeTrades['test']?.active ? 1 : 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Портфель: ${portfolio.toFixed(2)} USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button>`;
 
             console.log('Шаг 6: Обновление прогноза ИИ');
             forecast.innerHTML = '<h3>Прогноз ИИ</h3>';
@@ -498,6 +483,8 @@
         document.querySelectorAll('input[name="moodTf"]').forEach(input => {
             input.addEventListener('change', fetchData);
         });
+        document.getElementById('reasoningSymbol').addEventListener('change', fetchData);
+        document.getElementById('reasoningTf').addEventListener('change', fetchData);
     </script>
 </body>
 </html>
