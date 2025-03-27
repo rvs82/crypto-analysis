@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Analysis</title>
+    <title>Анализ криптовалют</title>
     <style>
         body {
             background-color: #F0F0F0;
@@ -177,12 +177,12 @@
                 <option value="AAVEUSDT">AAVEUSDT</option>
             </select>
             <select id="reasoningTf">
-                <option value="5m">5m</option>
-                <option value="15m">15m</option>
-                <option value="30m">30m</option>
-                <option value="1h">1h</option>
-                <option value="4h">4h</option>
-                <option value="1d">1d</option>
+                <option value="5m">5м</option>
+                <option value="15m">15м</option>
+                <option value="30m">30м</option>
+                <option value="1h">1ч</option>
+                <option value="4h">4ч</option>
+                <option value="1d">1д</option>
             </select>
             <div class="reasoning-content" id="reasoningContent"></div>
         </div>
@@ -266,14 +266,25 @@
             shortPercentSpan.textContent = `Шорты: ${shortPercent}%`;
             moodBar.style.background = `linear-gradient(to right, #008000 ${longPercent}%, #FF0000 ${longPercent}%)`;
 
-            // Состояние рынка
-            marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview || 'Нет данных'}`;
+            // Состояние рынка (перевод на русский)
+            const marketOverview = data.marketOverview || 'Нет данных';
+            let translatedOverview = marketOverview;
+            if (marketOverview.includes('uptrend')) translatedOverview = `Рынок в целом показывает восходящий тренд. Средняя волатильность ${parseFloat(marketOverview.match(/volatility is (\d+\.\d+)/)?.[1] || 0).toFixed(4)}, средний объем торгов ${parseFloat(marketOverview.match(/volumes are (\d+\.\d+)/)?.[1] || 0).toFixed(2)}.`;
+            else if (marketOverview.includes('downtrend')) translatedOverview = `Рынок в целом показывает нисходящий тренд. Средняя волатильность ${parseFloat(marketOverview.match(/volatility is (\d+\.\d+)/)?.[1] || 0).toFixed(4)}, средний объем торгов ${parseFloat(marketOverview.match(/volumes are (\d+\.\d+)/)?.[1] || 0).toFixed(2)}.`;
+            else if (marketOverview.includes('sideways')) translatedOverview = `Рынок в целом показывает боковой характер. Средняя волатильность ${parseFloat(marketOverview.match(/volatility is (\d+\.\d+)/)?.[1] || 0).toFixed(4)}, средний объем торгов ${parseFloat(marketOverview.match(/volumes are (\d+\.\d+)/)?.[1] || 0).toFixed(2)}.`;
+            marketState.innerHTML = `<h3>Состояние рынка</h3>${translatedOverview}`;
 
-            // Рассуждения ИИ
+            // Рассуждения ИИ (перевод на русский)
             const selectedSymbol = reasoningSymbol.value;
             const selectedReasonTf = reasoningTf.value;
             const rec = data.recommendations?.[selectedSymbol]?.[selectedReasonTf];
-            reasoningContent.innerHTML = rec ? rec.reason : 'Нет данных';
+            if (rec) {
+                const forecastText = rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность';
+                const trendText = rec.trend === 'up' ? 'восходящий' : rec.trend === 'down' ? 'нисходящий' : 'боковой';
+                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${rec.price}, Канал: ${rec.channel}, Тренд: ${trendText}, Объем: ${rec.volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
+            } else {
+                reasoningContent.innerHTML = 'Нет данных';
+            }
 
             // Таблица цен
             priceTable.innerHTML = '';
