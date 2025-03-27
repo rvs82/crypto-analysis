@@ -216,8 +216,14 @@
 
             console.log('Шаг 4: Обновление таблицы');
             priceTable.innerHTML = '';
-            ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'].forEach(symbol => {
+            const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
+            symbols.forEach(symbol => {
+                console.log(`Обработка символа: ${symbol}`);
                 const row = document.createElement('tr');
+                const nameCell = document.createElement('td');
+                nameCell.textContent = symbol;
+                row.appendChild(nameCell);
+
                 const priceCell = document.createElement('td');
                 const newPrice = data.prices?.[symbol] || 0;
                 priceCell.textContent = newPrice.toFixed(4);
@@ -227,16 +233,19 @@
                     else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
                 }
                 lastPrices[symbol] = newPrice;
-                const nameCell = document.createElement('td');
-                nameCell.textContent = symbol;
-                row.appendChild(nameCell);
                 row.appendChild(priceCell);
+
                 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                 TIMEFRAMES.forEach(tf => {
+                    console.log(`Обработка таймфрейма ${tf} для ${symbol}`);
                     const cell = document.createElement('td');
                     const rec = data.recommendations?.[symbol]?.[tf];
                     if (rec) {
-                        cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence || 0}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
+                        const direction = rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>';
+                        const confidence = rec.confidence || 0;
+                        const trendClass = rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat';
+                        const trendDirection = rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : '';
+                        cell.innerHTML = `${direction} ${confidence}% <span class="${trendClass}"></span> ${trendDirection}`;
                         if (rec.outsideChannel) {
                             cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
                         }
@@ -303,7 +312,7 @@
                 .catch(error => {
                     console.error('Ошибка получения данных:', error);
                     document.getElementById('marketState').innerHTML = `<h3>Состояние рынка</h3>Ошибка загрузки данных: ${error.message}`;
-                    document.getElementById('aiLogs').innerHTML = '<h3>Обучение ИИ</h3>Ошибка соединения с сервером: ${error.message}`;
+                    document.getElementById('aiLogs').innerHTML = `<h3>Обучение ИИ</h3>Ошибка соединения с сервером: ${error.message}`;
                 });
         }
 
