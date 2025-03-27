@@ -227,7 +227,7 @@
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
             marketState.textContent = `Состояние рынка: Текущий рынок в целом показывает ${data.marketOverview?.includes('sideways') ? 'боковой характер' : data.marketOverview?.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview?.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview?.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview?.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview?.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
-            marketReasoning.textContent = `Рассуждения ИИ о рынке: ${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning?.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала') || 'Нет данных'}`;
+            marketReasoning.textContent = `Рассуждения ИИ о рынке: ${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning?.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала').replace('Spike', 'Скачок').replace('and engulfing none', 'и отсутствие поглощения') || 'Нет данных'}`;
 
             priceTable.innerHTML = '';
             Object.keys(data.prices || {}).forEach(symbol => {
@@ -287,7 +287,9 @@
                 });
             });
 
-            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (data.aiLogs?.length ? data.aiLogs.slice(-20).join('<br>') : 'Нет записей');
+            const aiLogs = data.aiLogs || [];
+            aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Обновление данных для LDOUSDT, confidence = 0`);
+            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (aiLogs.length ? aiLogs.slice(-20).join('<br>') : 'Нет записей');
             aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions?.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
             loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
         }
