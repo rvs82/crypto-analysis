@@ -716,7 +716,7 @@ app.post('/reset-stats-test', (req, res) => {
     saveData().then(() => res.sendStatus(200));
 });
 
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000; // Порт изменён на 3000
 app.listen(port, () => {
     console.log(`Сервер запущен на порту ${port}`);
 });
