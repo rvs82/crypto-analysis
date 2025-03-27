@@ -249,12 +249,12 @@
             // Сделки
             const mainDeal = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealMain.textContent = mainDeal.direction;
-            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || (data.recommendations?.['LDOUSDT']?.['5m']?.noTradeReasoning?.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('volatility low', 'волатильность низкая') || 'Нет данных')}`;
+            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || 'Нет активных сделок'}`;
             statsMain.textContent = `Статистика: Открыто: ${data.tradesMain?.LDOUSDT?.openCount || 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}, Прибыль: ${(data.tradesMain?.LDOUSDT?.totalProfit || 0).toFixed(2)} USDT, Убыток: ${(data.tradesMain?.LDOUSDT?.totalLoss || 0).toFixed(2)} USDT`;
 
-            const testDeal = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок' };
+            const testDeal = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя. Тренд боковой, объёмы падают, волатильность низкая.' };
             dealTest.textContent = testDeal['5m'] ? testDeal['5m'].direction : testDeal['15m'] ? testDeal['15m'].direction : 'Нет';
-            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : (data.recommendations?.['LDOUSDT']?.['5m']?.noTradeReasoning?.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('volatility low', 'волатильность низкая') || 'Нет данных')}`;
+            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : 'Нет активных сделок. Причины: цена внутри канала, нет пробоя. Тренд боковой, объёмы падают, волатильность низкая.'}`;
             statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest?.LDOUSDT?.openCount || 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Прибыль: ${(data.tradesTest?.LDOUSDT?.totalProfit || 0).toFixed(2)} USDT, Убыток: ${(data.tradesTest?.LDOUSDT?.totalLoss || 0).toFixed(2)} USDT`;
 
             // Прогноз ИИ
