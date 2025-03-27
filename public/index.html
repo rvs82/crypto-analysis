@@ -22,11 +22,11 @@
             line-height: 40px;
             font-size: 14px;
             font-weight: bold;
-            display: flex; /* Изменено для размещения текста слева и справа */
-            justify-content: space-between; /* Лонги слева, Шорты справа */
-            padding: 0 10px; /* Отступы для читаемости */
-            background: linear-gradient(to right, #008000 50%, #FF0000 50%); /* Градиент по умолчанию */
-            transition: background 0.5s ease; /* Плавное изменение градиента */
+            display: flex;
+            justify-content: space-between;
+            box-sizing: border-box; /* Учитываем padding в ширине */
+            background: linear-gradient(to right, #008000 50%, #FF0000 50%);
+            transition: background 0.5s ease;
         }
         .mood-controls {
             display: flex;
