@@ -225,7 +225,7 @@
             const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations).length * 100) * 100) || 0;
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
-            marketState.textContent = `Состояние рынка: ${data.marketOverview}`;
+            marketState.textContent = `Состояние рынка: ${data.marketOverview.replace('Currently, the market overall shows a', 'Текущий рынок в целом показывает').replace('sideways character', 'боковой характер').replace('indicating high activity', 'указывает на высокую активность').replace('Average trading volumes are', 'Средние объёмы торгов').replace('sellers dominating or balance', 'преобладание продавцов или баланс').replace('It’s recommended to monitor key levels and wait for clear breakout signals to enter trades', 'Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки')}`;
             marketReasoning.textContent = `Рассуждения ИИ о рынке:`;
 
             priceTable.innerHTML = '';
@@ -263,12 +263,12 @@
 
             const mainDeal = Object.values(data.tradesMain).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealMain.textContent = mainDeal.direction;
-            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || data.recommendations['LDOUSDT']['5m'].noTradeReasoning}`;
+            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || data.recommendations['LDOUSDT']['5m'].noTradeReasoning.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volatility low', 'волатильность низкая')}`;
             statsMain.textContent = `Статистика: Открыто: ${data.tradesMain.LDOUSDT.openCount}, Закрыто: ${data.tradesMain.LDOUSDT.closedCount}, Стоп: ${data.tradesMain.LDOUSDT.stopCount}, Профит: ${data.tradesMain.LDOUSDT.profitCount}, Прибыль: ${data.tradesMain.LDOUSDT.totalProfit.toFixed(2)} USDT, Убыток: ${data.tradesMain.LDOUSDT.totalLoss.toFixed(2)} USDT`;
 
             const testDeal = Object.values(data.tradesTest).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealTest.textContent = testDeal['5m'] ? testDeal['5m'].direction : testDeal['15m'] ? testDeal['15m'].direction : 'Нет';
-            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : data.recommendations['LDOUSDT']['5m'].noTradeReasoning}`;
+            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : data.recommendations['LDOUSDT']['5m'].noTradeReasoning.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volatility low', 'волатильность низкая')}`;
             statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest.LDOUSDT.openCount}, Закрыто: ${data.tradesTest.LDOUSDT.closedCount}, Стоп: ${data.tradesTest.LDOUSDT.stopCount}, Профит: ${data.tradesTest.LDOUSDT.profitCount}, Прибыль: ${data.tradesTest.LDOUSDT.totalProfit.toFixed(2)} USDT, Убыток: ${data.tradesTest.LDOUSDT.totalLoss.toFixed(2)} USDT`;
 
             forecast.innerHTML = 'Прогноз ИИ:<br>';
@@ -277,7 +277,7 @@
                 TIMEFRAMES.forEach(tf => {
                     if (timeframes.includes(tf)) {
                         const rec = data.recommendations[symbol][tf];
-                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast}</span>, ${rec.shortReasoning}<br>`;
+                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace('volume', 'объём').replace('inside', 'внутри')}<br>`;
                     }
                 });
             });
@@ -291,13 +291,13 @@
             fetch('/data')
                 .then(response => response.json())
                 .then(data => updateUI(data))
-                .catch(error => console.error('Error fetching data:', error));
+                .catch(error => console.error('Ошибка получения данных:', error));
         }
 
         function resetStats(type) {
             fetch(`/reset-stats-${type}`, { method: 'POST' })
                 .then(() => fetchData())
-                .catch(error => console.error('Error resetting stats:', error));
+                .catch(error => console.error('Ошибка сброса статистики:', error));
         }
 
         setInterval(fetchData, 10000);
