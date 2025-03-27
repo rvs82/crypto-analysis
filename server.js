@@ -573,6 +573,9 @@ async function aiTradeDecision(symbol) {
             ema200,
             support: levels.support,
             resistance: levels.resistance,
+            volume,
+            lower: nw.lower, // Добавляем нижнюю границу
+            upper: nw.upper, // Добавляем верхнюю границу
             reason: `Forecast: ${forecast}, Confidence: ${confidence}%. Price ${price}, Channel ${nw.lower}-${nw.upper}, Trend: ${trend}, Volume: ${volume}, EMA50: ${ema50}, EMA200: ${ema200}, Support: ${levels.support}, Resistance: ${levels.resistance}.`
         };
     }
