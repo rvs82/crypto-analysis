@@ -2,99 +2,156 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="robots" content="noindex">
-    <title>Crypto Trading</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Analysis</title>
     <style>
-        body { font-family: 'Arial Narrow', Arial, sans-serif; margin: 20px; background-color: #f0f0f0; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: white; }
-        th, td { padding: 8px; border: 1px solid #ddd; text-align: center; font-size: 12px; }
-        th { background-color: #4CAF50; color: white; }
-        .long { color: green; }
-        .short { color: red; }
-        .neutral { color: black; }
-        .market-flat { display: inline-block; width: 8px; height: 8px; border: 1px solid black; background-color: yellow; vertical-align: middle; margin-left: 4px; }
-        .market-up { display: inline-block; width: 8px; height: 8px; border: 1px solid black; background-color: #90ee90; vertical-align: middle; margin-left: 4px; }
-        .market-down { display: inline-block; width: 8px; height: 8px; border: 1px solid black; background-color: red; vertical-align: middle; margin-left: 4px; }
-        .up { color: green; font-size: 14px; vertical-align: middle; margin-right: 4px; }
-        .down { color: red; font-size: 14px; vertical-align: middle; margin-right: 4px; }
-        .blink-green { animation: blinkGreen 2s infinite; }
-        .blink-red { animation: blinkRed 2s infinite; }
-        @keyframes blinkGreen {
-            0% { background-color: white; }
-            50% { background-color: rgba(0, 255, 0, 0.1); }
-            100% { background-color: white; }
+        body {
+            background-color: #F0F0F0;
+            font-family: 'Arial Narrow', Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
         }
-        @keyframes blinkRed {
-            0% { background-color: white; }
-            50% { background-color: rgba(255, 0, 0, 0.1); }
-            100% { background-color: white; }
+        .mood-bar {
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(to right, #008000, #FF0000);
+            color: #FFFFFF;
+            text-align: center;
+            line-height: 40px;
+            font-size: 14px;
+            font-weight: bold;
         }
-        #marketMood { width: 100%; height: 40px; display: flex; justify-content: space-between; align-items: center; color: white; font-size: 14px; transition: background 1s ease; }
-        #marketMood .longs { flex: 1; text-align: left; padding-left: 10px; }
-        #marketMood .shorts { flex: 1; text-align: right; padding-right: 10px; }
-        #timeframeSelect { text-align: center; margin-top: 5px; }
-        #timeframeSelect label { margin: 0 10px; font-size: 12px; }
-        #tradeMain, #tradeTest { margin-top: 15px; font-size: 13px; border: 1px solid #ddd; padding: 8px; }
-        #tradeMain strong, #tradeTest strong { font-weight: bold; }
-        #reasoningMain, #reasoningTest { margin-top: 8px; font-size: 13px; }
-        #statsMain, #statsTest { margin-top: 8px; font-size: 13px; border: 1px solid #ddd; padding: 8px; display: flex; align-items: center; }
-        #marketReasoning { margin-top: 15px; font-size: 13px; border: 1px solid #ddd; padding: 8px; }
-        #marketReasoning select { margin-right: 10px; font-size: 12px; padding: 2px; }
-        details { margin-top: 5px; width: 100%; }
-        summary { cursor: pointer; display: flex; align-items: center; }
-        summary::marker { content: "Ў "; font-size: 10px; margin-right: 4px; }
-        #forecastAI, #aiLog, #aiSuggestions { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 12px; }
-        #forecastAI details, #aiLog details, #aiSuggestions details { margin-bottom: 8px; }
-        #forecastAI .block, #aiLog .block, #aiSuggestions .block { border: 1px solid #ddd; padding: 5px; margin-bottom: 5px; max-height: 200px; overflow-y: auto; }
-        .tech-block { border: 1px solid #ddd; padding: 8px; margin-top: 5px; font-size: 11px; }
-        h2 { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 14px; margin: 0 0 5px 0; }
-        button { padding: 4px 8px; margin-left: 8px; background-color: #cccccc; border: none; cursor: pointer; font-size: 12px; }
-        button:hover { background-color: #999999; }
-        .new-learning, .success { color: green; }
-        .new-mistake, .error { color: red; }
-        .pair-name { font-weight: bold; }
-        .price-up { animation: fadeGreen 1s ease-in-out; }
-        .price-down { animation: fadeRed 1s ease-in-out; }
+        .timeframe-controls {
+            margin: 10px 0;
+        }
+        .timeframe-controls label {
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        .market-state {
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .market-reasoning {
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #FFFFFF;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #DDD;
+            padding: 5px;
+            text-align: center;
+            font-size: 12px;
+        }
+        th {
+            background-color: #4CAF50;
+            color: #FFFFFF;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .pair-name {
+            padding-right: 15px;
+        }
+        .long { color: #008000; }
+        .short { color: #FF0000; }
+        .none { color: #000000; }
+        .trend-flat { background-color: #FFFF00; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .trend-up { background-color: #90EE90; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .trend-down { background-color: #FF0000; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .arrow-up { color: #008000; font-size: 14px; }
+        .arrow-down { color: #FF0000; font-size: 14px; }
+        .deal-section {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 13px;
+        }
+        .deal-section h3 {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .deal-comment {
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .stats {
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .reset-btn {
+            background-color: #CCCCCC;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .reset-btn:hover {
+            background-color: #999999;
+        }
+        .forecast-section {
+            margin: 20px 0;
+        }
+        .forecast-section div {
+            font-size: 12px;
+            margin: 5px 0;
+        }
+        .forecast-growth { color: #008000; }
+        .forecast-decline { color: #FF0000; }
+        .forecast-stability { color: #000000; }
+        .log-section, .suggestion-section {
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .footer {
+            font-size: 11px;
+            margin-top: 20px;
+        }
+        .highlight-green {
+            animation: fadeGreen 2s ease-in-out;
+            background: linear-gradient(to right, rgba(0, 255, 0, 0.1), rgba(0, 255, 0, 0));
+            padding: 3px;
+        }
+        .highlight-red {
+            animation: fadeRed 2s ease-in-out;
+            background: linear-gradient(to right, rgba(255, 0, 0, 0.1), rgba(255, 0, 0, 0));
+            padding: 3px;
+        }
         @keyframes fadeGreen {
-            0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
-            50% { box-shadow: 0 0 0 1px rgba(0, 255, 0, 0.5); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+            0% { background: linear-gradient(to right, rgba(0, 255, 0, 0), rgba(0, 255, 0, 0)); }
+            50% { background: linear-gradient(to right, rgba(0, 255, 0, 0.1), rgba(0, 255, 0, 0)); }
+            100% { background: linear-gradient(to right, rgba(0, 255, 0, 0), rgba(0, 255, 0, 0)); }
         }
         @keyframes fadeRed {
-            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
-            50% { box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.5); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+            0% { background: linear-gradient(to right, rgba(255, 0, 0, 0), rgba(255, 0, 0, 0)); }
+            50% { background: linear-gradient(to right, rgba(255, 0, 0, 0.1), rgba(255, 0, 0, 0)); }
+            100% { background: linear-gradient(to right, rgba(255, 0, 0, 0), rgba(255, 0, 0, 0)); }
         }
-        #loadIndicator { display: inline-block; margin-left: 20px; font-size: 13px; }
     </style>
 </head>
 <body>
-    <div id="marketMood">
-        <div class="longs">Лонги 0%</div>
-        <div class="shorts">Шорты 0%</div>
+    <div class="mood-bar" id="moodBar">Лонги: 0% Шорты: 0%</div>
+    <div class="timeframe-controls">
+        <label><input type="checkbox" value="5m" checked> 5м</label>
+        <label><input type="checkbox" value="15m" checked> 15м</label>
+        <label><input type="checkbox" value="30m"> 30м</label>
+        <label><input type="checkbox" value="1h" checked> 1ч</label>
+        <label><input type="checkbox" value="4h"> 4ч</label>
+        <label><input type="checkbox" value="1d"> 1д</label>
+        <label><input type="checkbox" value="1w"> 1н</label>
     </div>
-    <div id="timeframeSelect">
-        <label><input type="checkbox" name="timeframe" value="5m"> 5м</label>
-        <label><input type="checkbox" name="timeframe" value="15m"> 15м</label>
-        <label><input type="checkbox" name="timeframe" value="1h" checked> 1ч</label>
-        <label><input type="checkbox" name="timeframe" value="4h"> 4ч</label>
-        <label><input type="checkbox" name="timeframe" value="1d"> 1д</label>
-        <label><input type="checkbox" name="timeframe" value="1w"> 1н</label>
-    </div>
-    <div id="marketReasoning">
-        <strong>Рассуждения ИИ о рынке:</strong>
-        <select id="currencySelect">
-            <option value="all">Все валюты</option>
-            <option value="LDOUSDT">LDOUSDT</option>
-            <option value="AVAXUSDT">AVAXUSDT</option>
-            <option value="AAVEUSDT">AAVEUSDT</option>
-        </select>
-        <div id="reasoningText">Загрузка...</div>
-    </div>
+    <div class="market-state" id="marketState"></div>
+    <div class="market-reasoning" id="marketReasoning"></div>
     <table>
         <thead>
             <tr>
                 <th>Пара</th>
+                <th>Цена</th>
                 <th>5м</th>
                 <th>15м</th>
                 <th>30м</th>
@@ -104,253 +161,147 @@
                 <th>1н</th>
             </tr>
         </thead>
-        <tbody id="data"></tbody>
+        <tbody id="priceTable"></tbody>
     </table>
-    <div id="tradeMain"><strong>Сделка:</strong> Нет</div>
-    <div id="reasoningMain"></div>
-    <div id="statsMain"><strong>Статистика:</strong> Загрузка... <button onclick="resetStatsMain()">Сбросить</button></div>
-    <div id="tradeTest"><strong>Сделка (тест 5m/15m):</strong> Нет</div>
-    <div id="reasoningTest"></div>
-    <div id="statsTest"><strong>Статистика (тест 5m/15m):</strong> Загрузка... <button onclick="resetStatsTest()">Сбросить</button></div>
-    <div id="forecastAI"><h2>Прогноз ИИ:</h2><br></div>
-    <div id="aiLog"><h2>Обучение ИИ:</h2><div class="block"><br></div></div>
-    <div id="aiSuggestions"><h2>Предложения ИИ:</h2><div class="block"><br></div></div>
-    <details class="tech-block">
-        <summary>Техническое задание</summary>
-        <strong>Новый вариант (обновлено 26.03.2025):</strong><br>
-        Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Логи архивируются в Google Drive.<br><br>
-        Дизайн и стили:<br>
-        - Фон сайта: светло-серый (#F0F0F0).<br>
-        - Таблица: белый (#FFFFFF), границы светло-серые (#DDD).<br>
-        - Заголовки таблицы: зелёный (#4CAF50), текст белый (#FFFFFF).<br>
-        - "Лонг": зелёный (#008000), "Шорт": красный (#FF0000), "Нет": чёрный (#000000).<br>
-        - Квадратики: Флет — жёлтый (#FFFF00), Восходящий — светло-зелёный (#90EE90), Нисходящий — красный (#FF0000), граница чёрная (#000000), 8x8px.<br>
-        - Стрелки: зелёная ^ (#008000), красная v (#FF0000), 14px.<br>
-        - Полоса настроения: градиент зелёный (#008000) слева, красный (#FF0000) справа, ширина 100%, высота 40px, текст белый (#FFFFFF).<br>
-        - Кнопки "Сбросить": серый (#CCCCCC), при наведении тёмно-серый (#999999).<br>
-        - Шрифт: Arial Narrow; заголовки 14px полужирный, таблица/прогнозы/логи 12px, статистика/сделки/рассуждения 13px, техзадание 11px.<br>
-        - Мигание: зелёное (rgba(0, 255, 0, 0.1)) при пробое вверх ("Шорт"), красное (rgba(255, 0, 0, 0.1)) при пробое вниз ("Лонг"), 2 секунды, при outsideChannel.<br>
-        - Цена: подсветка градиентом зелёным (рост) или красным (падение), отступ 1px, плавное появление/затухание.<br><br>
-        Структура:<br>
-        - Шапка: полоса настроения, галочки таймфреймов (5m, 15m, 1h, 4h, 1d, 1w), рассуждения ИИ о рынке.<br>
-        - Таблица данных, сделки, статистика, прогноз ИИ, обучение ИИ, предложения ИИ.<br>
-        - Подвал: техзадание, "Как работает", "Звук", индикатор нагрузки.<br><br>
-        Функциональность:<br>
-        - Таблица: сигналы, % вероятности, квадратики (тренд ИИ: Флет — боковик, Восходящий — вверх, Нисходящий — вниз), стрелки (к границе после пересечения), обновление 10 сек.<br>
-        - Полоса настроения: для выбранного таймфрейма (по умолчанию 1ч), % по прогнозу ИИ, целые числа.<br>
-        - Сделки: 1 основная (100 USDT), тестовые 5m/15m (100 USDT), открытие при confidence >=50%, цены без округления, комиссии Binance Futures.<br>
-        - Рассуждения ИИ: причины сделок/их отсутствия с деталями.<br>
-        - Статистика: с учётом комиссий (0.04%).<br>
-        - Прогноз ИИ: рост (зелёный), падение (красный), стабильность (чёрный).<br>
-        - Обучение ИИ: 20 записей, прокрутка до 100, ошибки/успехи с влиянием.<br>
-        - Предложения ИИ: 10 записей, прокрутка до 100, 1 каждые 5 мин, с настройками индикаторов.<br>
-        - Индикатор нагрузки: в подвале, "Нагрузка: X%", обновление 10 сек.<br>
-        - Звук: колокольчик при пробое с confidence >=50%.<br><br>
-        Требования к ИИ:<br>
-        - Nadaraya-Watson (bandwidth=8, multiplier=3, 500 свечей), EMA 50/200, объёмы, Фибоначчи, BTC/ETH корреляция, тренд, хвосты, скачки, поглощения, консолидация (≥3 отскока, горизонтальность <0.5%).<br>
-        - Обучение: +5% при прибыли, -5% при убытке, корректировка весов.<br>
-    </details>
-    <details class="tech-block" id="howItWorks">
-        <summary>Как работает сайт</summary>
-        Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание), вниз — "Лонг" (красное), только при outsideChannel. Квадратики: тренд ИИ (Флет — боковик, Восходящий — вверх, Нисходящий — вниз). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, 10 сек, UTC+3. Индикатор нагрузки в подвале (% CPU). Обучение ИИ: 20 записей (до 100), предложения ИИ: 10 записей (до 100), 1/5 мин с настройками индикаторов.<br><br>
-        <strong>Обучение ИИ:</strong><br>Пока нет данных<br><br>
-        <strong>Предложения ИИ:</strong><br>Пока нет данных
-    </details>
-    <div>
-        <input type="checkbox" id="channelExitCheckbox" checked> Звук
-        <span id="loadIndicator">Нагрузка: 0%</span>
+    <div class="deal-section">
+        <h3>Сделка</h3>
+        <div id="dealMain">Нет</div>
+        <div class="deal-comment" id="dealMainReasoning"></div>
+        <div class="stats" id="statsMain"></div>
+        <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>
+        <h3>Сделка (тест 5m/15m)</h3>
+        <div id="dealTest">Нет</div>
+        <div class="deal-comment" id="dealTestReasoning"></div>
+        <div class="stats" id="statsTest"></div>
+        <button class="reset-btn" onclick="resetStats('test')">Сбросить</button>
     </div>
+    <div class="forecast-section" id="forecast">
+        Прогноз ИИ:
+    </div>
+    <div class="log-section" id="aiLogs">
+        <h3>Обучение ИИ</h3>
+    </div>
+    <div class="suggestion-section" id="aiSuggestions">
+        <h3>Предложения ИИ</h3>
+    </div>
+    <div class="footer">
+        <h3>Техническое задание</h3>
+        <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
+        <h3>Как работает сайт</h3>
+        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание), вниз — "Лонг" (красное), только при outsideChannel. Квадратики: тренд ИИ (Флет — боковик, Восходящий — вверх, Нисходящий — вниз). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, 10 сек, UTC+3. Индикатор нагрузки в подвале (% CPU).</p>
+        <div>Звук <span id="loadIndicator">Нагрузка: 0%</span></div>
+    </div>
+    <audio id="bellSound" src="bell.mp3"></audio>
 
     <script>
-        const tbody = document.getElementById('data');
-        const tradeMainDiv = document.getElementById('tradeMain');
-        const reasoningMainDiv = document.getElementById('reasoningMain');
-        const statsMainDiv = document.getElementById('statsMain');
-        const tradeTestDiv = document.getElementById('tradeTest');
-        const reasoningTestDiv = document.getElementById('reasoningTest');
-        const statsTestDiv = document.getElementById('statsTest');
-        const marketReasoningDiv = document.getElementById('marketReasoning');
-        const currencySelect = document.getElementById('currencySelect');
-        const reasoningTextDiv = document.getElementById('reasoningText');
-        const forecastAIDiv = document.getElementById('forecastAI');
-        const aiLogDiv = document.getElementById('aiLog');
-        const aiSuggestionsDiv = document.getElementById('aiSuggestions');
-        const marketMood = document.getElementById('marketMood');
-        const timeframeSelect = document.getElementById('timeframeSelect');
-        const loadIndicator = document.getElementById('loadIndicator');
-        let lastSignal = {};
-        let trendUpdateCounter = {};
-        let openDetails = {};
-        let lastTrends = {};
         let lastPrices = {};
-        let lastData = null;
 
-        function throttle(func, limit) {
-            let inThrottle;
-            return function (...args) {
-                if (!inThrottle) {
-                    func.apply(this, args);
-                    inThrottle = true;
-                    setTimeout(() => inThrottle = false, limit);
-                }
-            };
-        }
+        function updateUI(data) {
+            const moodBar = document.getElementById('moodBar');
+            const marketState = document.getElementById('marketState');
+            const marketReasoning = document.getElementById('marketReasoning');
+            const priceTable = document.getElementById('priceTable');
+            const dealMain = document.getElementById('dealMain');
+            const dealMainReasoning = document.getElementById('dealMainReasoning');
+            const statsMain = document.getElementById('statsMain');
+            const dealTest = document.getElementById('dealTest');
+            const dealTestReasoning = document.getElementById('dealTestReasoning');
+            const statsTest = document.getElementById('statsTest');
+            const forecast = document.getElementById('forecast');
+            const aiLogsDiv = document.getElementById('aiLogs');
+            const aiSuggestionsDiv = document.getElementById('aiSuggestions');
+            const loadIndicator = document.getElementById('loadIndicator');
+            const bellSound = document.getElementById('bellSound');
+            const timeframes = Array.from(document.querySelectorAll('.timeframe-controls input:checked')).map(input => input.value);
 
-        async function updateData() {
-            try {
-                const response = await fetch('/data', { cache: 'no-store' });
-                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-                const data = await response.json();
-                console.log(`Получены данные в ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}:`, data);
-
-                if (!data.recommendations || !data.tradesMain || !data.tradesTest || !data.prices) {
-                    throw new Error('Некорректные данные от сервера');
-                }
-
-                lastData = data;
-                renderUI(data);
-            } catch (error) {
-                console.error('Ошибка обработки данных:', error);
-                tbody.innerHTML = '<tr><td colspan="8">Ошибка загрузки данных: ' + error.message + '</td></tr>';
-                forecastAIDiv.innerHTML = '<h2>Прогноз ИИ:</h2> Ошибка загрузки: ' + error.message;
-                aiLogDiv.innerHTML = '<h2>Обучение ИИ:</h2><div class="block">Ошибка загрузки: ' + error.message + '</div>';
-                aiSuggestionsDiv.innerHTML = '<h2>Предложения ИИ:</h2><div class="block">Ошибка загрузки: ' + error.message + '</div>';
-                reasoningTextDiv.innerHTML = 'Ошибка загрузки: ' + error.message;
-            }
-        }
-
-        function renderUI(data) {
-            tbody.innerHTML = '';
-            let forecastHtml = '<h2>Прогноз ИИ:</h2><br>';
-            let logHtml = '<h2>Обучение ИИ:</h2><div class="block">';
-            let suggestionsHtml = '<h2>Предложения ИИ:</h2><div class="block">';
-            const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
-            let totalLongs = 0;
-            let totalShorts = 0;
-            let totalCount = 0;
-
-            const selectedTimeframe = Array.from(timeframeSelect.querySelectorAll('input[name="timeframe"]')).find(input => input.checked)?.value || '1h';
-
-            for (const symbol of symbols) {
-                const rec = data.recommendations[symbol] || {};
-                const tradeMain = data.tradesMain[symbol] || { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-                const tradeTest = data.tradesTest[symbol] || { '5m': null, '15m': null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-                const row = document.createElement('tr');
-
-                trendUpdateCounter[symbol] = trendUpdateCounter[symbol] || {};
-                lastTrends[symbol] = lastTrends[symbol] || {};
-                forecastHtml += `<details ${openDetails[symbol] ? 'open' : ''}><summary>${symbol}</summary>`;
-
-                const priceClass = lastPrices[symbol] ? (data.prices[symbol] > lastPrices[symbol] ? 'price-up' : data.prices[symbol] < lastPrices[symbol] ? 'price-down' : '') : '';
-                lastPrices[symbol] = data.prices[symbol];
-                row.innerHTML = `
-                    <td style="width: 100px; white-space: nowrap;"><span class="pair-name">${symbol}</span><br><span class="${priceClass}">${data.prices[symbol]}</span></td>
-                    ${TIMEFRAMES.map(tf => {
-                        const r = rec[tf] || { direction: 'Нет', confidence: 0, market: 'Флет', trend: 'боковик', trendDirection: 'боковик', pivot: data.prices[symbol] || 0, reasoning: 'Нет данных', shortReasoning: 'Нет данных', forecast: 'падение', outsideChannel: false, touchesBoundary: false, isFlat: false, noTradeReasoning: '' };
-                        const cls = r.direction === 'Лонг' ? 'long' : r.direction === 'Шорт' ? 'short' : 'neutral';
-                        const marketCls = r.market === 'Флет' ? 'market-flat' : r.market === 'Восходящий' ? 'market-up' : 'market-down';
-                        trendUpdateCounter[symbol][tf] = (trendUpdateCounter[symbol][tf] || 0) + 1;
-                        const trendArrow = (trendUpdateCounter[symbol][tf] % 5 === 0 || !lastTrends[symbol][tf]) ? (r.trendDirection === 'вверх' ? '^' : 'v') : lastTrends[symbol][tf];
-                        lastTrends[symbol][tf] = trendArrow;
-                        const signalKey = `${symbol}-${tf}-${r.outsideChannel}`;
-                        const blinkCls = r.outsideChannel ? (r.direction === 'Шорт' ? 'blink-green' : 'blink-red') : '';
-                        if (r.outsideChannel && lastSignal[signalKey] !== true && document.getElementById('channelExitCheckbox').checked && r.confidence >= 50) {
-                            const audio = new Audio('https://freesound.org/data/previews/339/339810_5121236-lq.mp3');
-                            audio.play().catch(() => console.log(`Колокольчик для ${symbol} не воспроизведён`));
-                            lastSignal[signalKey] = true;
-                        } else if (!r.outsideChannel) {
-                            lastSignal[signalKey] = false;
-                        }
-                        forecastHtml += `<div class="block">${tf}: прогноз: <span class="${r.forecast === 'рост' ? 'up' : r.forecast === 'падение' ? 'down' : 'neutral'}">${r.forecast}</span>, ${r.shortReasoning}</div>`;
-                        if (tf === selectedTimeframe) {
-                            if (r.forecast === 'рост') { totalLongs++; totalCount++; }
-                            else if (r.forecast === 'падение') { totalShorts++; totalCount++; }
-                            else totalCount++;
-                        }
-                        return `<td class="${cls} ${blinkCls}"><span class="${marketCls}"></span> ${r.direction}${r.confidence > 0 ? ` ${Math.min(r.confidence, 100)}%` : ''} <span class="${r.trendDirection === 'вверх' ? 'up' : 'down'}">${trendArrow}</span></td>`;
-                    }).join('')}
-                `;
-                forecastHtml += `</details>`;
-                tbody.appendChild(row);
-
-                if (tradeMain.active) {
-                    const cls = tradeMain.active.direction === 'Лонг' ? 'long' : 'short';
-                    tradeMainDiv.innerHTML = `<strong>Сделка:</strong> ${symbol} (${tradeMain.active.timeframe}) <span class="${cls}">${tradeMain.active.direction}</span> (${rec[tradeMain.active.timeframe]?.confidence || 0}%), Открытие: ${tradeMain.active.entry}, Стоп: ${tradeMain.active.stopLoss}, Профит: ${tradeMain.active.takeProfit}`;
-                    reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> Причина открытия: ${tradeMain.active.reason}`;
-                } else {
-                    tradeMainDiv.innerHTML = '<strong>Сделка:</strong> Нет';
-                    reasoningMainDiv.innerHTML = `<strong>Рассуждения ИИ:</strong> ${rec['5m']?.noTradeReasoning || 'Нет активных сделок. Причины: цена внутри канала или недостаточная вероятность.'}`;
-                }
-                statsMainDiv.innerHTML = `<strong>Статистика:</strong> Открыто: ${tradeMain.openCount}, Закрыто: ${tradeMain.closedCount}, Стоп: ${tradeMain.stopCount}, Профит: ${tradeMain.profitCount}, Прибыль: ${tradeMain.totalProfit.toFixed(2)} USDT, Убыток: ${tradeMain.totalLoss.toFixed(2)} USDT <button onclick="resetStatsMain()">Сбросить</button>`;
-
-                const testTrades = ['5m', '15m'].map(tf => tradeTest[tf] ? `<div><strong>${tf}:</strong> ${symbol} (${tf}) <span class="${tradeTest[tf].direction === 'Лонг' ? 'long' : 'short'}">${tradeTest[tf].direction}</span> (${rec[tf]?.confidence || 0}%), Открытие: ${tradeTest[tf].entry}, Стоп: ${tradeTest[tf].stopLoss}, Профит: ${tradeTest[tf].takeProfit}</div>` : '').filter(Boolean).join('');
-                const testReasoning = ['5m', '15m'].map(tf => tradeTest[tf] ? `<div><strong>${tf}:</strong> Причина открытия: ${tradeTest[tf].reason}</div>` : '').filter(Boolean).join('') || `<strong>Рассуждения ИИ:</strong> ${rec['5m']?.noTradeReasoning || 'Нет активных сделок. Причины: цена внутри канала или недостаточная вероятность.'}`;
-                tradeTestDiv.innerHTML = `<strong>Сделка (тест 5m/15m):</strong> ${testTrades || 'Нет'}`;
-                reasoningTestDiv.innerHTML = testReasoning;
-                statsTestDiv.innerHTML = `<strong>Статистика (тест 5m/15m):</strong> Открыто: ${tradeTest.openCount}, Закрыто: ${tradeTest.closedCount}, Стоп: ${tradeTest.stopCount}, Профит: ${tradeTest.profitCount}, Прибыль: ${tradeTest.totalProfit.toFixed(2)} USDT, Убыток: ${tradeTest.totalLoss.toFixed(2)} USDT <button onclick="resetStatsTest()">Сбросить</button>`;
-            }
-
-            const selectedCurrency = currencySelect.value;
-            if (selectedCurrency === 'all') {
-                reasoningTextDiv.innerHTML = data.marketOverview || 'Нет данных о рынке';
-            } else {
-                reasoningTextDiv.innerHTML = data.recommendations[selectedCurrency][selectedTimeframe]?.reasoning || 'Нет данных для выбранной валюты и таймфрейма';
-            }
-
-            const longPercent = totalCount > 0 ? Math.round((totalLongs / totalCount) * 100) : 0;
-            const shortPercent = totalCount > 0 ? Math.round((totalShorts / totalCount) * 100) : 0;
-            marketMood.style.background = `linear-gradient(to right, green ${longPercent}%, red ${longPercent}%)`;
-            marketMood.querySelector('.longs').textContent = `Лонги ${longPercent}%`;
-            marketMood.querySelector('.shorts').textContent = `Шорты ${shortPercent}%`;
-
-            forecastAIDiv.innerHTML = forecastHtml || '<h2>Прогноз ИИ:</h2> Нет данных';
-            logHtml += (data.aiLogs || []).slice(-20).map(log => `<p class="${log.includes('Ошибка') ? 'error' : 'success'}">${log}</p>`).join('') || 'Нет записей';
-            logHtml += '</div>';
-            aiLogDiv.innerHTML = logHtml;
-            suggestionsHtml += (data.aiSuggestions || []).slice(-10).map(suggestion => `<p>${suggestion}</p>`).join('') || 'Нет записей';
-            suggestionsHtml += '</div>';
-            aiSuggestionsDiv.innerHTML = suggestionsHtml;
-
-            loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
-        }
-
-        function resetStatsMain() {
-            fetch('/reset-stats-main', { method: 'POST' })
-                .then(() => updateData())
-                .catch(error => console.error('Ошибка сброса статистики (main):', error));
-        }
-
-        function resetStatsTest() {
-            fetch('/reset-stats-test', { method: 'POST' })
-                .then(() => updateData())
-                .catch(error => console.error('Ошибка сброса статистики (test):', error));
-        }
-
-        document.addEventListener('click', (e) => {
-            const summary = e.target.closest('summary');
-            if (summary) {
-                const symbol = summary.textContent.trim();
-                openDetails[symbol] = !openDetails[symbol];
-            }
-        });
-
-        timeframeSelect.addEventListener('change', (e) => {
-            const checkboxes = timeframeSelect.querySelectorAll('input[name="timeframe"]');
-            checkboxes.forEach(cb => {
-                if (cb !== e.target) cb.checked = false;
+            const defaultTf = '1h';
+            let totalLong = 0, totalShort = 0;
+            Object.keys(data.recommendations).forEach(symbol => {
+                const rec = data.recommendations[symbol][defaultTf];
+                if (rec.direction === 'Long') totalLong += rec.confidence;
+                if (rec.direction === 'Short') totalShort += rec.confidence;
             });
-            updateData();
-        });
+            const longPercent = Math.round(totalLong / (Object.keys(data.recommendations).length * 100) * 100) || 0;
+            const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations).length * 100) * 100) || 0;
+            moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
-        const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
-        const throttledUpdate = throttle(updateData, 10000);
+            marketState.textContent = `Состояние рынка: ${data.marketOverview}`;
+            marketReasoning.textContent = `Рассуждения ИИ о рынке:`;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM загружен, запускаем updateData');
-            updateData();
-            setInterval(throttledUpdate, 10000);
-            currencySelect.addEventListener('change', updateData);
-        });
+            priceTable.innerHTML = '';
+            Object.keys(data.prices).forEach(symbol => {
+                if (['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'].includes(symbol)) {
+                    const row = document.createElement('tr');
+                    const priceCell = document.createElement('td');
+                    const newPrice = data.prices[symbol];
+                    priceCell.textContent = newPrice.toFixed(2);
+                    priceCell.className = 'pair-price';
+                    if (lastPrices[symbol] !== undefined) {
+                        if (newPrice > lastPrices[symbol]) priceCell.classList.add('highlight-green');
+                        else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
+                    }
+                    lastPrices[symbol] = newPrice;
+                    row.innerHTML = `<td class="pair-name">${symbol}</td>`;
+                    row.appendChild(priceCell);
+                    TIMEFRAMES.forEach(tf => {
+                        if (timeframes.includes(tf)) {
+                            const cell = document.createElement('td');
+                            const rec = data.recommendations[symbol][tf];
+                            if (rec) {
+                                cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
+                                if (rec.outsideChannel) {
+                                    cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
+                                    bellSound.play();
+                                }
+                            }
+                            row.appendChild(cell);
+                        }
+                    });
+                    priceTable.appendChild(row);
+                }
+            });
+
+            const mainDeal = Object.values(data.tradesMain).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
+            dealMain.textContent = mainDeal.direction;
+            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || data.recommendations['LDOUSDT']['5m'].noTradeReasoning}`;
+            statsMain.textContent = `Статистика: Открыто: ${data.tradesMain.LDOUSDT.openCount}, Закрыто: ${data.tradesMain.LDOUSDT.closedCount}, Стоп: ${data.tradesMain.LDOUSDT.stopCount}, Профит: ${data.tradesMain.LDOUSDT.profitCount}, Прибыль: ${data.tradesMain.LDOUSDT.totalProfit.toFixed(2)} USDT, Убыток: ${data.tradesMain.LDOUSDT.totalLoss.toFixed(2)} USDT`;
+
+            const testDeal = Object.values(data.tradesTest).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок' };
+            dealTest.textContent = testDeal['5m'] ? testDeal['5m'].direction : testDeal['15m'] ? testDeal['15m'].direction : 'Нет';
+            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : data.recommendations['LDOUSDT']['5m'].noTradeReasoning}`;
+            statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest.LDOUSDT.openCount}, Закрыто: ${data.tradesTest.LDOUSDT.closedCount}, Стоп: ${data.tradesTest.LDOUSDT.stopCount}, Профит: ${data.tradesTest.LDOUSDT.profitCount}, Прибыль: ${data.tradesTest.LDOUSDT.totalProfit.toFixed(2)} USDT, Убыток: ${data.tradesTest.LDOUSDT.totalLoss.toFixed(2)} USDT`;
+
+            forecast.innerHTML = 'Прогноз ИИ:<br>';
+            Object.keys(data.recommendations).forEach(symbol => {
+                forecast.innerHTML += `<strong>${symbol}</strong><br>`;
+                TIMEFRAMES.forEach(tf => {
+                    if (timeframes.includes(tf)) {
+                        const rec = data.recommendations[symbol][tf];
+                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast}</span>, ${rec.shortReasoning}<br>`;
+                    }
+                });
+            });
+
+            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (data.aiLogs.length ? data.aiLogs.slice(-20).join('<br>') : 'Нет записей');
+            aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
+            loadIndicator.textContent = `Нагрузка: ${data.serverLoad}%`;
+        }
+
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => updateUI(data))
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        function resetStats(type) {
+            fetch(`/reset-stats-${type}`, { method: 'POST' })
+                .then(() => fetchData())
+                .catch(error => console.error('Error resetting stats:', error));
+        }
+
+        setInterval(fetchData, 10000);
+        fetchData();
     </script>
 </body>
 </html>
