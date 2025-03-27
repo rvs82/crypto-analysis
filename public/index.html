@@ -444,10 +444,10 @@
             });
 
             console.log('Шаг 7: Обновление логов ИИ');
-            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + aiLogs.slice(-100).slice(-20).join('<br>');
+            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (aiLogs.length ? aiLogs.slice(-100).slice(-20).join('<br>') : 'Нет записей');
 
             console.log('Шаг 8: Обновление предложений ИИ');
-            aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + aiSuggestions.slice(-100).slice(-10).join('<br>');
+            aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions?.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
 
             console.log('Шаг 9: Обновление нагрузки');
             loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
