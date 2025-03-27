@@ -9,139 +9,130 @@
             background-color: #F0F0F0;
             font-family: 'Arial Narrow', Arial, sans-serif;
             margin: 0;
-            padding: 2vw; /* Относительная единица для отступов */
+            overflow-x: hidden; /* Убираем горизонтальную прокрутку */
         }
         .header {
-            margin-bottom: 2vw;
+            margin: 0;
         }
         .mood-bar {
             width: 100%;
-            height: 10vw; /* Относительная высота */
-            max-height: 40px; /* Ограничение для больших экранов */
+            height: 40px;
             background: linear-gradient(to right, #008000, #FF0000);
             color: #FFFFFF;
             text-align: center;
-            line-height: 10vw; /* Синхронизация с высотой */
-            font-size: clamp(12px, 3vw, 14px); /* Адаптивный шрифт */
+            line-height: 40px;
+            font-size: 14px;
             font-weight: bold;
         }
         .mood-controls {
             display: flex;
             justify-content: center;
-            margin-top: 1vw;
-            flex-wrap: wrap; /* Перенос на маленьких экранах */
         }
         .mood-controls label {
-            margin: 0 2vw;
-            font-size: clamp(10px, 2.5vw, 14px);
+            margin: 0 10px; /* Минимальный отступ для читаемости */
+            font-size: 14px;
             display: flex;
             align-items: center;
         }
         .market-reasoning {
             background-color: #FFFFFF;
             border: 1px solid #DDD;
-            padding: 2vw;
-            margin: 2vw 0;
             border-radius: 5px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap; /* Адаптация для узких экранов */
         }
         .market-reasoning h3 {
-            font-size: clamp(12px, 3vw, 14px);
+            font-size: 14px;
             font-weight: bold;
-            margin: 0 2vw 0 0;
+            margin: 0 10px 0 0; /* Минимальный отступ для читаемости */
         }
         .reasoning-content {
             flex-grow: 1;
-            font-size: clamp(10px, 2.5vw, 13px);
-            word-wrap: break-word;
+            font-size: 13px;
+            word-wrap: break-word; /* Убираем горизонтальную прокрутку */
         }
         .market-reasoning select {
-            margin: 0 2vw;
-            padding: 1vw;
-            font-size: clamp(10px, 2.5vw, 13px);
+            margin: 0 10px; /* Минимальный отступ для читаемости */
+            padding: 5px;
+            font-size: 13px;
         }
         .market-state, .deal-section, .log-section, .suggestion-section, .footer {
             background-color: #FFFFFF;
             border: 1px solid #DDD;
-            padding: 2vw;
-            margin: 2vw 0;
             border-radius: 5px;
         }
         .market-state h3, .deal-section h3, .log-section h3, .suggestion-section h3, .footer h3 {
-            font-size: clamp(12px, 3vw, 14px);
+            font-size: 14px;
             font-weight: bold;
-            margin: 0 0 1vw 0;
+            margin: 0;
         }
         .market-state, .deal-comment, .stats {
-            font-size: clamp(10px, 2.5vw, 13px);
+            font-size: 13px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             background-color: #FFFFFF;
-            margin-bottom: 2vw;
             border: 1px solid #DDD;
         }
         th, td {
             border: 1px solid #DDD;
-            padding: 1vw;
+            padding: 5px;
             text-align: center;
-            font-size: clamp(8px, 2vw, 12px);
-            word-wrap: break-word;
+            font-size: 12px;
+            word-wrap: break-word; /* Убираем горизонтальную прокрутку */
         }
         th {
             background-color: #4CAF50;
             color: #FFFFFF;
             font-weight: bold;
-            font-size: clamp(10px, 2.5vw, 14px);
+            font-size: 14px;
         }
         .pair-name {
-            padding-right: 2vw;
+            padding-right: 15px;
             font-weight: bold;
         }
         .pair-price {
             display: block;
-            font-size: clamp(8px, 2vw, 11px);
+            font-size: 11px;
             color: #555;
         }
         .long { color: #008000; }
         .short { color: #FF0000; }
         .none { color: #000000; }
-        .trend-flat { background-color: #FFFF00; width: 1em; height: 1em; border: 1px solid #000000; display: inline-block; }
-        .trend-up { background-color: #90EE90; width: 1em; height: 1em; border: 1px solid #000000; display: inline-block; }
-        .trend-down { background-color: #FF0000; width: 1em; height: 1em; border: 1px solid #000000; display: inline-block; }
-        .arrow-up { color: #008000; font-size: clamp(12px, 3vw, 14px); }
-        .arrow-down { color: #FF0000; font-size: clamp(12px, 3vw, 14px); }
+        .trend-flat { background-color: #FFFF00; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .trend-up { background-color: #90EE90; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .trend-down { background-color: #FF0000; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .arrow-up { color: #008000; font-size: 14px; }
+        .arrow-down { color: #FF0000; font-size: 14px; }
         .reset-btn, .portfolio-reset {
             background-color: #CCCCCC;
             border: none;
-            padding: 1vw 2vw;
+            padding: 5px 10px;
             cursor: pointer;
-            font-size: clamp(10px, 2.5vw, 13px);
-            margin-left: 2vw;
+            font-size: 13px;
+            margin-left: 10px; /* Минимальный отступ для читаемости */
         }
         .reset-btn:hover, .portfolio-reset:hover {
             background-color: #999999;
         }
         .log-section, .suggestion-section {
-            max-height: 50vw; /* Относительная высота */
+            max-height: 200px;
             overflow-y: auto;
         }
         .footer {
-            font-size: clamp(8px, 2vw, 11px);
+            font-size: 11px;
         }
         .highlight-green {
             animation: fadeGreen 2s ease-in-out;
             background: linear-gradient(to right, rgba(0, 255, 0, 0.2), rgba(0, 255, 0, 0));
-            padding: 1vw;
+            padding: 3px;
         }
         .highlight-red {
             animation: fadeRed 2s ease-in-out;
             background: linear-gradient(to right, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0));
-            padding: 1vw;
+            padding: 3px;
         }
         @keyframes fadeGreen {
             0% { background: rgba(0, 255, 0, 0); }
