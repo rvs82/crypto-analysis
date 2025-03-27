@@ -20,6 +20,7 @@
             line-height: 40px;
             font-size: 14px;
             font-weight: bold;
+            margin-bottom: 10px;
         }
         .timeframe-controls {
             margin: 10px 0;
@@ -104,11 +105,11 @@
         }
         .highlight-green {
             animation: fadeGreen 2s ease-in-out;
-            background: linear-gradient(to right, rgba(0, 255, 0, 0.1), rgba(0, 255, 0, 0));
+            background: rgba(0, 255, 0, 0.1);
         }
         .highlight-red {
             animation: fadeRed 2s ease-in-out;
-            background: linear-gradient(to right, rgba(255, 0, 0, 0.1), rgba(255, 0, 0, 0));
+            background: rgba(255, 0, 0, 0.1);
         }
         @keyframes fadeGreen {
             0% { background: rgba(0, 255, 0, 0); }
@@ -195,6 +196,7 @@
             const aiSuggestionsDiv = document.getElementById('aiSuggestions');
             const loadIndicator = document.getElementById('loadIndicator');
 
+            // Полоса настроения
             const defaultTf = '1h';
             let totalLong = 0, totalShort = 0;
             Object.keys(data.recommendations || {}).forEach(symbol => {
@@ -206,42 +208,45 @@
             const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations || {}).length * 100) * 100) || 0;
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
+            // Состояние рынка
             marketState.innerHTML = `<h3>Состояние рынка</h3>Текущий рынок в целом показывает ${data.marketOverview?.includes('sideways') ? 'боковой характер' : data.marketOverview?.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview?.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview?.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview?.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview?.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
+
+            // Рассуждения ИИ о рынке
             marketReasoning.innerHTML = `<h3>Рассуждения ИИ о рынке</h3>${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning?.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('sellers more active than buyers', 'продавцы активнее покупателей').replace('buyers more active than sellers', 'покупатели активнее продавцов').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('indicate medium activity', 'указывают на среднюю активность').replace('indicate low activity', 'указывают на низкую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала').replace('Spike', 'Скачок').replace('and engulfing none', 'и отсутствие поглощения') || 'Нет данных'}`;
 
+            // Таблица цен и сигналов
             priceTable.innerHTML = '';
-            Object.keys(data.prices || {}).forEach(symbol => {
-                if (['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'].includes(symbol)) {
-                    const row = document.createElement('tr');
-                    const priceCell = document.createElement('td');
-                    const newPrice = data.prices[symbol];
-                    priceCell.textContent = newPrice.toFixed(4);
-                    priceCell.className = 'pair-price';
-                    if (lastPrices[symbol] !== undefined) {
-                        if (newPrice > lastPrices[symbol]) priceCell.classList.add('highlight-green');
-                        else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
-                    }
-                    lastPrices[symbol] = newPrice;
-                    row.innerHTML = `<td class="pair-name">${symbol}</td>`;
-                    row.appendChild(priceCell);
-                    const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
-                    TIMEFRAMES.forEach(tf => {
-                        const cell = document.createElement('td');
-                        const rec = data.recommendations?.[symbol]?.[tf];
-                        if (rec) {
-                            cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
-                            if (rec.outsideChannel) {
-                                cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
-                            }
-                        } else {
-                            cell.textContent = 'Нет данных';
-                        }
-                        row.appendChild(cell);
-                    });
-                    priceTable.appendChild(row);
+            ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'].forEach(symbol => {
+                const row = document.createElement('tr');
+                const priceCell = document.createElement('td');
+                const newPrice = data.prices?.[symbol] || 0;
+                priceCell.textContent = newPrice.toFixed(4);
+                priceCell.className = 'pair-price';
+                if (lastPrices[symbol] !== undefined) {
+                    if (newPrice > lastPrices[symbol]) priceCell.classList.add('highlight-green');
+                    else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
                 }
+                lastPrices[symbol] = newPrice;
+                row.innerHTML = `<td class="pair-name">${symbol}</td>`;
+                row.appendChild(priceCell);
+                const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+                TIMEFRAMES.forEach(tf => {
+                    const cell = document.createElement('td');
+                    const rec = data.recommendations?.[symbol]?.[tf];
+                    if (rec) {
+                        cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
+                        if (rec.outsideChannel) {
+                            cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
+                        }
+                    } else {
+                        cell.textContent = 'Нет данных';
+                    }
+                    row.appendChild(cell);
+                });
+                priceTable.appendChild(row);
             });
 
+            // Сделки
             const mainDeal = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealMain.textContent = mainDeal.direction;
             dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || (data.recommendations?.['LDOUSDT']?.['5m']?.noTradeReasoning?.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('volatility low', 'волатильность низкая') || 'Нет данных')}`;
@@ -252,6 +257,7 @@
             dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : (data.recommendations?.['LDOUSDT']?.['5m']?.noTradeReasoning?.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('volatility low', 'волатильность низкая') || 'Нет данных')}`;
             statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest?.LDOUSDT?.openCount || 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Прибыль: ${(data.tradesTest?.LDOUSDT?.totalProfit || 0).toFixed(2)} USDT, Убыток: ${(data.tradesTest?.LDOUSDT?.totalLoss || 0).toFixed(2)} USDT`;
 
+            // Прогноз ИИ
             forecast.innerHTML = '<h3>Прогноз ИИ</h3>';
             Object.keys(data.recommendations || {}).forEach(symbol => {
                 forecast.innerHTML += `<strong>${symbol}</strong><br>`;
@@ -259,17 +265,23 @@
                 TIMEFRAMES.forEach(tf => {
                     const rec = data.recommendations[symbol][tf];
                     if (rec) {
-                        const volume = Math.abs(rec.shortReasoning.match(/volume (-?\d+\.\d+)/)?.[1] || 0); // Исправляем отрицательные объёмы
-                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning?.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace(/volume -?\d+\.\d+/, `объём ${volume}`).replace('inside', 'внутри') || 'Нет данных'}<br>`;
+                        const volumeMatch = rec.shortReasoning.match(/volume (-?\d+\.\d+)/)?.[1];
+                        const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
+                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace(/volume -?\d+\.\d+/, `объём ${volume}`).replace('inside', 'внутри') || 'Нет данных'}<br>`;
                     } else {
                         forecast.innerHTML += `${tf}: Нет данных<br>`;
                     }
                 });
             });
 
+            // Логи ИИ
             aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Обновление данных для LDOUSDT, confidence = 0`);
             aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (aiLogs.length ? aiLogs.slice(-20).join('<br>') : 'Нет записей');
+
+            // Предложения ИИ
             aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions?.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
+
+            // Нагрузка
             loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
         }
 
@@ -283,7 +295,7 @@
                 .catch(error => {
                     console.error('Ошибка получения данных:', error);
                     document.getElementById('marketState').innerHTML = `<h3>Состояние рынка</h3>Ошибка загрузки данных: ${error.message}`;
-                    document.getElementById('aiLogs').innerHTML = '<h3>Обучение ИИ</h3>Ошибка соединения с сервером: ' + error.message;
+                    document.getElementById('aiLogs').innerHTML = '<h3>Обучение ИИ</h3>Ошибка соединения с сервером: ${error.message}`;
                 });
         }
 
