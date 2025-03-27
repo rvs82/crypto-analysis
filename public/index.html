@@ -266,7 +266,7 @@
             shortPercentSpan.textContent = `Шорты: ${shortPercent}%`;
             moodBar.style.background = `linear-gradient(to right, #008000 ${longPercent}%, #FF0000 ${longPercent}%)`;
 
-            // Состояние рынка (перевод на русский)
+            // Состояние рынка
             const marketOverview = data.marketOverview || 'Нет данных';
             let translatedOverview = marketOverview;
             if (marketOverview.includes('uptrend')) translatedOverview = `Рынок в целом показывает восходящий тренд. Средняя волатильность ${parseFloat(marketOverview.match(/volatility is (\d+\.\d+)/)?.[1] || 0).toFixed(4)}, средний объем торгов ${parseFloat(marketOverview.match(/volumes are (\d+\.\d+)/)?.[1] || 0).toFixed(2)}.`;
@@ -274,7 +274,7 @@
             else if (marketOverview.includes('sideways')) translatedOverview = `Рынок в целом показывает боковой характер. Средняя волатильность ${parseFloat(marketOverview.match(/volatility is (\d+\.\d+)/)?.[1] || 0).toFixed(4)}, средний объем торгов ${parseFloat(marketOverview.match(/volumes are (\d+\.\d+)/)?.[1] || 0).toFixed(2)}.`;
             marketState.innerHTML = `<h3>Состояние рынка</h3>${translatedOverview}`;
 
-            // Прогноз (с верхней и нижней границами Nadaraya-Watson)
+            // Прогноз
             const selectedSymbol = reasoningSymbol.value;
             const selectedReasonTf = reasoningTf.value;
             const rec = data.recommendations?.[selectedSymbol]?.[selectedReasonTf];
@@ -283,8 +283,7 @@
                 const trendText = rec.trend === 'up' ? 'восходящий' : rec.trend === 'down' ? 'нисходящий' : 'боковой';
                 const price = data.prices[selectedSymbol] || 'нет данных';
                 const volume = rec.volume !== undefined ? rec.volume : 'нет данных';
-                const [lower, upper] = rec.reason.match(/Channel ([\d.]+)-([\d.]+)/)?.slice(1) || [rec.lower || 0, rec.upper || 0];
-                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${price}, Канал: нижняя ${lower} - верхняя ${upper}, Тренд: ${trendText}, Объем: ${volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
+                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${price}, Канал: нижняя ${rec.lower.toFixed(4)} - верхняя ${rec.upper.toFixed(4)}, Тренд: ${trendText}, Объем: ${volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных';
             }
