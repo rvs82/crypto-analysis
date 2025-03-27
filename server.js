@@ -722,7 +722,7 @@ app.listen(port, () => {
     console.log(`Сервер запущен на порту ${port}`);
 });
 
-process.on('SIGINT', async () кнопку => {
+process.on('SIGINT', async () => {
     console.log('Сервер завершает работу, сохраняю данные...');
     await saveData();
     process.exit(0);
