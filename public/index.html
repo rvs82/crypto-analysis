@@ -200,7 +200,6 @@
             <div class="reasoning-content" id="reasoningContent"></div>
         </div>
     </div>
-    <div class="market-state" id="marketState"><h3>Состояние рынка</h3></div>
     <table>
         <thead>
             <tr>
@@ -314,7 +313,7 @@
                 const channel = rec.shortReasoning?.match(/inside ([\d.]+)–([\d.]+)/);
                 const channelLow = channel ? channel[1] : 'N/A';
                 const channelHigh = channel ? channel[2] : 'N/A';
-                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecastRu}</span>, Тренд <span class="${trendColor}">${trendText}</span>. Цена: ${data.prices[selectedSymbol]}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны'}.`;
+                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecastRu}</span>, Тренд: <span class="${trendColor}">${trendText}</span>. Цена: ${data.prices[selectedSymbol]}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны'}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных.';
             }
@@ -395,7 +394,7 @@
                 }
             }
             dealMain.textContent = activeTrades['main']?.active ? activeTrades['main'].direction : 'Нет';
-            dealMainReasoning.textContent = `Комментарии: ${activeTrades['main']?.reason || mainTrade.reason}`;
+            dealMainReasoning.textContent = `Комментарии: ${activeTrades['main']?.reason || mainTrade.reason || 'Нет активных сделок'}`;
             statsMain.innerHTML = `Статистика: Открыто: ${activeTrades['main']?.active ? 1 : 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0} <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button> <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>`;
 
             const testTrade = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.', entry: 0, stopLoss: 0, takeProfit: 0 };
@@ -429,7 +428,7 @@
                 }
             }
             dealTest.textContent = activeTrades['test']?.active ? activeTrades['test'].direction : 'Нет';
-            dealTestReasoning.textContent = `Комментарии: ${activeTrades['test']?.reason || testTrade.reason}`;
+            dealTestReasoning.textContent = `Комментарии: ${activeTrades['test']?.reason || testTrade.reason || 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.'}`;
             statsTest.innerHTML = `Статистика: Открыто: ${activeTrades['test']?.active ? 1 : 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Портфель: ${portfolio.toFixed(2)} USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button> <button class="reset-btn" onclick="resetStats('test')">Сбросить</button>`;
 
             console.log('Шаг 6: Обновление прогноза ИИ');
