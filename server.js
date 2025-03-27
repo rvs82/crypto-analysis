@@ -226,10 +226,12 @@ function calculateNadarayaWatsonEnvelope(closes) {
     const n = Math.min(closes.length, MAX_CANDLES);
     if (n < 2) return { upper: closes[0] * 1.05, lower: closes[0] * 0.95, smooth: closes[0] };
     
-    const h = 8;
-    const mult = 3;
-    let nwe = [], sae = 0;
+    const h = 8; // Bandwidth из TradingView
+    const mult = 3; // Multiplier из TradingView
+    let nwe = [];
+    let sae = 0;
 
+    // Repainting Smoothing как в TradingView
     for (let i = 0; i < Math.min(499, n); i++) {
         let sum = 0, sumw = 0;
         for (let j = 0; j < Math.min(499, n); j++) {
@@ -244,6 +246,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
 
     sae = (sae / Math.min(499, n)) * mult || closes[0] * 0.05;
     const latestSmooth = nwe[0];
+
     return { upper: latestSmooth + sae, lower: latestSmooth - sae, smooth: latestSmooth };
 }
 
@@ -574,8 +577,8 @@ async function aiTradeDecision(symbol) {
             support: levels.support,
             resistance: levels.resistance,
             volume,
-            lower: nw.lower, // Добавляем нижнюю границу
-            upper: nw.upper, // Добавляем верхнюю границу
+            lower: nw.lower,
+            upper: nw.upper,
             reason: `Forecast: ${forecast}, Confidence: ${confidence}%. Price ${price}, Channel ${nw.lower}-${nw.upper}, Trend: ${trend}, Volume: ${volume}, EMA50: ${ema50}, EMA200: ${ema200}, Support: ${levels.support}, Resistance: ${levels.resistance}.`
         };
     }
