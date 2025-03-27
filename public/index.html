@@ -209,10 +209,10 @@
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
             console.log('Шаг 2: Обновление состояния рынка');
-            marketState.innerHTML = `<h3>Состояние рынка</h3>Текущий рынок в целом показывает ${data.marketOverview?.includes('sideways') ? 'боковой характер' : data.marketOverview?.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview?.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview?.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview?.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview?.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
+            marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview ? `Текущий рынок в целом показывает ${data.marketOverview.includes('sideways') ? 'боковой характер' : data.marketOverview.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.` : 'Нет данных'}`;
 
             console.log('Шаг 3: Обновление рассуждений ИИ');
-            marketReasoning.innerHTML = `<h3>Рассуждения ИИ о рынке</h3>${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning?.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('sellers more active than buyers', 'продавцы активнее покупателей').replace('buyers more active than sellers', 'покупатели активнее продавцов').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('indicate medium activity', 'указывают на среднюю активность').replace('indicate low activity', 'указывают на низкую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала').replace('Spike', 'Скачок').replace('and engulfing none', 'и отсутствие поглощения') || 'Нет данных'}`;
+            marketReasoning.innerHTML = `<h3>Рассуждения ИИ о рынке</h3>${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning ? data.recommendations['LDOUSDT']['5m'].reasoning.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('sellers more active than buyers', 'продавцы активнее покупателей').replace('buyers more active than sellers', 'покупатели активнее продавцов').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('indicate medium activity', 'указывают на среднюю активность').replace('indicate low activity', 'указывают на низкую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала').replace('Spike', 'Скачок').replace('and engulfing none', 'и отсутствие поглощения') : 'Нет данных'}`;
 
             console.log('Шаг 4: Обновление таблицы');
             priceTable.innerHTML = '';
@@ -227,14 +227,16 @@
                     else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
                 }
                 lastPrices[symbol] = newPrice;
-                row.appendChild(document.createElement('td')).textContent = symbol;
+                const nameCell = document.createElement('td');
+                nameCell.textContent = symbol;
+                row.appendChild(nameCell);
                 row.appendChild(priceCell);
                 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                 TIMEFRAMES.forEach(tf => {
                     const cell = document.createElement('td');
                     const rec = data.recommendations?.[symbol]?.[tf];
                     if (rec) {
-                        cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
+                        cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence || 0}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
                         if (rec.outsideChannel) {
                             cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
                         }
@@ -265,9 +267,9 @@
                 TIMEFRAMES.forEach(tf => {
                     const rec = data.recommendations[symbol][tf];
                     if (rec) {
-                        const volumeMatch = rec.shortReasoning.match(/volume (-?\d+\.\d+)/)?.[1];
+                        const volumeMatch = rec.shortReasoning?.match(/volume (-?\d+\.\d+)/)?.[1];
                         const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
-                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace(/volume -?\d+\.\d+/, `объём ${volume}`).replace('inside', 'внутри') || 'Нет данных'}<br>`;
+                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning ? rec.shortReasoning.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace(/volume -?\d+\.\d+/, `объём ${volume}`).replace('inside', 'внутри') : 'Нет данных'}<br>`;
                     } else {
                         forecast.innerHTML += `${tf}: Нет данных<br>`;
                     }
@@ -283,6 +285,7 @@
 
             console.log('Шаг 9: Обновление нагрузки');
             loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
+            console.log('updateUI завершён');
         }
 
         function fetchData() {
@@ -294,7 +297,7 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log('Данные успешно получены, вызов updateUI');
+                    console.log('Данные успешно получены:', JSON.stringify(data));
                     updateUI(data);
                 })
                 .catch(error => {
