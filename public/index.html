@@ -197,7 +197,7 @@
         let lastPrices = {};
 
         function updateUI(data) {
-            console.log('Полученные данные:', data); // Отладка
+            console.log('Полученные данные:', JSON.stringify(data));
             const moodBar = document.getElementById('moodBar');
             const marketState = document.getElementById('marketState');
             const marketReasoning = document.getElementById('marketReasoning');
@@ -217,20 +217,20 @@
 
             const defaultTf = '1h';
             let totalLong = 0, totalShort = 0;
-            Object.keys(data.recommendations).forEach(symbol => {
+            Object.keys(data.recommendations || {}).forEach(symbol => {
                 const rec = data.recommendations[symbol][defaultTf];
-                if (rec.direction === 'Long') totalLong += rec.confidence;
-                if (rec.direction === 'Short') totalShort += rec.confidence;
+                if (rec && rec.direction === 'Long') totalLong += rec.confidence;
+                if (rec && rec.direction === 'Short') totalShort += rec.confidence;
             });
-            const longPercent = Math.round(totalLong / (Object.keys(data.recommendations).length * 100) * 100) || 0;
-            const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations).length * 100) * 100) || 0;
+            const longPercent = Math.round(totalLong / (Object.keys(data.recommendations || {}).length * 100) * 100) || 0;
+            const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations || {}).length * 100) * 100) || 0;
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
-            marketState.textContent = `Состояние рынка: Текущий рынок в целом показывает ${data.marketOverview.includes('sideways') ? 'боковой характер' : data.marketOverview.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
+            marketState.textContent = `Состояние рынка: Текущий рынок в целом показывает ${data.marketOverview?.includes('sideways') ? 'боковой характер' : data.marketOverview?.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview?.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview?.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview?.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview?.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
             marketReasoning.textContent = `Рассуждения ИИ о рынке:`;
 
             priceTable.innerHTML = '';
-            Object.keys(data.prices).forEach(symbol => {
+            Object.keys(data.prices || {}).forEach(symbol => {
                 if (['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'].includes(symbol)) {
                     const row = document.createElement('tr');
                     const priceCell = document.createElement('td');
@@ -244,16 +244,19 @@
                     lastPrices[symbol] = newPrice;
                     row.innerHTML = `<td class="pair-name">${symbol}</td>`;
                     row.appendChild(priceCell);
+                    const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                     TIMEFRAMES.forEach(tf => {
                         if (timeframes.includes(tf)) {
                             const cell = document.createElement('td');
-                            const rec = data.recommendations[symbol][tf];
+                            const rec = data.recommendations?.[symbol]?.[tf];
                             if (rec) {
                                 cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
                                 if (rec.outsideChannel) {
                                     cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
                                     bellSound.play();
                                 }
+                            } else {
+                                cell.textContent = 'Нет данных';
                             }
                             row.appendChild(cell);
                         }
@@ -262,37 +265,48 @@
                 }
             });
 
-            const mainDeal = Object.values(data.tradesMain).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
+            const mainDeal = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealMain.textContent = mainDeal.direction;
-            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || data.recommendations['LDOUSDT']['5m'].noTradeReasoning.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volatility low', 'волатильность низкая')}`;
-            statsMain.textContent = `Статистика: Открыто: ${data.tradesMain.LDOUSDT.openCount}, Закрыто: ${data.tradesMain.LDOUSDT.closedCount}, Стоп: ${data.tradesMain.LDOUSDT.stopCount}, Профит: ${data.tradesMain.LDOUSDT.profitCount}, Прибыль: ${data.tradesMain.LDOUSDT.totalProfit.toFixed(2)} USDT, Убыток: ${data.tradesMain.LDOUSDT.totalLoss.toFixed(2)} USDT`;
+            dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || (data.recommendations?.['LDOUSDT']?.['5m']?.noTradeReasoning?.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volatility low', 'волатильность низкая') || 'Нет данных')}`;
+            statsMain.textContent = `Статистика: Открыто: ${data.tradesMain?.LDOUSDT?.openCount || 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}, Прибыль: ${(data.tradesMain?.LDOUSDT?.totalProfit || 0).toFixed(2)} USDT, Убыток: ${(data.tradesMain?.LDOUSDT?.totalLoss || 0).toFixed(2)} USDT`;
 
-            const testDeal = Object.values(data.tradesTest).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок' };
+            const testDeal = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealTest.textContent = testDeal['5m'] ? testDeal['5m'].direction : testDeal['15m'] ? testDeal['15m'].direction : 'Нет';
-            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : data.recommendations['LDOUSDT']['5m'].noTradeReasoning.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volatility low', 'волатильность низкая')}`;
-            statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest.LDOUSDT.openCount}, Закрыто: ${data.tradesTest.LDOUSDT.closedCount}, Стоп: ${data.tradesTest.LDOUSDT.stopCount}, Профит: ${data.tradesTest.LDOUSDT.profitCount}, Прибыль: ${data.tradesTest.LDOUSDT.totalProfit.toFixed(2)} USDT, Убыток: ${data.tradesTest.LDOUSDT.totalLoss.toFixed(2)} USDT`;
+            dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : (data.recommendations?.['LDOUSDT']?.['5m']?.noTradeReasoning?.replace('No active trades', 'Нет активных сделок').replace('Reasons: price inside channel, no breakout', 'Причины: цена внутри канала, нет пробоя').replace('Trend sideways', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volatility low', 'волатильность низкая') || 'Нет данных')}`;
+            statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest?.LDOUSDT?.openCount || 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Прибыль: ${(data.tradesTest?.LDOUSDT?.totalProfit || 0).toFixed(2)} USDT, Убыток: ${(data.tradesTest?.LDOUSDT?.totalLoss || 0).toFixed(2)} USDT`;
 
             forecast.innerHTML = 'Прогноз ИИ:<br>';
-            Object.keys(data.recommendations).forEach(symbol => {
+            Object.keys(data.recommendations || {}).forEach(symbol => {
                 forecast.innerHTML += `<strong>${symbol}</strong><br>`;
+                const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                 TIMEFRAMES.forEach(tf => {
                     if (timeframes.includes(tf)) {
                         const rec = data.recommendations[symbol][tf];
-                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace('volume', 'объём').replace('inside', 'внутри')}<br>`;
+                        if (rec) {
+                            forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning?.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace('volume', 'объём').replace('inside', 'внутри') || 'Нет данных'}<br>`;
+                        } else {
+                            forecast.innerHTML += `${tf}: Нет данных<br>`;
+                        }
                     }
                 });
             });
 
-            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (data.aiLogs.length ? data.aiLogs.slice(-20).join('<br>') : 'Нет записей');
-            aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
-            loadIndicator.textContent = `Нагрузка: ${data.serverLoad}%`;
+            aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (data.aiLogs?.length ? data.aiLogs.slice(-20).join('<br>') : 'Нет записей');
+            aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions?.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
+            loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
         }
 
         function fetchData() {
             fetch('/data')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ошибка: ${response.status}`);
+                    return response.json();
+                })
                 .then(data => updateUI(data))
-                .catch(error => console.error('Ошибка получения данных:', error));
+                .catch(error => {
+                    console.error('Ошибка получения данных:', error);
+                    document.getElementById('marketState').textContent = `Состояние рынка: Ошибка загрузки данных: ${error.message}`;
+                });
         }
 
         function resetStats(type) {
