@@ -568,7 +568,6 @@ async function aiTradeDecision(symbol) {
         const outsideChannel = price > nw.upper || price < nw.lower;
         const touchesBoundary = price >= nw.upper || price <= nw.lower;
 
-        // Определение последнего пересечения канала
         if (outsideChannel) {
             lastChannelCross[symbol][tf] = price > nw.upper ? 'upper' : 'lower';
         }
