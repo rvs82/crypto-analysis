@@ -9,10 +9,10 @@
             background-color: #F0F0F0;
             font-family: 'Arial Narrow', Arial, sans-serif;
             margin: 0;
-            overflow-x: hidden; /* Убираем горизонтальную прокрутку */
+            padding: 10px;
         }
         .header {
-            margin: 0;
+            margin-bottom: 20px;
         }
         .mood-bar {
             width: 100%;
@@ -27,9 +27,10 @@
         .mood-controls {
             display: flex;
             justify-content: center;
+            margin-top: 5px;
         }
         .mood-controls label {
-            margin: 0 10px; /* Минимальный отступ для читаемости */
+            margin: 0 10px;
             font-size: 14px;
             display: flex;
             align-items: center;
@@ -37,6 +38,8 @@
         .market-reasoning {
             background-color: #FFFFFF;
             border: 1px solid #DDD;
+            padding: 10px;
+            margin: 10px 0;
             border-radius: 5px;
             display: flex;
             justify-content: space-between;
@@ -45,27 +48,28 @@
         .market-reasoning h3 {
             font-size: 14px;
             font-weight: bold;
-            margin: 0 10px 0 0; /* Минимальный отступ для читаемости */
+            margin: 0 10px 0 0;
         }
         .reasoning-content {
             flex-grow: 1;
             font-size: 13px;
-            word-wrap: break-word; /* Убираем горизонтальную прокрутку */
         }
         .market-reasoning select {
-            margin: 0 10px; /* Минимальный отступ для читаемости */
+            margin: 0 10px;
             padding: 5px;
             font-size: 13px;
         }
         .market-state, .deal-section, .log-section, .suggestion-section, .footer {
             background-color: #FFFFFF;
             border: 1px solid #DDD;
+            padding: 10px;
+            margin: 10px 0;
             border-radius: 5px;
         }
         .market-state h3, .deal-section h3, .log-section h3, .suggestion-section h3, .footer h3 {
             font-size: 14px;
             font-weight: bold;
-            margin: 0;
+            margin: 0 0 5px 0;
         }
         .market-state, .deal-comment, .stats {
             font-size: 13px;
@@ -74,6 +78,7 @@
             width: 100%;
             border-collapse: collapse;
             background-color: #FFFFFF;
+            margin-bottom: 20px;
             border: 1px solid #DDD;
         }
         th, td {
@@ -81,7 +86,6 @@
             padding: 5px;
             text-align: center;
             font-size: 12px;
-            word-wrap: break-word; /* Убираем горизонтальную прокрутку */
         }
         th {
             background-color: #4CAF50;
@@ -112,7 +116,7 @@
             padding: 5px 10px;
             cursor: pointer;
             font-size: 13px;
-            margin-left: 10px; /* Минимальный отступ для читаемости */
+            margin-left: 10px;
         }
         .reset-btn:hover, .portfolio-reset:hover {
             background-color: #999999;
