@@ -24,9 +24,10 @@
             font-weight: bold;
             display: flex;
             justify-content: space-between;
-            box-sizing: border-box; /* Учитываем padding в ширине */
+            box-sizing: border-box;
             background: linear-gradient(to right, #008000 50%, #FF0000 50%);
             transition: background 0.5s ease;
+            padding: 0 10px;
         }
         .mood-controls {
             display: flex;
@@ -152,6 +153,12 @@
             50% { background: linear-gradient(to right, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0)); }
             100% { background: rgba(255, 0, 0, 0); }
         }
+        .forecast-growth { color: #008000; }
+        .forecast-decline { color: #FF0000; }
+        .forecast-stability { color: #000000; }
+        .channel-up { color: #008000; }
+        .channel-down { color: #FF0000; }
+        .channel-flat { color: #000000; }
     </style>
 </head>
 <body>
@@ -161,30 +168,30 @@
             <span id="shortPercent">Шорты: 0%</span>
         </div>
         <div class="mood-controls">
-            <label><input type="radio" name="moodTf" value="5m"> 5м</label>
-            <label><input type="radio" name="moodTf" value="15m"> 15м</label>
-            <label><input type="radio" name="moodTf" value="30m"> 30м</label>
-            <label><input type="radio" name="moodTf" value="1h" checked> 1ч</label>
-            <label><input type="radio" name="moodTf" value="4h"> 4ч</label>
-            <label><input type="radio" name="moodTf" value="1d"> 1д</label>
-            <label><input type="radio" name="moodTf" value="1w"> 1н</label>
+            <label><input type="radio" name="moodTf" value="5м"> 5м</label>
+            <label><input type="radio" name="moodTf" value="15м"> 15м</label>
+            <label><input type="radio" name="moodTf" value="30м"> 30м</label>
+            <label><input type="radio" name="moodTf" value="1ч" checked> 1ч</label>
+            <label><input type="radio" name="moodTf" value="4ч"> 4ч</label>
+            <label><input type="radio" name="moodTf" value="1д"> 1д</label>
+            <label><input type="radio" name="moodTf" value="1н"> 1н</label>
         </div>
         <div class="market-state" id="marketState"><h3>Состояние рынка</h3></div>
         <div class="market-reasoning" id="marketReasoning">
-            <h3>Рассуждения ИИ о рынке</h3>
+            <h3>Прогноз</h3>
             <select id="reasoningSymbol">
                 <option value="LDOUSDT">LDOUSDT</option>
                 <option value="AVAXUSDT">AVAXUSDT</option>
                 <option value="AAVEUSDT">AAVEUSDT</option>
             </select>
             <select id="reasoningTf">
-                <option value="5m">5m</option>
-                <option value="15m">15m</option>
-                <option value="30m">30m</option>
-                <option value="1h">1h</option>
-                <option value="4h">4h</option>
-                <option value="1d">1d</option>
-                <option value="1w">1w</option>
+                <option value="5м">5м</option>
+                <option value="15м">15м</option>
+                <option value="30м">30м</option>
+                <option value="1ч" selected>1ч</option>
+                <option value="4ч">4ч</option>
+                <option value="1д">1д</option>
+                <option value="1н">1н</option>
             </select>
             <div class="reasoning-content" id="reasoningContent"></div>
         </div>
@@ -211,7 +218,7 @@
         <div class="stats" id="statsMain"></div>
         <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>
 
-        <h3>Сделка (тест 5m/15m)</h3>
+        <h3>Сделка (тест 5м/15м)</h3>
         <div id="dealTest">Нет</div>
         <div class="deal-comment" id="dealTestReasoning"></div>
         <div class="stats" id="statsTest">Портфель: 1000 USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button></div>
@@ -223,7 +230,7 @@
         <h3>Техническое задание</h3>
         <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
         <h3>Как работает сайт</h3>
-        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
+        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5м/15м, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
         <div>Звук <span id="loadIndicator">Нагрузка: 0%</span></div>
     </div>
 
@@ -234,13 +241,50 @@
         let portfolio = 1000;
         let activeTrades = { 'main': null, 'test': null };
 
-        function updateUI(data) {
+        // Функция для получения 500 свечей из Binance Futures API
+        async function fetchKlines(symbol, interval) {
+            const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval.replace('м', 'm').replace('ч', 'h').replace('д', 'd').replace('н', 'w')}&limit=500`;
+            const response = await fetch(url);
+            return await response.json();
+        }
+
+        // Простая реализация Nadaraya-Watson для расчёта границ
+        function calculateNadarayaWatson(candles, currentPrice) {
+            const bandwidth = 8;
+            const multiplier = 3;
+            const lookback = 500;
+            let sumWeightedPrice = 0;
+            let sumWeights = 0;
+
+            // Рассчитываем среднюю цену по 500 свечам с весами
+            for (let i = 0; i < candles.length; i++) {
+                const candleClose = parseFloat(candles[i][4]); // Закрытие свечи
+                const distance = Math.abs(i - (lookback - 1));
+                const weight = Math.exp(-Math.pow(distance, 2) / (2 * Math.pow(bandwidth, 2)));
+                sumWeightedPrice += candleClose * weight;
+                sumWeights += weight;
+            }
+
+            const smoothedPrice = sumWeightedPrice / sumWeights;
+            const channelWidth = multiplier * (currentPrice * 0.001); // Примерный отступ
+            const channelLow = smoothedPrice - channelWidth;
+            const channelHigh = smoothedPrice + channelWidth;
+
+            // Определение направления канала (наклон по последним 10 свечам)
+            const recentCandles = candles.slice(-10).map(c => parseFloat(c[4]));
+            const slope = (recentCandles[9] - recentCandles[0]) / 10;
+            const slopeThreshold = 0.0001; // Порог для "горизонтально"
+            let channelDirection = slope > slopeThreshold ? 'вверх' : slope < -slopeThreshold ? 'вниз' : 'горизонтально';
+
+            return { channelLow, channelHigh, channelDirection };
+        }
+
+        async function updateUI(data) {
             console.log('Полученные данные:', JSON.stringify(data));
             const moodBar = document.getElementById('moodBar');
             const longPercentSpan = document.getElementById('longPercent');
             const shortPercentSpan = document.getElementById('shortPercent');
             const marketState = document.getElementById('marketState');
-            const marketReasoning = document.getElementById('marketReasoning');
             const reasoningContent = document.getElementById('reasoningContent');
             const reasoningSymbol = document.getElementById('reasoningSymbol');
             const reasoningTf = document.getElementById('reasoningTf');
@@ -271,22 +315,32 @@
             shortPercentSpan.textContent = `Шорты: ${shortPercent}%`;
             moodBar.style.background = `linear-gradient(to right, #008000 ${longPercent}%, #FF0000 ${longPercent}%)`;
 
-            console.log('Шаг 2: Обновление рассуждений ИИ');
+            console.log('Шаг 2: Обновление прогноза');
             const selectedSymbol = reasoningSymbol.value;
             const selectedReasonTf = reasoningTf.value;
             const rec = data.recommendations?.[selectedSymbol]?.[selectedReasonTf];
             if (rec) {
                 const forecastColor = rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability';
-                const trendText = rec.trend === 'up' ? 'бычий' : rec.trend === 'down' ? 'медвежий' : 'боковик';
-                const trendColor = rec.trend === 'up' ? 'long' : rec.trend === 'down' ? 'short' : 'none';
-                const volumeMatch = rec.shortReasoning?.match(/volume (-?\d+\.\d+)/)?.[1];
-                const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
-                const channel = rec.shortReasoning?.match(/inside ([\d.]+)–([\d.]+)/);
-                const channelLow = channel ? channel[1] : 'N/A';
-                const channelHigh = channel ? channel[2] : 'N/A';
-                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, Тренд <span class="${trendColor}">${trendText}</span>. Цена: ${data.prices[selectedSymbol]}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны'}`;
+                const forecastRu = rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность';
+                const volumesRu = rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны';
+                
+                // Получение свечей и расчёт канала
+                const candles = await fetchKlines(selectedSymbol, selectedReasonTf);
+                const currentPrice = parseFloat(data.prices[selectedSymbol]);
+                const { channelLow, channelHigh, channelDirection } = calculateNadarayaWatson(candles, currentPrice);
+                
+                // Определение тренда по направлению канала
+                const trend = channelDirection === 'вверх' ? 'бычий' : channelDirection === 'вниз' ? 'медвежий' : 'боковик';
+                const channelColor = channelDirection === 'вверх' ? 'channel-up' : channelDirection === 'вниз' ? 'channel-down' : 'channel-flat';
+                
+                // Форматирование диапазона под текущую цену
+                const priceDecimals = currentPrice.toString().split('.')[1]?.length || 0;
+                const formattedLow = channelLow.toFixed(priceDecimals);
+                const formattedHigh = channelHigh.toFixed(priceDecimals);
+
+                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecastRu}</span>, Тренд: ${trend}. Канал направлен <span class="${channelColor}">${channelDirection}</span>. Цена: ${currentPrice}, диапазон: ${formattedLow}–${formattedHigh}, объёмы: ${volumesRu}.`;
             } else {
-                reasoningContent.innerHTML = 'Нет данных';
+                reasoningContent.innerHTML = 'Нет данных.';
             }
 
             console.log('Шаг 3: Обновление состояния рынка');
@@ -301,7 +355,7 @@
                 nameCell.innerHTML = `${symbol}<br><span class="pair-price">${data.prices[symbol]}</span>`;
                 row.appendChild(nameCell);
 
-                const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+                const TIMEFRAMES = ['5м', '15м', '30м', '1ч', '4ч', '1д', '1н'];
                 TIMEFRAMES.forEach(tf => {
                     const cell = document.createElement('td');
                     const rec = data.recommendations?.[symbol]?.[tf];
@@ -331,7 +385,7 @@
             const mainTrade = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок', entry: 0, stopLoss: 0, takeProfit: 0 };
             if (mainTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                const rec = data.recommendations?.[symbol]?.['1h'];
+                const rec = data.recommendations?.[symbol]?.['1ч'];
                 if (rec?.confidence >= 50) {
                     mainTrade.direction = rec.direction;
                     mainTrade.entry = data.prices[symbol];
@@ -349,22 +403,22 @@
                     const remaining = tradeSize - loss;
                     portfolio += (remaining - closeCommission);
                     activeTrades['main'].active = false;
-                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['main'].symbol} 1h ${activeTrades['main'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['main'].symbol} 1ч ${activeTrades['main'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
                 } else if ((activeTrades['main'].direction === 'Long' && currentPrice >= activeTrades['main'].takeProfit) || (activeTrades['main'].direction === 'Short' && currentPrice <= activeTrades['main'].takeProfit)) {
                     const profit = (activeTrades['main'].direction === 'Long' ? (activeTrades['main'].takeProfit - activeTrades['main'].entry) : (activeTrades['main'].entry - activeTrades['main'].takeProfit)) * tradeSize;
                     portfolio += (tradeSize + profit - closeCommission);
                     activeTrades['main'].active = false;
-                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['main'].symbol} 1h ${activeTrades['main'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['main'].symbol} 1ч ${activeTrades['main'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
                 }
             }
             dealMain.textContent = activeTrades['main']?.active ? activeTrades['main'].direction : 'Нет';
             dealMainReasoning.textContent = `Комментарии: ${activeTrades['main']?.reason || mainTrade.reason}`;
             statsMain.textContent = `Статистика: Открыто: ${activeTrades['main']?.active ? 1 : 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}`;
 
-            const testTrade = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.', entry: 0, stopLoss: 0, takeProfit: 0 };
+            const testTrade = Object.values(data.tradesTest || {}).find(t => t['5м'] || t['15м']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.', entry: 0, stopLoss: 0, takeProfit: 0 };
             if (testTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-                const tf = Math.random() > 0.5 ? '5m' : '15m';
+                const tf = Math.random() > 0.5 ? '5м' : '15м';
                 const rec = data.recommendations?.[symbol]?.[tf];
                 if (rec?.confidence >= 50) {
                     testTrade.direction = rec.direction;
