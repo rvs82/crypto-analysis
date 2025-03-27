@@ -121,8 +121,8 @@ function connectWebSocket() {
                         if (err) console.error('Error saving data:', err.message);
                         else console.log('Data saved to trades.json:', lastPrices);
                     });
-                    checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-                    checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+                    if (tradesMain[symbol]) checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                    if (tradesTest[symbol]) checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
             } else if (msg.e === 'kline' && msg.k) {
                 const symbol = msg.s.toUpperCase();
@@ -387,7 +387,7 @@ function detectFlat(klines, nw) {
 
 function checkTradeStatus(symbol, currentPrice, trades) {
     const tradeData = trades[symbol];
-    if (trades === tradesMain && tradeData.active) {
+    if (trades === tradesMain && tradeData && tradeData.active) {
         const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
         if (direction === 'Long') {
             if (currentPrice <= stopLoss) {
@@ -458,7 +458,7 @@ function checkTradeStatus(symbol, currentPrice, trades) {
                 saveData();
             }
         }
-    } else if (trades === tradesTest) {
+    } else if (trades === tradesTest && tradeData) {
         ['5m', '15m'].forEach(tf => {
             if (tradeData[tf]) {
                 const { entry, stopLoss, takeProfit, direction } = tradeData[tf];
