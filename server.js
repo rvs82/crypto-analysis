@@ -592,7 +592,7 @@ async function aiTradeDecision(symbol) {
                 learningWeights[symbol].btcEth *= 0.95;
                 aiLogs.push(`${getMoscowTime()}: ${symbol} ${tf} — Низкая корреляция с BTC/ETH, уменьшил их вес до ${learningWeights[symbol].btcEth.toFixed(2)}.`);
             }
-            if (trend === 'вверх' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].趋势;
+            if (trend === 'вверх' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
             if (trend === 'вниз' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
             if (wick.upper > wick.lower && direction === 'Лонг') confidence += 10 * learningWeights[symbol].wick;
             if (wick.lower > wick.upper && direction === 'Шорт') confidence += 10 * learningWeights[symbol].wick;
