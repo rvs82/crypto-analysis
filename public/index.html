@@ -171,13 +171,13 @@
         <h3>Техническое задание</h3>
         <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
         <h3>Как работает сайт</h3>
-        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание), вниз — "Лонг" (красное), только при outsideChannel. Квадратики: тренд ИИ (Флет — боковик, Восходящий — вверх, Нисходящий — вниз). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, 10 сек, UTC+3. Индикатор нагрузки в подвале (% CPU).</p>
+        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
         <div>Звук <span id="loadIndicator">Нагрузка: 0%</span></div>
     </div>
 
     <script>
         let lastPrices = {};
-        let aiLogs = []; // Локальное хранение логов
+        let aiLogs = [];
 
         function updateUI(data) {
             console.log('Полученные данные:', JSON.stringify(data));
@@ -227,7 +227,7 @@
                     else if (newPrice < lastPrices[symbol]) priceCell.classList.add('highlight-red');
                 }
                 lastPrices[symbol] = newPrice;
-                row.innerHTML = `<td class="pair-name">${symbol}</td>`;
+                row.appendChild(document.createElement('td')).textContent = symbol;
                 row.appendChild(priceCell);
                 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                 TIMEFRAMES.forEach(tf => {
