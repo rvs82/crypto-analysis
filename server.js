@@ -5,7 +5,6 @@ const app = express();
 
 app.use(express.static('public'));
 
-// Глобальные переменные
 let lastPrices = { LDOUSDT: 0, AVAXUSDT: 0, AAVEUSDT: 0, BTCUSDT: 0, ETHUSDT: 0 };
 let tradesMain = {
     LDOUSDT: { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 },
@@ -22,7 +21,7 @@ let aiSuggestions = [];
 let lastSuggestionTime = 0;
 let lastChannelCross = { LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {} };
 const TRADE_AMOUNT = 100;
-const BINANCE_FEE = 0.04 / 100; // 0.04% комиссия Binance Futures
+const BINANCE_FEE = 0.04 / 100;
 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
 let lastRecommendations = {};
 let learningWeights = {
@@ -32,7 +31,6 @@ let learningWeights = {
 };
 let klinesByTimeframe = { LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {} };
 
-// Загрузка данных из файла
 async function loadData() {
     try {
         const data = await fs.readFile('trades.json', 'utf8');
@@ -61,7 +59,6 @@ async function loadData() {
     }
 }
 
-// Сохранение данных в файл
 async function saveData() {
     try {
         const dataToSave = { tradesMain, tradesTest, aiLogs, aiSuggestions, lastChannelCross, learningWeights, klinesByTimeframe, lastPrices };
@@ -74,27 +71,24 @@ async function saveData() {
 
 loadData().then(() => console.log('Сервер готов к работе'));
 
-// Получение времени в Москве (UTC+3)
 function getMoscowTime() {
     const now = new Date();
     return new Date(now.getTime() + 3 * 60 * 60 * 1000).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
 }
 
-// Расчёт нагрузки CPU (приближённо через Node.js)
 function getServerLoad() {
     const startUsage = process.cpuUsage();
     setTimeout(() => {
         const endUsage = process.cpuUsage(startUsage);
-        const userTime = endUsage.user / 1000000; // Перевод в секунды
+        const userTime = endUsage.user / 1000000;
         const systemTime = endUsage.system / 1000000;
         const totalTime = userTime + systemTime;
-        const cpuLoad = Math.min(100, Math.round((totalTime / 1) * 100)); // Процент за 1 секунду
+        const cpuLoad = Math.min(100, Math.round((totalTime / 1) * 100));
         return cpuLoad;
     }, 1000);
-    return Math.round(Math.random() * 100); // Временная заглушка до точной реализации
+    return Math.round(Math.random() * 100);
 }
 
-// Подключение к WebSocket Binance Futures
 function connectWebSocket() {
     const ws = new WebSocket('wss://fstream.binance.com/ws');
     ws.on('open', () => {
@@ -117,7 +111,7 @@ function connectWebSocket() {
     ws.on('message', async (data) => {
         try {
             const msg = JSON.parse(data);
-            if (msg.s && msg.c) { // @ticker
+            if (msg.s && msg.c) {
                 const symbol = msg.s.toUpperCase();
                 const newPrice = parseFloat(msg.c);
                 if (newPrice !== lastPrices[symbol]) {
@@ -127,17 +121,17 @@ function connectWebSocket() {
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
-            } else if (msg.e === 'kline' && msg.k) { // @kline_5m
+            } else if (msg.e === 'kline' && msg.k) {
                 const symbol = msg.s.toUpperCase();
                 const tf = msg.k.i;
                 if (!klinesByTimeframe[symbol][tf]) klinesByTimeframe[symbol][tf] = [];
                 const kline = [
-                    msg.k.t, // Время открытия
-                    msg.k.o, // Цена открытия
-                    msg.k.h, // Максимум
-                    msg.k.l, // Минимум
-                    msg.k.c, // Цена закрытия
-                    msg.k.v  // Объём
+                    msg.k.t,
+                    msg.k.o,
+                    msg.k.h,
+                    msg.k.l,
+                    msg.k.c,
+                    msg.k.v
                 ];
                 const klineList = klinesByTimeframe[symbol][tf];
                 const existingIndex = klineList.findIndex(k => k[0] === kline[0]);
@@ -168,7 +162,6 @@ function connectWebSocket() {
 }
 connectWebSocket();
 
-// Агрегация свечей для других таймфреймов из 5m
 function aggregateKlines(baseKlines, targetTimeframe) {
     const timeframeMs = {
         '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000, '30m': 30 * 60 * 1000,
@@ -198,7 +191,6 @@ function aggregateKlines(baseKlines, targetTimeframe) {
     return aggregated.slice(-1000);
 }
 
-// Функции индикаторов
 function gauss(x, h) {
     return Math.exp(-(Math.pow(x, 2) / (h * h * 2)));
 }
@@ -207,8 +199,8 @@ function calculateNadarayaWatsonEnvelope(closes, repaint = true) {
     const n = closes.length;
     if (n < 2) return { upper: closes[0] * 1.05, lower: closes[0] * 0.95, smooth: closes[0] };
 
-    const h = 8; // Bandwidth=8
-    const mult = 3; // Multiplier=3
+    const h = 8;
+    const mult = 3;
 
     if (!repaint) {
         let coefs = [];
@@ -403,7 +395,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 learningWeights[symbol].volume *= 0.95;
                 aiLogs.push(`Ошибка: ${symbol} ${timeframe} Лонг не сработал. Цена ${currentPrice} не удержалась выше ${stopLoss}. Вывод: слабый сигнал. Влияние: Снизил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Буду строже проверять объёмы перед входом.`);
                 const now = Date.now();
-                if (now - lastSuggestionTime >= 300000) { // 5 минут
+                if (now - lastSuggestionTime >= 300000) {
                     aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор MACD с настройками: быстрая EMA 12, медленная EMA 26, сигнальная линия 9. Основание: частые ложные пробои канала требуют фильтра пересечений.`);
                     lastSuggestionTime = now;
                     if (aiSuggestions.length > 100) aiSuggestions.shift();
@@ -702,7 +694,7 @@ app.get('/data', async (req, res) => {
             trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'нисходящий' : 'боковой';
         marketOverview = `На данный момент рынок в целом демонстрирует ${dominantTrend} характер. Средняя волатильность составляет ${avgVolatility.toFixed(4)}, что указывает на ${avgVolatility > 0.01 * (lastPrices[symbols[0]] || 0) ? 'высокую активность' : 'спокойствие'}. Объёмы торгов в среднем ${avgVolume.toFixed(2)}, что говорит о ${avgVolume > 0 ? 'преобладании покупателей' : 'преобладании продавцов или равновесии'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
 
-        const serverLoad = getServerLoad(); // Приближённая нагрузка CPU
+        const serverLoad = getServerLoad();
         res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiSuggestions, marketOverview, serverLoad });
     } catch (error) {
         console.error('Ошибка /data:', error);
