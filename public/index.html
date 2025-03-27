@@ -17,12 +17,16 @@
         .mood-bar {
             width: 100%;
             height: 40px;
-            background: linear-gradient(to right, #008000, #FF0000);
             color: #FFFFFF;
             text-align: center;
             line-height: 40px;
             font-size: 14px;
             font-weight: bold;
+            display: flex; /* Изменено для размещения текста слева и справа */
+            justify-content: space-between; /* Лонги слева, Шорты справа */
+            padding: 0 10px; /* Отступы для читаемости */
+            background: linear-gradient(to right, #008000 50%, #FF0000 50%); /* Градиент по умолчанию */
+            transition: background 0.5s ease; /* Плавное изменение градиента */
         }
         .mood-controls {
             display: flex;
@@ -152,7 +156,10 @@
 </head>
 <body>
     <div class="header">
-        <div class="mood-bar" id="moodBar">Лонги: 0% Шорты: 0%</div>
+        <div class="mood-bar" id="moodBar">
+            <span id="longPercent">Лонги: 0%</span>
+            <span id="shortPercent">Шорты: 0%</span>
+        </div>
         <div class="mood-controls">
             <label><input type="radio" name="moodTf" value="5m"> 5м</label>
             <label><input type="radio" name="moodTf" value="15m"> 15м</label>
@@ -230,6 +237,8 @@
         function updateUI(data) {
             console.log('Полученные данные:', JSON.stringify(data));
             const moodBar = document.getElementById('moodBar');
+            const longPercentSpan = document.getElementById('longPercent');
+            const shortPercentSpan = document.getElementById('shortPercent');
             const marketState = document.getElementById('marketState');
             const marketReasoning = document.getElementById('marketReasoning');
             const reasoningContent = document.getElementById('reasoningContent');
@@ -258,7 +267,9 @@
             const total = symbols.length;
             const longPercent = Math.round((totalLong / total) * 100);
             const shortPercent = Math.round((totalShort / total) * 100);
-            moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
+            longPercentSpan.textContent = `Лонги: ${longPercent}%`;
+            shortPercentSpan.textContent = `Шорты: ${shortPercent}%`;
+            moodBar.style.background = `linear-gradient(to right, #008000 ${longPercent}%, #FF0000 ${longPercent}%)`;
 
             console.log('Шаг 2: Обновление рассуждений ИИ');
             const selectedSymbol = reasoningSymbol.value;
