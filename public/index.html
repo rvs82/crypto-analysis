@@ -197,6 +197,7 @@
         let lastPrices = {};
 
         function updateUI(data) {
+            console.log('Полученные данные:', data); // Отладка
             const moodBar = document.getElementById('moodBar');
             const marketState = document.getElementById('marketState');
             const marketReasoning = document.getElementById('marketReasoning');
@@ -225,7 +226,7 @@
             const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations).length * 100) * 100) || 0;
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
-            marketState.textContent = `Состояние рынка: ${data.marketOverview.replace('Currently, the market overall shows a', 'Текущий рынок в целом показывает').replace('sideways character', 'боковой характер').replace('indicating high activity', 'указывает на высокую активность').replace('Average trading volumes are', 'Средние объёмы торгов').replace('sellers dominating or balance', 'преобладание продавцов или баланс').replace('It’s recommended to monitor key levels and wait for clear breakout signals to enter trades', 'Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки')}`;
+            marketState.textContent = `Состояние рынка: Текущий рынок в целом показывает ${data.marketOverview.includes('sideways') ? 'боковой характер' : data.marketOverview.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
             marketReasoning.textContent = `Рассуждения ИИ о рынке:`;
 
             priceTable.innerHTML = '';
