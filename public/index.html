@@ -144,6 +144,8 @@
         }
         .footer {
             font-size: 11px;
+        }
+        .footer div {
             display: flex;
             align-items: center;
         }
@@ -244,13 +246,17 @@
     <div class="log-section" id="aiLogs"><h3>Обучение ИИ</h3></div>
     <div class="suggestion-section" id="aiSuggestions"><h3>Предложения ИИ</h3></div>
     <div class="footer" id="footer">
-        <h3>Техническое задание</h3>
-        <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
-        <h3>Как работает сайт</h3>
-        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (↑ вверх после низа, ↓ вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ. Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
         <div>
-            Звук <input type="checkbox" id="soundToggle" checked> 
-            <span id="loadIndicator">Нагрузка: 0%</span>
+            <h3>Техническое задание</h3>
+            <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
+        </div>
+        <div>
+            <h3>Как работает сайт</h3>
+            <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (↑ вверх после низа, ↓ вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ. Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
+            <div>
+                Звук <input type="checkbox" id="soundToggle" checked> 
+                <span id="loadIndicator">Нагрузка: 0%</span>
+            </div>
         </div>
     </div>
 
@@ -261,7 +267,7 @@
         let portfolio = 1000;
         let activeTrades = { 'main': null, 'test': null };
         let previousChannelState = {};
-        const bellSound = new Audio('https://www.soundjay.com/buttons/bell-small-01.mp3'); // Заглушка, заменить на реальный файл
+        const bellSound = new Audio('https://www.soundjay.com/buttons/bell-small-01.mp3');
 
         function updateUI(data) {
             console.log('Полученные данные:', JSON.stringify(data));
@@ -269,7 +275,6 @@
             const longPercentSpan = document.getElementById('longPercent');
             const shortPercentSpan = document.getElementById('shortPercent');
             const marketState = document.getElementById('marketState');
-            const marketReasoning = document.getElementById('marketReasoning');
             const reasoningContent = document.getElementById('reasoningContent');
             const reasoningSymbol = document.getElementById('reasoningSymbol');
             const reasoningTf = document.getElementById('reasoningTf');
@@ -292,7 +297,7 @@
             symbols.forEach(symbol => {
                 const rec = data.recommendations?.[symbol]?.[selectedTf];
                 if (rec && rec.forecast === 'рост') totalLong++;
-                if (rec && rec.forecast === 'падение') totalShort++;
+                else if (rec && rec.forecast === 'падение') totalShort++;
             });
             const total = symbols.length;
             const longPercent = Math.round((totalLong / total) * 100);
@@ -302,7 +307,11 @@
             moodBar.style.background = `linear-gradient(to right, #008000 ${longPercent}%, #FF0000 ${longPercent}%)`;
 
             console.log('Шаг 2: Обновление состояния рынка');
-            marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview || 'Нет данных'}`;
+            marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview ? (
+                data.marketOverview.includes('sideways') ? 'Текущий рынок в целом показывает боковой характер' :
+                data.marketOverview.includes('uptrend') ? 'Текущий рынок в целом показывает восходящий характер' :
+                'Текущий рынок в целом показывает нисходящий характер'
+            ) + `. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.` : 'Нет данных'}`;
 
             console.log('Шаг 3: Обновление прогноза');
             const selectedSymbol = reasoningSymbol.value;
@@ -311,10 +320,13 @@
             if (rec) {
                 const forecastColor = rec.forecast === 'рост' ? 'forecast-growth' : rec.forecast === 'падение' ? 'forecast-decline' : 'forecast-stability';
                 const trendColor = rec.trend === 'восходящий' ? 'long' : rec.trend === 'нисходящий' ? 'short' : 'none';
-                const channel = rec.shortReasoning?.match(/внутри ([\d.]+)–([\d.]+)/);
+                const forecastRu = rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : rec.forecast;
+                const trendRu = rec.trend === 'sideways' ? 'боковик' : rec.trend;
+                const channel = rec.shortReasoning?.match(/внутри ([\d.]+)–([\d.]+)/) || rec.shortReasoning?.match(/вне ([\d.]+)–([\d.]+)/);
                 const channelLow = channel ? parseFloat(channel[1]).toFixed(4) : 'N/A';
                 const channelHigh = channel ? parseFloat(channel[2]).toFixed(4) : 'N/A';
-                reasoningContent.innerHTML = `${selectedSymbol} ${selectedReasonTf}: прогноз: <span class="${forecastColor}">${rec.forecast}</span>, Тренд: <span class="${trendColor}">${rec.trend}</span>. Цена: ${data.prices[selectedSymbol].toFixed(4)}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('растут') ? 'растут' : rec.reasoning.includes('падают') ? 'падают' : 'стабильны'}.`;
+                const volumesRu = rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны';
+                reasoningContent.innerHTML = `${selectedSymbol} ${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecastRu}</span>, Тренд: <span class="${trendColor}">${trendRu}</span>. Цена: ${data.prices[selectedSymbol].toFixed(4)}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${volumesRu}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных.';
             }
@@ -333,7 +345,7 @@
                     const cell = document.createElement('td');
                     const rec = data.recommendations?.[symbol]?.[tf];
                     if (rec) {
-                        const directionText = rec.direction === 'Лонг' ? `Лонг ${rec.confidence}%` : rec.direction === 'Шорт' ? `Шорт ${rec.confidence}%` : 'Нет';
+                        const directionText = rec.direction === 'None' ? 'Нет' : `${rec.direction === 'Long' ? 'Лонг' : 'Шорт'} ${rec.confidence}%`;
                         const trendClass = rec.trend === 'восходящий' ? 'trend-up' : rec.trend === 'нисходящий' ? 'trend-down' : 'trend-flat';
                         const trendDirection = rec.trendDirection === 'вверх' ? '<span class="arrow-up">↑</span>' : rec.trendDirection === 'вниз' ? '<span class="arrow-down">↓</span>' : '';
                         cell.innerHTML = `<div class="cell-content"><span class="trend-square ${trendClass}"></span><span class="direction-text">${directionText}</span>${trendDirection}</div>`;
@@ -341,7 +353,6 @@
                             cell.style.animation = rec.direction === 'Шорт' ? 'fadeGreen 2s' : 'fadeRed 2s';
                         }
 
-                        // Звук при выходе за канал
                         if (['15m', '30m', '1h', '4h', '1d', '1w'].includes(tf)) {
                             const key = `${symbol}-${tf}`;
                             const wasInside = previousChannelState[key] === false || previousChannelState[key] === undefined;
@@ -364,13 +375,12 @@
             const openCommission = tradeSize * commissionRate;
             const closeCommission = tradeSize * commissionRate;
 
-            // Основная сделка
             const mainTrade = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок', entry: 0, stopLoss: 0, takeProfit: 0 };
             if (mainTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 const rec = data.recommendations?.[symbol]?.['1h'];
                 if (rec?.confidence >= 50) {
-                    mainTrade.direction = rec.direction;
+                    mainTrade.direction = rec.direction === 'Long' ? 'Лонг' : 'Шорт';
                     mainTrade.entry = data.prices[symbol];
                     mainTrade.stopLoss = rec.stopLoss;
                     mainTrade.takeProfit = rec.takeProfit;
@@ -398,14 +408,13 @@
             dealMainReasoning.textContent = `Комментарии: ${activeTrades['main']?.reason || mainTrade.reason}`;
             statsMain.innerHTML = `Статистика: Открыто: ${activeTrades['main']?.active ? 1 : 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0} <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button> <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>`;
 
-            // Тестовая сделка (5m/15m)
             const testTrade = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.', entry: 0, stopLoss: 0, takeProfit: 0 };
             if (testTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 const tf = Math.random() > 0.5 ? '5m' : '15m';
                 const rec = data.recommendations?.[symbol]?.[tf];
                 if (rec?.confidence >= 50) {
-                    testTrade.direction = rec.direction;
+                    testTrade.direction = rec.direction === 'Long' ? 'Лонг' : 'Шорт';
                     testTrade.entry = data.prices[symbol];
                     testTrade.stopLoss = rec.stopLoss;
                     testTrade.takeProfit = rec.takeProfit;
