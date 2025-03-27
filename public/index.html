@@ -196,7 +196,7 @@
             const aiSuggestionsDiv = document.getElementById('aiSuggestions');
             const loadIndicator = document.getElementById('loadIndicator');
 
-            // Полоса настроения
+            console.log('Шаг 1: Обновление полосы настроения');
             const defaultTf = '1h';
             let totalLong = 0, totalShort = 0;
             Object.keys(data.recommendations || {}).forEach(symbol => {
@@ -208,13 +208,13 @@
             const shortPercent = Math.round(totalShort / (Object.keys(data.recommendations || {}).length * 100) * 100) || 0;
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
-            // Состояние рынка
+            console.log('Шаг 2: Обновление состояния рынка');
             marketState.innerHTML = `<h3>Состояние рынка</h3>Текущий рынок в целом показывает ${data.marketOverview?.includes('sideways') ? 'боковой характер' : data.marketOverview?.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview?.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview?.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview?.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview?.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
 
-            // Рассуждения ИИ о рынке
+            console.log('Шаг 3: Обновление рассуждений ИИ');
             marketReasoning.innerHTML = `<h3>Рассуждения ИИ о рынке</h3>${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning?.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('volumes stable', 'объёмы стабильны').replace('volumes falling', 'объёмы падают').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('sellers more active than buyers', 'продавцы активнее покупателей').replace('buyers more active than sellers', 'покупатели активнее продавцов').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('indicate medium activity', 'указывают на среднюю активность').replace('indicate low activity', 'указывают на низкую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала').replace('Spike', 'Скачок').replace('and engulfing none', 'и отсутствие поглощения') || 'Нет данных'}`;
 
-            // Таблица цен и сигналов
+            console.log('Шаг 4: Обновление таблицы');
             priceTable.innerHTML = '';
             ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'].forEach(symbol => {
                 const row = document.createElement('tr');
@@ -246,7 +246,7 @@
                 priceTable.appendChild(row);
             });
 
-            // Сделки
+            console.log('Шаг 5: Обновление сделок');
             const mainDeal = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок' };
             dealMain.textContent = mainDeal.direction;
             dealMainReasoning.textContent = `Комментарии: ${mainDeal.reason || 'Нет активных сделок'}`;
@@ -257,7 +257,7 @@
             dealTestReasoning.textContent = `Комментарии: ${testDeal['5m'] ? testDeal['5m'].reason : testDeal['15m'] ? testDeal['15m'].reason : 'Нет активных сделок. Причины: цена внутри канала, нет пробоя. Тренд боковой, объёмы падают, волатильность низкая.'}`;
             statsTest.textContent = `Статистика (тест 5m/15m): Открыто: ${data.tradesTest?.LDOUSDT?.openCount || 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Прибыль: ${(data.tradesTest?.LDOUSDT?.totalProfit || 0).toFixed(2)} USDT, Убыток: ${(data.tradesTest?.LDOUSDT?.totalLoss || 0).toFixed(2)} USDT`;
 
-            // Прогноз ИИ
+            console.log('Шаг 6: Обновление прогноза ИИ');
             forecast.innerHTML = '<h3>Прогноз ИИ</h3>';
             Object.keys(data.recommendations || {}).forEach(symbol => {
                 forecast.innerHTML += `<strong>${symbol}</strong><br>`;
@@ -274,24 +274,29 @@
                 });
             });
 
-            // Логи ИИ
+            console.log('Шаг 7: Обновление логов ИИ');
             aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Обновление данных для LDOUSDT, confidence = 0`);
             aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (aiLogs.length ? aiLogs.slice(-20).join('<br>') : 'Нет записей');
 
-            // Предложения ИИ
+            console.log('Шаг 8: Обновление предложений ИИ');
             aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions?.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
 
-            // Нагрузка
+            console.log('Шаг 9: Обновление нагрузки');
             loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
         }
 
         function fetchData() {
+            console.log('Запуск fetchData');
             fetch('/data')
                 .then(response => {
+                    console.log('Получен ответ от /data:', response.status);
                     if (!response.ok) throw new Error(`HTTP ошибка: ${response.status}`);
                     return response.json();
                 })
-                .then(data => updateUI(data))
+                .then(data => {
+                    console.log('Данные успешно получены, вызов updateUI');
+                    updateUI(data);
+                })
                 .catch(error => {
                     console.error('Ошибка получения данных:', error);
                     document.getElementById('marketState').innerHTML = `<h3>Состояние рынка</h3>Ошибка загрузки данных: ${error.message}`;
@@ -300,13 +305,21 @@
         }
 
         function resetStats(type) {
+            console.log(`Сброс статистики для ${type}`);
             fetch(`/reset-stats-${type}`, { method: 'POST' })
-                .then(() => fetchData())
+                .then(() => {
+                    console.log('Статистика сброшена, обновление данных');
+                    fetchData();
+                })
                 .catch(error => console.error('Ошибка сброса статистики:', error));
         }
 
-        setInterval(fetchData, 10000);
+        console.log('Инициализация: запуск первого fetchData');
         fetchData();
+        setInterval(() => {
+            console.log('Запуск периодического обновления');
+            fetchData();
+        }, 10000);
     </script>
 </body>
 </html>
