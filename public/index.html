@@ -170,7 +170,7 @@
         </div>
         <div class="market-state" id="marketState"><h3>Состояние рынка</h3></div>
         <div class="market-reasoning" id="marketReasoning">
-            <h3>Рассуждения ИИ о рынке</h3>
+            <h3>Прогноз</h3>
             <select id="reasoningSymbol">
                 <option value="LDOUSDT">LDOUSDT</option>
                 <option value="AVAXUSDT">AVAXUSDT</option>
@@ -274,14 +274,15 @@
             else if (marketOverview.includes('sideways')) translatedOverview = `Рынок в целом показывает боковой характер. Средняя волатильность ${parseFloat(marketOverview.match(/volatility is (\d+\.\d+)/)?.[1] || 0).toFixed(4)}, средний объем торгов ${parseFloat(marketOverview.match(/volumes are (\d+\.\d+)/)?.[1] || 0).toFixed(2)}.`;
             marketState.innerHTML = `<h3>Состояние рынка</h3>${translatedOverview}`;
 
-            // Рассуждения ИИ (перевод на русский)
+            // Прогноз (с верхней и нижней границами Nadaraya-Watson)
             const selectedSymbol = reasoningSymbol.value;
             const selectedReasonTf = reasoningTf.value;
             const rec = data.recommendations?.[selectedSymbol]?.[selectedReasonTf];
             if (rec) {
                 const forecastText = rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность';
                 const trendText = rec.trend === 'up' ? 'восходящий' : rec.trend === 'down' ? 'нисходящий' : 'боковой';
-                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${rec.price}, Канал: ${rec.channel}, Тренд: ${trendText}, Объем: ${rec.volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
+                const [lower, upper] = rec.reason.match(/Канал: ([\d.]+)-([\d.]+)/)?.slice(1) || [0, 0]; // Извлекаем границы из строки
+                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${rec.price}, Канал: нижняя ${lower} - верхняя ${upper}, Тренд: ${trendText}, Объем: ${rec.volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных';
             }
