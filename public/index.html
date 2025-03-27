@@ -17,16 +17,12 @@
         .mood-bar {
             width: 100%;
             height: 40px;
+            background: linear-gradient(to right, #008000, #FF0000);
             color: #FFFFFF;
             text-align: center;
             line-height: 40px;
             font-size: 14px;
             font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 10px;
-            background: linear-gradient(to right, #008000 50%, #FF0000 50%);
-            transition: background 0.5s ease;
         }
         .mood-controls {
             display: flex;
@@ -39,14 +35,12 @@
             display: flex;
             align-items: center;
         }
-        .market-state, .market-reasoning, .deal-section, .log-section, .suggestion-section, .footer {
+        .market-reasoning {
             background-color: #FFFFFF;
             border: 1px solid #DDD;
             padding: 10px;
             margin: 10px 0;
             border-radius: 5px;
-        }
-        .market-reasoning {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -65,7 +59,21 @@
             padding: 5px;
             font-size: 13px;
         }
-        .market-state h3, .deal-section h3, .log-section h3, .suggestion-section h3, .footer h3 {
+        .timeframe-controls {
+            margin: 10px 0;
+        }
+        .timeframe-controls label {
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        .market-state, .deal-section, .forecast-section, .log-section, .suggestion-section, .footer {
+            background-color: #FFFFFF;
+            border: 1px solid #DDD;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .market-state h3, .deal-section h3, .forecast-section h3, .log-section h3, .suggestion-section h3, .footer h3 {
             font-size: 14px;
             font-weight: bold;
             margin: 0 0 5px 0;
@@ -101,28 +109,14 @@
             font-size: 11px;
             color: #555;
         }
-        .cell-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            min-width: 100px;
-        }
-        .trend-square {
-            width: 8px;
-            height: 8px;
-            border: 1px solid #000000;
-            display: inline-block;
-            margin-right: 5px;
-        }
-        .trend-flat { background-color: #FFFF00; }
-        .trend-up { background-color: #90EE90; }
-        .trend-down { background-color: #FF0000; }
-        .direction-text {
-            min-width: 80px;
-            text-align: center;
-        }
-        .arrow-up { color: #008000; font-size: 16px; }
-        .arrow-down { color: #FF0000; font-size: 16px; }
+        .long { color: #008000; }
+        .short { color: #FF0000; }
+        .none { color: #000000; }
+        .trend-flat { background-color: #FFFF00; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .trend-up { background-color: #90EE90; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .trend-down { background-color: #FF0000; width: 8px; height: 8px; border: 1px solid #000000; display: inline-block; }
+        .arrow-up { color: #008000; font-size: 14px; }
+        .arrow-down { color: #FF0000; font-size: 14px; }
         .reset-btn, .portfolio-reset {
             background-color: #CCCCCC;
             border: none;
@@ -134,23 +128,19 @@
         .reset-btn:hover, .portfolio-reset:hover {
             background-color: #999999;
         }
-        .stats {
-            display: flex;
-            align-items: center;
+        .forecast-section div {
+            font-size: 12px;
+            margin: 5px 0;
         }
+        .forecast-growth { color: #008000; }
+        .forecast-decline { color: #FF0000; }
+        .forecast-stability { color: #000000; }
         .log-section, .suggestion-section {
             max-height: 200px;
             overflow-y: auto;
         }
         .footer {
             font-size: 11px;
-        }
-        .footer div {
-            display: flex;
-            align-items: center;
-        }
-        .footer label {
-            margin-left: 10px;
         }
         .highlight-green {
             animation: fadeGreen 2s ease-in-out;
@@ -176,10 +166,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="mood-bar" id="moodBar">
-            <span id="longPercent">Лонги: 0%</span>
-            <span id="shortPercent">Шорты: 0%</span>
-        </div>
+        <div class="mood-bar" id="moodBar">Лонги: 0% Шорты: 0%</div>
         <div class="mood-controls">
             <label><input type="radio" name="moodTf" value="5m"> 5м</label>
             <label><input type="radio" name="moodTf" value="15m"> 15м</label>
@@ -189,9 +176,8 @@
             <label><input type="radio" name="moodTf" value="1d"> 1д</label>
             <label><input type="radio" name="moodTf" value="1w"> 1н</label>
         </div>
-        <div class="market-state" id="marketState"><h3>Состояние рынка</h3></div>
         <div class="market-reasoning" id="marketReasoning">
-            <h3>Прогноз</h3>
+            <h3>Рассуждения ИИ о рынке</h3>
             <select id="reasoningSymbol">
                 <option value="LDOUSDT">LDOUSDT</option>
                 <option value="AVAXUSDT">AVAXUSDT</option>
@@ -201,7 +187,7 @@
                 <option value="5m">5m</option>
                 <option value="15m">15m</option>
                 <option value="30m">30m</option>
-                <option value="1h" selected>1h</option>
+                <option value="1h">1h</option>
                 <option value="4h">4h</option>
                 <option value="1d">1d</option>
                 <option value="1w">1w</option>
@@ -209,6 +195,16 @@
             <div class="reasoning-content" id="reasoningContent"></div>
         </div>
     </div>
+    <div class="timeframe-controls">
+        <label><input type="checkbox" value="5m" checked> 5м</label>
+        <label><input type="checkbox" value="15m" checked> 15м</label>
+        <label><input type="checkbox" value="30m"> 30м</label>
+        <label><input type="checkbox" value="1h" checked> 1ч</label>
+        <label><input type="checkbox" value="4h"> 4ч</label>
+        <label><input type="checkbox" value="1d"> 1д</label>
+        <label><input type="checkbox" value="1w"> 1н</label>
+    </div>
+    <div class="market-state" id="marketState"><h3>Состояние рынка</h3></div>
     <table>
         <thead>
             <tr>
@@ -228,53 +224,38 @@
         <h3>Сделка</h3>
         <div id="dealMain">Нет</div>
         <div class="deal-comment" id="dealMainReasoning"></div>
-        <div class="stats" id="statsMain">
-            Статистика: Открыто: 0, Закрыто: 0, Стоп: 0, Профит: 0
-            <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button>
-            <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>
-        </div>
+        <div class="stats" id="statsMain"></div>
+        <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>
 
         <h3>Сделка (тест 5m/15m)</h3>
         <div id="dealTest">Нет</div>
         <div class="deal-comment" id="dealTestReasoning"></div>
-        <div class="stats" id="statsTest">
-            Статистика: Открыто: 0, Закрыто: 0, Стоп: 0, Профит: 0, Портфель: 1000.00 USDT
-            <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button>
-            <button class="reset-btn" onclick="resetStats('test')">Сбросить</button>
-        </div>
+        <div class="stats" id="statsTest">Портфель: 1000 USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button></div>
+        <button class="reset-btn" onclick="resetStats('test')">Сбросить</button>
     </div>
+    <div class="forecast-section" id="forecast"><h3>Прогноз ИИ</h3></div>
     <div class="log-section" id="aiLogs"><h3>Обучение ИИ</h3></div>
     <div class="suggestion-section" id="aiSuggestions"><h3>Предложения ИИ</h3></div>
     <div class="footer" id="footer">
-        <div>
-            <h3>Техническое задание</h3>
-            <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
-        </div>
-        <div>
-            <h3>Как работает сайт</h3>
-            <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (↑ вверх после низа, ↓ вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ. Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
-            <div>
-                Звук <input type="checkbox" id="soundToggle" checked> 
-                <span id="loadIndicator">Нагрузка: 0%</span>
-            </div>
-        </div>
+        <h3>Техническое задание</h3>
+        <p>Сайт помогает трейдерам торговать криптовалютами (LDOUSDT, AVAXUSDT, AAVEUSDT), показывая прогнозы ИИ, статистику сделок, логи и предложения ИИ. Дизайн минималистичный, функциональный, с акцентом на удобство и читаемость. Оптимизирован для Render (512 МБ RAM, 0.1 CPU). Использует WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3).</p>
+        <h3>Как работает сайт</h3>
+        <p>Сайт помогает торговать LDOUSDT, AVAXUSDT, AAVEUSDT с помощью ИИ. Nadaraya-Watson (500 свечей) определяет канал: пробой вверх — "Шорт" (зелёное мигание ячейки), вниз — "Лонг" (красное мигание ячейки), только при outsideChannel. Квадратики: тренд ИИ (Флет — жёлтый, Восходящий — зелёный, Нисходящий — красный). Стрелки: к границе после пересечения (^ вверх после низа, v вниз после верха). Полоса настроения: % лонгов и шортов по прогнозу ИИ для таймфрейма (по умолчанию 1ч). Сделки (100 USDT): 1 основная, тестовые 5m/15m, confidence >=50%. Данные через WebSocket Binance Futures, обновление каждые 10 секунд (UTC+3). Индикатор нагрузки в подвале (% CPU).</p>
+        <div>Звук <span id="loadIndicator">Нагрузка: 0%</span></div>
     </div>
 
     <script>
         let lastPrices = {};
         let aiLogs = [];
         let aiSuggestions = [];
-        let portfolio = 1000;
+        let portfolio = 1000; // Общий портфель для всех таймфреймов
         let activeTrades = { 'main': null, 'test': null };
-        let previousChannelState = {};
-        const bellSound = new Audio('https://www.soundjay.com/buttons/bell-small-01.mp3');
 
         function updateUI(data) {
             console.log('Полученные данные:', JSON.stringify(data));
             const moodBar = document.getElementById('moodBar');
-            const longPercentSpan = document.getElementById('longPercent');
-            const shortPercentSpan = document.getElementById('shortPercent');
             const marketState = document.getElementById('marketState');
+            const marketReasoning = document.getElementById('marketReasoning');
             const reasoningContent = document.getElementById('reasoningContent');
             const reasoningSymbol = document.getElementById('reasoningSymbol');
             const reasoningTf = document.getElementById('reasoningTf');
@@ -285,10 +266,10 @@
             const dealTest = document.getElementById('dealTest');
             const dealTestReasoning = document.getElementById('dealTestReasoning');
             const statsTest = document.getElementById('statsTest');
+            const forecast = document.getElementById('forecast');
             const aiLogsDiv = document.getElementById('aiLogs');
             const aiSuggestionsDiv = document.getElementById('aiSuggestions');
             const loadIndicator = document.getElementById('loadIndicator');
-            const soundToggle = document.getElementById('soundToggle');
 
             console.log('Шаг 1: Обновление полосы настроения');
             const selectedTf = document.querySelector('input[name="moodTf"]:checked').value;
@@ -296,42 +277,36 @@
             const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
             symbols.forEach(symbol => {
                 const rec = data.recommendations?.[symbol]?.[selectedTf];
-                if (rec && rec.forecast === 'рост') totalLong++;
-                else if (rec && rec.forecast === 'падение') totalShort++;
+                if (rec && rec.forecast === 'growth') totalLong++;
+                if (rec && rec.forecast === 'decline') totalShort++;
             });
             const total = symbols.length;
             const longPercent = Math.round((totalLong / total) * 100);
             const shortPercent = Math.round((totalShort / total) * 100);
-            longPercentSpan.textContent = `Лонги: ${longPercent}%`;
-            shortPercentSpan.textContent = `Шорты: ${shortPercent}%`;
-            moodBar.style.background = `linear-gradient(to right, #008000 ${longPercent}%, #FF0000 ${longPercent}%)`;
+            moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}% (${selectedTf})`;
 
-            console.log('Шаг 2: Обновление состояния рынка');
-            marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview ? (
-                data.marketOverview.includes('sideways') ? 'Текущий рынок в целом показывает боковой характер' :
-                data.marketOverview.includes('uptrend') ? 'Текущий рынок в целом показывает восходящий характер' :
-                'Текущий рынок в целом показывает нисходящий характер'
-            ) + `. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.` : 'Нет данных'}`;
-
-            console.log('Шаг 3: Обновление прогноза');
+            console.log('Шаг 2: Обновление рассуждений ИИ');
             const selectedSymbol = reasoningSymbol.value;
             const selectedReasonTf = reasoningTf.value;
             const rec = data.recommendations?.[selectedSymbol]?.[selectedReasonTf];
             if (rec) {
-                const forecastColor = rec.forecast === 'рост' ? 'forecast-growth' : rec.forecast === 'падение' ? 'forecast-decline' : 'forecast-stability';
-                const trendColor = rec.trend === 'восходящий' ? 'long' : rec.trend === 'нисходящий' ? 'short' : 'none';
-                const forecastRu = rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : rec.forecast;
-                const trendRu = rec.trend === 'sideways' ? 'боковик' : rec.trend;
-                const channel = rec.shortReasoning?.match(/внутри ([\d.]+)–([\d.]+)/) || rec.shortReasoning?.match(/вне ([\d.]+)–([\d.]+)/);
-                const channelLow = channel ? parseFloat(channel[1]).toFixed(4) : 'N/A';
-                const channelHigh = channel ? parseFloat(channel[2]).toFixed(4) : 'N/A';
-                const volumesRu = rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны';
-                reasoningContent.innerHTML = `${selectedSymbol} ${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecastRu}</span>, Тренд: <span class="${trendColor}">${trendRu}</span>. Цена: ${data.prices[selectedSymbol].toFixed(4)}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${volumesRu}.`;
+                const forecastColor = rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability';
+                const trendText = rec.trend === 'up' ? 'бычий' : rec.trend === 'down' ? 'медвежий' : 'боковик';
+                const trendColor = rec.trend === 'up' ? 'long' : rec.trend === 'down' ? 'short' : 'none';
+                const volumeMatch = rec.shortReasoning?.match(/volume (-?\d+\.\d+)/)?.[1];
+                const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
+                const channel = rec.shortReasoning?.match(/inside ([\d.]+)–([\d.]+)/);
+                const channelLow = channel ? channel[1] : 'N/A';
+                const channelHigh = channel ? channel[2] : 'N/A';
+                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, Тренд <span class="${trendColor}">${trendText}</span>. Цена: ${data.prices[selectedSymbol]}, диапазон: ${channelLow}–${channelHigh}, объёмы: ${rec.reasoning.includes('volumes rising') ? 'растут' : rec.reasoning.includes('volumes falling') ? 'падают' : 'стабильны'}`;
             } else {
-                reasoningContent.innerHTML = 'Нет данных.';
+                reasoningContent.innerHTML = 'Нет данных';
             }
 
-            console.log('Шаг 4: Обновление таблицы и звука');
+            console.log('Шаг 3: Обновление состояния рынка');
+            marketState.innerHTML = `<h3>Состояние рынка</h3>${data.marketOverview ? `Текущий рынок в целом показывает ${data.marketOverview.includes('sideways') ? 'боковой характер' : data.marketOverview.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.` : 'Нет данных'}`;
+
+            console.log('Шаг 4: Обновление таблицы');
             priceTable.innerHTML = '';
             symbols.forEach(symbol => {
                 const row = document.createElement('tr');
@@ -345,24 +320,16 @@
                     const cell = document.createElement('td');
                     const rec = data.recommendations?.[symbol]?.[tf];
                     if (rec) {
-                        const directionText = rec.direction === 'None' ? 'Нет' : `${rec.direction === 'Long' ? 'Лонг' : 'Шорт'} ${rec.confidence}%`;
-                        const trendClass = rec.trend === 'восходящий' ? 'trend-up' : rec.trend === 'нисходящий' ? 'trend-down' : 'trend-flat';
-                        const trendDirection = rec.trendDirection === 'вверх' ? '<span class="arrow-up">↑</span>' : rec.trendDirection === 'вниз' ? '<span class="arrow-down">↓</span>' : '';
-                        cell.innerHTML = `<div class="cell-content"><span class="trend-square ${trendClass}"></span><span class="direction-text">${directionText}</span>${trendDirection}</div>`;
+                        const direction = rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>';
+                        const confidence = rec.confidence || 0;
+                        const trendClass = rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat';
+                        const trendDirection = rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : '';
+                        cell.innerHTML = `${direction} ${confidence}% <span class="${trendClass}"></span> ${trendDirection}`;
                         if (rec.outsideChannel) {
-                            cell.style.animation = rec.direction === 'Шорт' ? 'fadeGreen 2s' : 'fadeRed 2s';
-                        }
-
-                        if (['15m', '30m', '1h', '4h', '1d', '1w'].includes(tf)) {
-                            const key = `${symbol}-${tf}`;
-                            const wasInside = previousChannelState[key] === false || previousChannelState[key] === undefined;
-                            if (rec.outsideChannel && wasInside && soundToggle.checked) {
-                                bellSound.play();
-                            }
-                            previousChannelState[key] = rec.outsideChannel;
+                            cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
                         }
                     } else {
-                        cell.innerHTML = '<div class="cell-content"><span class="trend-square trend-flat"></span><span class="direction-text">Нет</span></div>';
+                        cell.textContent = 'Нет данных';
                     }
                     row.appendChild(cell);
                 });
@@ -375,12 +342,13 @@
             const openCommission = tradeSize * commissionRate;
             const closeCommission = tradeSize * commissionRate;
 
+            // Основная сделка
             const mainTrade = Object.values(data.tradesMain || {}).find(t => t.active) || { direction: 'Нет', reason: 'Нет активных сделок', entry: 0, stopLoss: 0, takeProfit: 0 };
             if (mainTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
-                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)]; // Случайная валюта для теста
                 const rec = data.recommendations?.[symbol]?.['1h'];
                 if (rec?.confidence >= 50) {
-                    mainTrade.direction = rec.direction === 'Long' ? 'Лонг' : 'Шорт';
+                    mainTrade.direction = rec.direction;
                     mainTrade.entry = data.prices[symbol];
                     mainTrade.stopLoss = rec.stopLoss;
                     mainTrade.takeProfit = rec.takeProfit;
@@ -392,29 +360,30 @@
             if (activeTrades['main']?.active) {
                 const currentPrice = data.prices[activeTrades['main'].symbol];
                 if (currentPrice <= activeTrades['main'].stopLoss) {
-                    const loss = (activeTrades['main'].direction === 'Лонг' ? (activeTrades['main'].entry - activeTrades['main'].stopLoss) : (activeTrades['main'].stopLoss - activeTrades['main'].entry)) * tradeSize;
+                    const loss = (activeTrades['main'].direction === 'Long' ? (activeTrades['main'].entry - activeTrades['main'].stopLoss) : (activeTrades['main'].stopLoss - activeTrades['main'].entry)) * tradeSize;
                     const remaining = tradeSize - loss;
                     portfolio += (remaining - closeCommission);
                     activeTrades['main'].active = false;
-                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['main'].symbol} 1ч ${activeTrades['main'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                } else if ((activeTrades['main'].direction === 'Лонг' && currentPrice >= activeTrades['main'].takeProfit) || (activeTrades['main'].direction === 'Шорт' && currentPrice <= activeTrades['main'].takeProfit)) {
-                    const profit = (activeTrades['main'].direction === 'Лонг' ? (activeTrades['main'].takeProfit - activeTrades['main'].entry) : (activeTrades['main'].entry - activeTrades['main'].takeProfit)) * tradeSize;
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['main'].symbol} 1h ${activeTrades['main'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
+                } else if ((activeTrades['main'].direction === 'Long' && currentPrice >= activeTrades['main'].takeProfit) || (activeTrades['main'].direction === 'Short' && currentPrice <= activeTrades['main'].takeProfit)) {
+                    const profit = (activeTrades['main'].direction === 'Long' ? (activeTrades['main'].takeProfit - activeTrades['main'].entry) : (activeTrades['main'].entry - activeTrades['main'].takeProfit)) * tradeSize;
                     portfolio += (tradeSize + profit - closeCommission);
                     activeTrades['main'].active = false;
-                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['main'].symbol} 1ч ${activeTrades['main'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
+                    aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['main'].symbol} 1h ${activeTrades['main'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
                 }
             }
             dealMain.textContent = activeTrades['main']?.active ? activeTrades['main'].direction : 'Нет';
             dealMainReasoning.textContent = `Комментарии: ${activeTrades['main']?.reason || mainTrade.reason}`;
-            statsMain.innerHTML = `Статистика: Открыто: ${activeTrades['main']?.active ? 1 : 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0} <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button> <button class="reset-btn" onclick="resetStats('main')">Сбросить</button>`;
+            statsMain.textContent = `Статистика: Открыто: ${activeTrades['main']?.active ? 1 : 0}, Закрыто: ${data.tradesMain?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesMain?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesMain?.LDOUSDT?.profitCount || 0}`;
 
+            // Тестовая сделка (5m/15m)
             const testTrade = Object.values(data.tradesTest || {}).find(t => t['5m'] || t['15m']) || { direction: 'Нет', reason: 'Нет активных сделок. Причины: цена внутри канала, нет пробоя.', entry: 0, stopLoss: 0, takeProfit: 0 };
             if (testTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 const tf = Math.random() > 0.5 ? '5m' : '15m';
                 const rec = data.recommendations?.[symbol]?.[tf];
                 if (rec?.confidence >= 50) {
-                    testTrade.direction = rec.direction === 'Long' ? 'Лонг' : 'Шорт';
+                    testTrade.direction = rec.direction;
                     testTrade.entry = data.prices[symbol];
                     testTrade.stopLoss = rec.stopLoss;
                     testTrade.takeProfit = rec.takeProfit;
@@ -426,13 +395,13 @@
             if (activeTrades['test']?.active) {
                 const currentPrice = data.prices[activeTrades['test'].symbol];
                 if (currentPrice <= activeTrades['test'].stopLoss) {
-                    const loss = (activeTrades['test'].direction === 'Лонг' ? (activeTrades['test'].entry - activeTrades['test'].stopLoss) : (activeTrades['test'].stopLoss - activeTrades['test'].entry)) * tradeSize;
+                    const loss = (activeTrades['test'].direction === 'Long' ? (activeTrades['test'].entry - activeTrades['test'].stopLoss) : (activeTrades['test'].stopLoss - activeTrades['test'].entry)) * tradeSize;
                     const remaining = tradeSize - loss;
                     portfolio += (remaining - closeCommission);
                     activeTrades['test'].active = false;
                     aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['test'].symbol} ${activeTrades['test'].tf} ${activeTrades['test'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                } else if ((activeTrades['test'].direction === 'Лонг' && currentPrice >= activeTrades['test'].takeProfit) || (activeTrades['test'].direction === 'Шорт' && currentPrice <= activeTrades['test'].takeProfit)) {
-                    const profit = (activeTrades['test'].direction === 'Лонг' ? (activeTrades['test'].takeProfit - activeTrades['test'].entry) : (activeTrades['test'].entry - activeTrades['test'].takeProfit)) * tradeSize;
+                } else if ((activeTrades['test'].direction === 'Long' && currentPrice >= activeTrades['test'].takeProfit) || (activeTrades['test'].direction === 'Short' && currentPrice <= activeTrades['test'].takeProfit)) {
+                    const profit = (activeTrades['test'].direction === 'Long' ? (activeTrades['test'].takeProfit - activeTrades['test'].entry) : (activeTrades['test'].entry - activeTrades['test'].takeProfit)) * tradeSize;
                     portfolio += (tradeSize + profit - closeCommission);
                     activeTrades['test'].active = false;
                     aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['test'].symbol} ${activeTrades['test'].tf} ${activeTrades['test'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
@@ -440,15 +409,32 @@
             }
             dealTest.textContent = activeTrades['test']?.active ? activeTrades['test'].direction : 'Нет';
             dealTestReasoning.textContent = `Комментарии: ${activeTrades['test']?.reason || testTrade.reason}`;
-            statsTest.innerHTML = `Статистика: Открыто: ${activeTrades['test']?.active ? 1 : 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Портфель: ${portfolio.toFixed(2)} USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button> <button class="reset-btn" onclick="resetStats('test')">Сбросить</button>`;
+            statsTest.innerHTML = `Статистика: Открыто: ${activeTrades['test']?.active ? 1 : 0}, Закрыто: ${data.tradesTest?.LDOUSDT?.closedCount || 0}, Стоп: ${data.tradesTest?.LDOUSDT?.stopCount || 0}, Профит: ${data.tradesTest?.LDOUSDT?.profitCount || 0}, Портфель: ${portfolio.toFixed(2)} USDT <button class="portfolio-reset" onclick="resetPortfolio()">$$$</button>`;
 
-            console.log('Шаг 6: Обновление логов ИИ');
+            console.log('Шаг 6: Обновление прогноза ИИ');
+            forecast.innerHTML = '<h3>Прогноз ИИ</h3>';
+            Object.keys(data.recommendations || {}).forEach(symbol => {
+                forecast.innerHTML += `<strong>${symbol}</strong><br>`;
+                const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
+                TIMEFRAMES.forEach(tf => {
+                    const rec = data.recommendations[symbol][tf];
+                    if (rec) {
+                        const volumeMatch = rec.shortReasoning?.match(/volume (-?\d+\.\d+)/)?.[1];
+                        const volume = volumeMatch ? Math.abs(parseFloat(volumeMatch)) : 0;
+                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning ? rec.shortReasoning.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace(/volume -?\d+\.\d+/, `объём ${volume}`).replace('inside', 'внутри') : 'Нет данных'}<br>`;
+                    } else {
+                        forecast.innerHTML += `${tf}: Нет данных<br>`;
+                    }
+                });
+            });
+
+            console.log('Шаг 7: Обновление логов ИИ');
             aiLogsDiv.innerHTML = '<h3>Обучение ИИ</h3>' + (aiLogs.length ? aiLogs.slice(-100).slice(-20).join('<br>') : 'Нет записей');
 
-            console.log('Шаг 7: Обновление предложений ИИ');
+            console.log('Шаг 8: Обновление предложений ИИ');
             aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (data.aiSuggestions?.length ? data.aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
 
-            console.log('Шаг 8: Обновление нагрузки');
+            console.log('Шаг 9: Обновление нагрузки');
             loadIndicator.textContent = `Нагрузка: ${data.serverLoad || 0}%`;
         }
 
@@ -483,7 +469,7 @@
 
         function resetPortfolio() {
             console.log('Сброс портфеля');
-            portfolio = 1000;
+            portfolio = 1000; // Только портфель сбрасывается до 1000 USDT, активные сделки остаются
             fetchData();
         }
 
