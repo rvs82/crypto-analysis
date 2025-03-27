@@ -1,3 +1,4 @@
+console.log('Running server.js as CommonJS, version: 1.1');
 const express = require('express');
 const WebSocket = require('ws');
 const fs = require('fs').promises;
