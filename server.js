@@ -48,9 +48,9 @@ async function loadData() {
                 if (!klinesByTimeframe[symbol][tf]) klinesByTimeframe[symbol][tf] = [];
             });
         });
-        console.log('Данные загружены из trades.json:', lastPrices);
+        console.log('Data loaded from trades.json:', lastPrices);
     } catch (error) {
-        console.log('Нет сохранённых данных или ошибка загрузки:', error.message);
+        console.log('No saved data or loading error:', error.message);
         TIMEFRAMES.forEach(tf => {
             Object.keys(klinesByTimeframe).forEach(symbol => {
                 klinesByTimeframe[symbol][tf] = [];
@@ -63,17 +63,17 @@ async function saveData() {
     try {
         const dataToSave = { tradesMain, tradesTest, aiLogs, aiSuggestions, lastChannelCross, learningWeights, klinesByTimeframe, lastPrices };
         await fs.writeFile('trades.json', JSON.stringify(dataToSave, null, 2), 'utf8');
-        console.log('Данные сохранены в trades.json:', lastPrices);
+        console.log('Data saved to trades.json:', lastPrices);
     } catch (error) {
-        console.error('Ошибка сохранения данных:', error.message);
+        console.error('Error saving data:', error.message);
     }
 }
 
-loadData().then(() => console.log('Сервер готов к работе'));
+loadData().then(() => console.log('Server is ready to work'));
 
 function getMoscowTime() {
     const now = new Date();
-    return new Date(now.getTime() + 3 * 60 * 60 * 1000).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
+    return new Date(now.getTime() + 3 * 60 * 60 * 1000).toLocaleString('en-US', { timeZone: 'Europe/Moscow' });
 }
 
 function getServerLoad() {
@@ -92,7 +92,7 @@ function getServerLoad() {
 function connectWebSocket() {
     const ws = new WebSocket('wss://fstream.binance.com/ws');
     ws.on('open', () => {
-        console.log('WebSocket сервер запущен (Binance Futures)');
+        console.log('WebSocket server started (Binance Futures)');
         const symbols = ['ldousdt', 'avaxusdt', 'aaveusdt', 'btcusdt', 'ethusdt'];
         const streams = [];
         symbols.forEach(symbol => {
@@ -105,7 +105,7 @@ function connectWebSocket() {
                 params: [stream],
                 id: 1
             }));
-            console.log(`Подписка на ${stream} отправлена`);
+            console.log(`Subscribed to ${stream}`);
         });
     });
     ws.on('message', async (data) => {
@@ -116,7 +116,7 @@ function connectWebSocket() {
                 const newPrice = parseFloat(msg.c);
                 if (newPrice !== lastPrices[symbol]) {
                     lastPrices[symbol] = newPrice;
-                    console.log(`Обновлена цена через WebSocket для ${symbol}: ${lastPrices[symbol]} (@ticker)`);
+                    console.log(`Price updated via WebSocket for ${symbol}: ${lastPrices[symbol]} (@ticker)`);
                     await saveData();
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
                     await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
@@ -141,22 +141,22 @@ function connectWebSocket() {
                     klineList.push(kline);
                     if (klineList.length > 1000) klineList.shift();
                 }
-                console.log(`Обновлена свеча через WebSocket для ${symbol} ${tf}`);
+                console.log(`Kline updated via WebSocket for ${symbol} ${tf}`);
                 TIMEFRAMES.filter(t => t !== '5m').forEach(tf => {
                     klinesByTimeframe[symbol][tf] = aggregateKlines(klinesByTimeframe[symbol]['5m'], tf);
                 });
                 await saveData();
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
-                console.log('Отправлен pong в ответ на ping');
+                console.log('Sent pong in response to ping');
             }
         } catch (error) {
-            console.error('Ошибка обработки WebSocket-сообщения:', error.message);
+            console.error('Error processing WebSocket message:', error.message);
         }
     });
-    ws.on('error', (error) => console.error('WebSocket ошибка:', error.message));
+    ws.on('error', (error) => console.error('WebSocket error:', error.message));
     ws.on('close', () => {
-        console.log('WebSocket закрыт, переподключение через 500 мс...');
+        console.log('WebSocket closed, reconnecting in 500ms...');
         setTimeout(connectWebSocket, 500);
     });
 }
@@ -292,10 +292,10 @@ function calculateFibonacci(klines) {
 
 function getTrend(klines) {
     const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
-    if (last50.length < 50) return 'боковик';
+    if (last50.length < 50) return 'sideways';
     const avgStart = last50.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
     const avgEnd = last50.slice(-5).reduce((a, b) => a + b, 0) / 5;
-    return avgEnd > avgStart ? 'вверх' : avgEnd < avgStart ? 'вниз' : 'боковик';
+    return avgEnd > avgStart ? 'up' : avgEnd < avgStart ? 'down' : 'sideways';
 }
 
 function getWick(klines) {
@@ -316,16 +316,16 @@ function getSpike(klines) {
 }
 
 function getEngulfing(klines) {
-    if (klines.length < 2) return 'нет';
+    if (klines.length < 2) return 'none';
     const last = klines[klines.length - 1];
     const prev = klines[klines.length - 2];
     const lastOpen = parseFloat(last[1]);
     const lastClose = parseFloat(last[4]);
     const prevOpen = parseFloat(prev[1]);
     const prevClose = parseFloat(prev[4]);
-    if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'бычье';
-    if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'медвежье';
-    return 'нет';
+    if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
+    if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
+    return 'none';
 }
 
 function getLevels(klines) {
@@ -346,7 +346,7 @@ async function checkCorrelation(symbol) {
         const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
         return (corrBtc + corrEth) / 2 < 0.3;
     } catch (error) {
-        console.error(`Ошибка корреляции для ${symbol}:`, error.message);
+        console.error(`Correlation error for ${symbol}:`, error.message);
         return false;
     }
 }
@@ -383,7 +383,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
     const tradeData = trades[symbol];
     if (trades === tradesMain && tradeData.active) {
         const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
-        if (direction === 'Лонг') {
+        if (direction === 'Long') {
             if (currentPrice <= stopLoss) {
                 const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
                 const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -393,10 +393,10 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 tradeData.openCount--;
                 learningWeights[symbol].distance *= 0.95;
                 learningWeights[symbol].volume *= 0.95;
-                aiLogs.push(`Ошибка: ${symbol} ${timeframe} Лонг не сработал. Цена ${currentPrice} не удержалась выше ${stopLoss}. Вывод: слабый сигнал. Влияние: Снизил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Буду строже проверять объёмы перед входом.`);
+                aiLogs.push(`Error: ${symbol} ${timeframe} Long failed. Price ${currentPrice} dropped below ${stopLoss}. Conclusion: weak signal. Impact: Reduced distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Will check volumes more strictly before entry.`);
                 const now = Date.now();
                 if (now - lastSuggestionTime >= 300000) {
-                    aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор MACD с настройками: быстрая EMA 12, медленная EMA 26, сигнальная линия 9. Основание: частые ложные пробои канала требуют фильтра пересечений.`);
+                    aiSuggestions.push(`${getMoscowTime()} | Suggest adding MACD indicator with settings: fast EMA 12, slow EMA 26, signal line 9. Reason: frequent false channel breakouts need crossover filter.`);
                     lastSuggestionTime = now;
                     if (aiSuggestions.length > 100) aiSuggestions.shift();
                 }
@@ -412,12 +412,12 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 tradeData.openCount--;
                 learningWeights[symbol].distance *= 1.05;
                 learningWeights[symbol].volume *= 1.05;
-                aiLogs.push(`Успех: ${symbol} ${timeframe} Лонг сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: точный сигнал. Влияние: Повысил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Усиливаю доверие к пробоям с объёмом.`);
+                aiLogs.push(`Success: ${symbol} ${timeframe} Long worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                 if (aiLogs.length > 100) aiLogs.shift();
                 tradeData.active = null;
                 await saveData();
             }
-        } else if (direction === 'Шорт') {
+        } else if (direction === 'Short') {
             if (currentPrice >= stopLoss) {
                 const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
                 const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -427,10 +427,10 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 tradeData.openCount--;
                 learningWeights[symbol].distance *= 0.95;
                 learningWeights[symbol].volume *= 0.95;
-                aiLogs.push(`Ошибка: ${symbol} ${timeframe} Шорт не сработал. Цена ${currentPrice} превысила ${stopLoss}. Вывод: ложный сигнал. Влияние: Снизил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Буду учитывать ложные пробои.`);
+                aiLogs.push(`Error: ${symbol} ${timeframe} Short failed. Price ${currentPrice} exceeded ${stopLoss}. Conclusion: false signal. Impact: Reduced distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Will account for false breakouts.`);
                 const now = Date.now();
                 if (now - lastSuggestionTime >= 300000) {
-                    aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор RSI с периодом 14 и уровнями перекупленности 70, перепроданности 30. Основание: частые ложные пробои верхней границы.`);
+                    aiSuggestions.push(`${getMoscowTime()} | Suggest adding RSI indicator with period 14, overbought 70, oversold 30. Reason: frequent false upper boundary breakouts.`);
                     lastSuggestionTime = now;
                     if (aiSuggestions.length > 100) aiSuggestions.shift();
                 }
@@ -446,7 +446,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 tradeData.openCount--;
                 learningWeights[symbol].distance *= 1.05;
                 learningWeights[symbol].volume *= 1.05;
-                aiLogs.push(`Успех: ${symbol} ${timeframe} Шорт сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: точный сигнал. Влияние: Повысил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Усиливаю доверие к пробоям с объёмом.`);
+                aiLogs.push(`Success: ${symbol} ${timeframe} Short worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                 if (aiLogs.length > 100) aiLogs.shift();
                 tradeData.active = null;
                 await saveData();
@@ -456,7 +456,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
         ['5m', '15m'].forEach(tf => {
             if (tradeData[tf]) {
                 const { entry, stopLoss, takeProfit, direction } = tradeData[tf];
-                if (direction === 'Лонг') {
+                if (direction === 'Long') {
                     if (currentPrice <= stopLoss) {
                         const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
                         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -466,10 +466,10 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         tradeData.openCount--;
                         learningWeights[symbol].distance *= 0.95;
                         learningWeights[symbol].volume *= 0.95;
-                        aiLogs.push(`Ошибка: ${symbol} ${tf} Лонг не сработал. Цена ${currentPrice} не удержалась выше ${stopLoss}. Вывод: слабый сигнал. Влияние: Снизил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Буду строже проверять объёмы перед входом.`);
+                        aiLogs.push(`Error: ${symbol} ${tf} Long failed. Price ${currentPrice} dropped below ${stopLoss}. Conclusion: weak signal. Impact: Reduced distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Will check volumes more strictly before entry.`);
                         const now = Date.now();
                         if (now - lastSuggestionTime >= 300000) {
-                            aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор MACD с настройками: быстрая EMA 12, медленная EMA 26, сигнальная линия 9 для таймфрейма ${tf}. Основание: частые убытки на краткосрочных движениях.`);
+                            aiSuggestions.push(`${getMoscowTime()} | Suggest adding MACD indicator with settings: fast EMA 12, slow EMA 26, signal line 9 for timeframe ${tf}. Reason: frequent losses on short-term movements.`);
                             lastSuggestionTime = now;
                             if (aiSuggestions.length > 100) aiSuggestions.shift();
                         }
@@ -485,12 +485,12 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         tradeData.openCount--;
                         learningWeights[symbol].distance *= 1.05;
                         learningWeights[symbol].volume *= 1.05;
-                        aiLogs.push(`Успех: ${symbol} ${tf} Лонг сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: точный сигнал. Влияние: Повысил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Усиливаю доверие к пробоям с объёмом.`);
+                        aiLogs.push(`Success: ${symbol} ${tf} Long worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                         if (aiLogs.length > 100) aiLogs.shift();
                         tradeData[tf] = null;
                         await saveData();
                     }
-                } else if (direction === 'Шорт') {
+                } else if (direction === 'Short') {
                     if (currentPrice >= stopLoss) {
                         const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
                         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -500,10 +500,10 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         tradeData.openCount--;
                         learningWeights[symbol].distance *= 0.95;
                         learningWeights[symbol].volume *= 0.95;
-                        aiLogs.push(`Ошибка: ${symbol} ${tf} Шорт не сработал. Цена ${currentPrice} превысила ${stopLoss}. Вывод: ложный сигнал. Влияние: Снизил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Буду учитывать ложные пробои.`);
+                        aiLogs.push(`Error: ${symbol} ${tf} Short failed. Price ${currentPrice} exceeded ${stopLoss}. Conclusion: false signal. Impact: Reduced distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and賽learningWeights[symbol].volume.toFixed(2)}. Will account for false breakouts.`);
                         const now = Date.now();
                         if (now - lastSuggestionTime >= 300000) {
-                            aiSuggestions.push(`${getMoscowTime()} | Рекомендую добавить индикатор RSI с периодом 14 и уровнями перекупленности 70, перепроданности 30 для таймфрейма ${tf}. Основание: частые ложные пробои верхней границы.`);
+                            aiSuggestions.push(`${getMoscowTime()} | Suggest adding RSI indicator with period 14, overbought 70, oversold 30 for timeframe ${tf}. Reason: frequent false upper boundary breakouts.`);
                             lastSuggestionTime = now;
                             if (aiSuggestions.length > 100) aiSuggestions.shift();
                         }
@@ -519,7 +519,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         tradeData.openCount--;
                         learningWeights[symbol].distance *= 1.05;
                         learningWeights[symbol].volume *= 1.05;
-                        aiLogs.push(`Успех: ${symbol} ${tf} Шорт сработал. Цена ${currentPrice} достигла ${takeProfit}. Вывод: точный сигнал. Влияние: Повысил вес расстояния и объёмов до ${learningWeights[symbol].distance.toFixed(2)} и ${learningWeights[symbol].volume.toFixed(2)}. Усиливаю доверие к пробоям с объёмом.`);
+                        aiLogs.push(`Success: ${symbol} ${tf} Short worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                         if (aiLogs.length > 100) aiLogs.shift();
                         tradeData[tf] = null;
                         await saveData();
@@ -553,7 +553,7 @@ async function aiTradeDecision(symbol) {
         const spike = getSpike(klines);
         const engulfing = getEngulfing(klines);
         const levels = getLevels(klines);
-        const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'вверх' : 'вниз';
+        const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'up' : 'down';
         const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
         const lowBtcEthCorr = await checkCorrelation(symbol);
         const accumulation = checkAccumulation(klines);
@@ -565,47 +565,47 @@ async function aiTradeDecision(symbol) {
         }
 
         const lastCross = lastChannelCross[symbol][tf] || 'none';
-        const trendDirection = lastCross === 'lower' ? 'вверх' : lastCross === 'upper' ? 'вниз' : trend;
+        const trendDirection = lastCross === 'lower' ? 'up' : lastCross === 'upper' ? 'down' : trend;
 
-        console.log(`${getMoscowTime()} | ${symbol} ${tf} | Цена ${price}, канал ${nw.lower}–${nw.upper}, outsideChannel: ${outsideChannel}, trend: ${trend}, lastCross: ${lastCross}`);
+        console.log(`${getMoscowTime()} | ${symbol} ${tf} | Price ${price}, channel ${nw.lower}–${nw.upper}, outsideChannel: ${outsideChannel}, trend: ${trend}, lastCross: ${lastCross}`);
 
         const flatData = detectFlat(klines, nw);
         const isFlat = flatData.isFlat;
         const flatLow = flatData.flatLow;
         const flatHigh = flatData.flatHigh;
 
-        let direction = outsideChannel ? (price > nw.upper ? 'Шорт' : 'Лонг') : 'Нет';
+        let direction = outsideChannel ? (price > nw.upper ? 'Short' : 'Long') : 'None';
         let confidence = 0;
 
-        if (direction !== 'Нет') {
-            confidence = Math.min(100, Math.round(Math.abs(price - (direction === 'Шорт' ? nw.upper : nw.lower)) / price * 200)) * learningWeights[symbol].distance;
-            if (volume > 0 && direction === 'Лонг') confidence += 20 * learningWeights[symbol].volume;
-            if (volume < 0 && direction === 'Шорт') confidence += 20 * learningWeights[symbol].volume;
-            if (price > ema200 && direction === 'Лонг') confidence += 10 * learningWeights[symbol].ema;
-            if (price < ema200 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].ema;
+        if (direction !== 'None') {
+            confidence = Math.min(100, Math.round(Math.abs(price - (direction === 'Short' ? nw.upper : nw.lower)) / price * 200)) * learningWeights[symbol].distance;
+            if (volume > 0 && direction === 'Long') confidence += 20 * learningWeights[symbol].volume;
+            if (volume < 0 && direction === 'Short') confidence += 20 * learningWeights[symbol].volume;
+            if (price > ema200 && direction === 'Long') confidence += 10 * learningWeights[symbol].ema;
+            if (price < ema200 && direction === 'Short') confidence += 10 * learningWeights[symbol].ema;
             if (Math.abs(price - fib[0.618]) < price * 0.005) confidence += 15 * learningWeights[symbol].fibo;
             if (vol > klines.slice(-5, -1).reduce((a, k) => a + parseFloat(k[5]), 0) / 4) confidence += 10 * learningWeights[symbol].volume;
             if (!lowBtcEthCorr) {
-                if (btcPrice > lastPrices['BTCUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
-                if (ethPrice > lastPrices['ETHUSDT'] * 0.99 && direction === 'Лонг') confidence += 5 * learningWeights[symbol].btcEth;
+                if (btcPrice > lastPrices['BTCUSDT'] * 0.99 && direction === 'Long') confidence += 5 * learningWeights[symbol].btcEth;
+                if (ethPrice > lastPrices['ETHUSDT'] * 0.99 && direction === 'Long') confidence += 5 * learningWeights[symbol].btcEth;
             } else {
                 learningWeights[symbol].btcEth *= 0.95;
-                aiLogs.push(`${getMoscowTime()}: ${symbol} ${tf} — Низкая корреляция с BTC/ETH, уменьшил их вес до ${learningWeights[symbol].btcEth.toFixed(2)}.`);
+                aiLogs.push(`${getMoscowTime()}: ${symbol} ${tf} — Low correlation with BTC/ETH, reduced their weight to ${learningWeights[symbol].btcEth.toFixed(2)}.`);
             }
-            if (trend === 'вверх' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].trend;
-            if (trend === 'вниз' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].trend;
-            if (wick.upper > wick.lower && direction === 'Лонг') confidence += 10 * learningWeights[symbol].wick;
-            if (wick.lower > wick.upper && direction === 'Шорт') confidence += 10 * learningWeights[symbol].wick;
-            if (spike > 0 && direction === (spike > 0 ? 'Лонг' : 'Шорт')) confidence += 10 * learningWeights[symbol].spike;
-            if (engulfing === 'бычье' && direction === 'Лонг') confidence += 10 * learningWeights[symbol].engulf;
-            if (engulfing === 'медвежье' && direction === 'Шорт') confidence += 10 * learningWeights[symbol].engulf;
-            if (Math.abs(price - levels.resistance) < price * 0.005 && direction === 'Шорт') confidence += 10 * learningWeights[symbol].levels;
-            if (Math.abs(price - levels.support) < price * 0.005 && direction === 'Лонг') confidence += 10 * learningWeights[symbol].levels;
-            if (frequentExits && boundaryTrend === (direction === 'Шорт' ? 'вверх' : 'вниз')) confidence += 15 * learningWeights[symbol].trend;
+            if (trend === 'up' && direction === 'Long') confidence += 10 * learningWeights[symbol].trend;
+            if (trend === 'down' && direction === 'Short') confidence += 10 * learningWeights[symbol].trend;
+            if (wick.upper > wick.lower && direction === 'Long') confidence += 10 * learningWeights[symbol].wick;
+            if (wick.lower > wick.upper && direction === 'Short') confidence += 10 * learningWeights[symbol].wick;
+            if (spike > 0 && direction === (spike > 0 ? 'Long' : 'Short')) confidence += 10 * learningWeights[symbol].spike;
+            if (engulfing === 'bullish' && direction === 'Long') confidence += 10 * learningWeights[symbol].engulf;
+            if (engulfing === 'bearish' && direction === 'Short') confidence += 10 * learningWeights[symbol].engulf;
+            if (Math.abs(price - levels.resistance) < price * 0.005 && direction === 'Short') confidence += 10 * learningWeights[symbol].levels;
+            if (Math.abs(price - levels.support) < price * 0.005 && direction === 'Long') confidence += 10 * learningWeights[symbol].levels;
+            if (frequentExits && boundaryTrend === (direction === 'Short' ? 'up' : 'down')) confidence += 15 * learningWeights[symbol].trend;
             if (accumulation) confidence += 10 * learningWeights[symbol].volume;
             if (isFlat && Math.abs(nw.lower - flatLow) < flatLow * 0.01 && Math.abs(nw.upper - flatHigh) < flatHigh * 0.01) {
                 confidence += 10 * learningWeights[symbol].flat;
-                aiLogs.push(`${getMoscowTime()}: ${symbol} ${tf} — Совпадение границ Nadaraya и боковика усиливает сигнал (+10% к confidence).`);
+                aiLogs.push(`${getMoscowTime()}: ${symbol} ${tf} — Nadaraya and flat boundaries match, boosting signal (+10% to confidence).`);
             }
             confidence = Math.min(100, Math.round(confidence));
 
@@ -614,48 +614,48 @@ async function aiTradeDecision(symbol) {
                     tradesMain[symbol].active = {
                         direction,
                         entry: price,
-                        stopLoss: direction === 'Лонг' ? price * 0.995 : price * 1.005,
-                        takeProfit: direction === 'Лонг' ? price * 1.01 : price * 0.99,
+                        stopLoss: direction === 'Long' ? price * 0.995 : price * 1.005,
+                        takeProfit: direction === 'Long' ? price * 1.01 : price * 0.99,
                         timeframe: tf,
-                        reason: `Пробой ${direction === 'Лонг' ? 'нижней' : 'верхней'} границы канала на уровне ${direction === 'Лонг' ? nw.lower : nw.upper} с уверенностью ${confidence}%. Объёмы: ${volume}, тренд: ${trend}. Стоп-лосс установлен на 0.5% от входа для защиты, тейк-профит на 1% для фиксации прибыли при умеренной волатильности ${volatility}.`
+                        reason: `Breakout of ${direction === 'Long' ? 'lower' : 'upper'} channel boundary at ${direction === 'Long' ? nw.lower : nw.upper} with ${confidence}% confidence. Volume: ${volume}, trend: ${trend}. Stop-loss set at 0.5% from entry for protection, take-profit at 1% for profit-taking with moderate volatility ${volatility}.`
                     };
                     tradesMain[symbol].openCount++;
-                    aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${direction} | Открыта сделка с уверенностью ${confidence}%. Причина: ${tradesMain[symbol].active.reason}`);
-                    console.log('Открыта основная сделка:', tradesMain[symbol]);
+                    aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${direction} | Trade opened with ${confidence}% confidence. Reason: ${tradesMain[symbol].active.reason}`);
+                    console.log('Main trade opened:', tradesMain[symbol]);
                 }
                 if ((tf === '5m' || tf === '15m') && !tradesTest[symbol][tf]) {
                     tradesTest[symbol][tf] = {
                         direction,
                         entry: price,
-                        stopLoss: direction === 'Лонг' ? price * 0.995 : price * 1.005,
-                        takeProfit: direction === 'Лонг' ? price * 1.01 : price * 0.99,
+                        stopLoss: direction === 'Long' ? price * 0.995 : price * 1.005,
+                        takeProfit: direction === 'Long' ? price * 1.01 : price * 0.99,
                         timeframe: tf,
-                        reason: `Пробой ${direction === 'Лонг' ? 'нижней' : 'верхней'} границы канала на уровне ${direction === 'Лонг' ? nw.lower : nw.upper} с уверенностью ${confidence}%. Объёмы: ${volume}, тренд: ${trend}. Стоп-лосс установлен на 0.5% от входа для защиты, тейк-профит на 1% для фиксации прибыли при умеренной волатильности ${volatility}.`
+                        reason: `Breakout of ${direction === 'Long' ? 'lower' : 'upper'} channel boundary at ${direction === 'Long' ? nw.lower : nw.upper} with ${confidence}% confidence. Volume: ${volume}, trend: ${trend}. Stop-loss set at 0.5% from entry for protection, take-profit at 1% for profit-taking with moderate volatility ${volatility}.`
                     };
                     tradesTest[symbol].openCount++;
-                    aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${direction} | Открыта тестовая сделка с уверенностью ${confidence}%. Причина: ${tradesTest[symbol][tf].reason}`);
-                    console.log('Открыта тестовая сделка:', tradesTest[symbol]);
+                    aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${direction} | Test trade opened with ${confidence}% confidence. Reason: ${tradesTest[symbol][tf].reason}`);
+                    console.log('Test trade opened:', tradesTest[symbol]);
                 }
             }
         }
 
-        const market = trend === 'вверх' ? 'Восходящий' : trend === 'вниз' ? 'Нисходящий' : 'Флет';
-        const forecast = isFlat ? 'стабильность' : (direction === 'Шорт' || trend === 'вниз' ? 'падение' : 'рост');
+        const market = trend === 'up' ? 'Uptrend' : trend === 'down' ? 'Downtrend' : 'Flat';
+        const forecast = isFlat ? 'stability' : (direction === 'Short' || trend === 'down' ? 'decline' : 'growth');
         const entry = price;
-        const stopLoss = direction === 'Лонг' ? entry * 0.995 : direction === 'Шорт' ? entry * 1.005 : entry;
-        const takeProfit = direction === 'Лонг' ? entry * 1.01 : direction === 'Шорт' ? entry * 0.99 : entry;
-        const volChange = vol > avgVol * 1.2 ? 'растут' : vol < avgVol * 0.8 ? 'падают' : 'стабильны';
-        const volatilityStatus = volatility > price * 0.01 ? 'высокая' : volatility < price * 0.005 ? 'низкая' : 'умеренная';
-        const sentiment = volume > 0 ? 'покупатели активнее продавцов' : volume < 0 ? 'продавцы активнее покупателей' : 'покупатели и продавцы в равновесии';
-        const activity = vol > avgVol * 1.5 ? 'высокая' : vol < avgVol * 0.5 ? 'низкая' : 'средняя';
-        const recommendation = direction === 'Лонг' ? 'готовиться к покупке после пробоя' : direction === 'Шорт' ? 'готовиться к продаже после пробоя' : 'ждать пробоя канала для чёткого сигнала';
+        const stopLoss = direction === 'Long' ? entry * 0.995 : direction === 'Short' ? entry * 1.005 : entry;
+        const takeProfit = direction === 'Long' ? entry * 1.01 : direction === 'Short' ? entry * 0.99 : entry;
+        const volChange = vol > avgVol * 1.2 ? 'rising' : vol < avgVol * 0.8 ? 'falling' : 'stable';
+        const volatilityStatus = volatility > price * 0.01 ? 'high' : volatility < price * 0.005 ? 'low' : 'moderate';
+        const sentiment = volume > 0 ? 'buyers more active than sellers' : volume < 0 ? 'sellers more active than buyers' : 'buyers and sellers balanced';
+        const activity = vol > avgVol * 1.5 ? 'high' : vol < avgVol * 0.5 ? 'low' : 'medium';
+        const recommendation = direction === 'Long' ? 'prepare to buy after breakout' : direction === 'Short' ? 'prepare to sell after breakout' : 'wait for channel breakout for clear signal';
         const reasoning = isFlat
-            ? `Консолидация. Цена ${price} в границах ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}). Тренд ${trend === 'вверх' ? 'бычий' : trend === 'вниз' ? 'медвежий' : 'флет'}, объёмы ${volChange}, текущий объём ${vol.toFixed(2)} против среднего ${avgVol.toFixed(2)}, волатильность ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, хвосты свечи: верхний ${wick.upper.toFixed(4)}, нижний ${wick.lower.toFixed(4)}. Скачок ${spike.toFixed(2)}% и поглощение ${engulfing} показывают ${activity} активность. Уровень сопротивления ${levels.resistance.toFixed(4)} и поддержка ${levels.support.toFixed(4)} ограничивают движение. Границы канала движутся ${boundaryTrend}. Рекомендация: ${recommendation}.`
-            : `Рынок сейчас в состоянии ${market}, цена ${price} находится ${outsideChannel ? 'вне' : 'внутри'} канала ${nw.lower}–${nw.upper}. Тренд ${trend === 'вверх' ? 'бычий' : trend === 'вниз' ? 'медвежий' : 'флет'}, объёмы ${volChange}, текущий объём ${vol.toFixed(2)} против среднего ${avgVol.toFixed(2)}, волатильность ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, хвосты свечи: верхний ${wick.upper.toFixed(4)}, нижний ${wick.lower.toFixed(4)}. Скачок ${spike.toFixed(2)}% и поглощение ${engulfing} показывают ${activity} активность. Уровень сопротивления ${levels.resistance.toFixed(4)} и поддержка ${levels.support.toFixed(4)} ограничивают движение. Границы канала движутся ${boundaryTrend}. Рекомендация: ${recommendation}.`;
+            ? `Consolidation. Price ${price} within ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}). Trend ${trend === 'up' ? 'bullish' : trend === 'down' ? 'bearish' : 'flat'}, volumes ${volChange}, current volume ${vol.toFixed(2)} vs average ${avgVol.toFixed(2)}, volatility ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, candle wicks: upper ${wick.upper.toFixed(4)}, lower ${wick.lower.toFixed(4)}. Spike ${spike.toFixed(2)}% and engulfing ${engulfing} indicate ${activity} activity. Resistance level ${levels.resistance.toFixed(4)} and support ${levels.support.toFixed(4)} limit movement. Channel boundaries moving ${boundaryTrend}. Recommendation: ${recommendation}.`
+            : `Market currently in ${market} state, price ${price} is ${outsideChannel ? 'outside' : 'inside'} channel ${nw.lower}–${nw.upper}. Trend ${trend === 'up' ? 'bullish' : trend === 'down' ? 'bearish' : 'flat'}, volumes ${volChange}, current volume ${vol.toFixed(2)} vs average ${avgVol.toFixed(2)}, volatility ${volatilityStatus} (${volatility.toFixed(4)}). ${sentiment}, candle wicks: upper ${wick.upper.toFixed(4)}, lower ${wick.lower.toFixed(4)}. Spike ${spike.toFixed(2)}% and engulfing ${engulfing} indicate ${activity} activity. Resistance level ${levels.resistance.toFixed(4)} and support ${levels.support.toFixed(4)} limit movement. Channel boundaries moving ${boundaryTrend}. Recommendation: ${recommendation}.`;
         const shortReasoning = isFlat
-            ? `Консолидация. Цена ${price} в границах ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}), объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`
-            : `Тренд ${trend === 'вверх' ? 'бычий' : trend === 'вниз' ? 'медвежий' : 'флет'}. Цена ${price} ${outsideChannel ? 'вне' : 'внутри'} ${nw.lower}–${nw.upper}, объём ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`;
-        const noTradeReasoning = tradesMain[symbol].active || (['5m', '15m'].includes(tf) && tradesTest[symbol][tf]) ? '' : `Нет активных сделок. Причины: ${outsideChannel ? 'пробой канала есть, но уверенность ' + confidence + '% ниже 50%' : 'цена внутри канала, нет пробоя'}. Тренд ${trend}, объёмы ${volChange}, волатильность ${volatilityStatus}.`;
+            ? `Consolidation. Price ${price} within ${flatLow}–${flatHigh} (Nadaraya: ${nw.lower}–${nw.upper}), volume ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`
+            : `Trend ${trend === 'up' ? 'bullish' : trend === 'down' ? 'bearish' : 'flat'}. Price ${price} ${outsideChannel ? 'outside' : 'inside'} ${nw.lower}–${nw.upper}, volume ${volume.toFixed(2)}, EMA200 ${ema200.toFixed(4)}.`;
+        const noTradeReasoning = tradesMain[symbol].active || (['5m', '15m'].includes(tf) && tradesTest[symbol][tf]) ? '' : `No active trades. Reasons: ${outsideChannel ? 'channel breakout exists but confidence ' + confidence + '% below 50%' : 'price inside channel, no breakout'}. Trend ${trend}, volumes ${volChange}, volatility ${volatilityStatus}.`;
 
         recommendations[tf] = { direction, confidence, outsideChannel, touchesBoundary, entry, stopLoss, takeProfit, market, trend, trendDirection, pivot: nw.smooth, reasoning, shortReasoning, forecast, isFlat, noTradeReasoning };
     }
@@ -671,7 +671,7 @@ app.get('/data', async (req, res) => {
 
         for (const symbol of symbols) {
             recommendations[symbol] = await aiTradeDecision(symbol);
-            console.log(`Рекомендации для ${symbol}:`, recommendations[symbol]);
+            console.log(`Recommendations for ${symbol}:`, recommendations[symbol]);
         }
 
         let marketOverview = '';
@@ -683,22 +683,22 @@ app.get('/data', async (req, res) => {
                 const rec = recommendations[symbol][tf];
                 totalVolatility += calculateVolatility(klinesByTimeframe[symbol][tf] || []);
                 totalVolume += rec.volume || 0;
-                if (rec.trend === 'вверх') trendCount.up++;
-                else if (rec.trend === 'вниз') trendCount.down++;
+                if (rec.trend === 'up') trendCount.up++;
+                else if (rec.trend === 'down') trendCount.down++;
                 else trendCount.flat++;
             });
         });
         const avgVolatility = totalVolatility / (symbols.length * TIMEFRAMES.length);
         const avgVolume = totalVolume / (symbols.length * TIMEFRAMES.length);
-        const dominantTrend = trendCount.up > trendCount.down && trendCount.up > trendCount.flat ? 'восходящий' :
-            trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'нисходящий' : 'боковой';
-        marketOverview = `На данный момент рынок в целом демонстрирует ${dominantTrend} характер. Средняя волатильность составляет ${avgVolatility.toFixed(4)}, что указывает на ${avgVolatility > 0.01 * (lastPrices[symbols[0]] || 0) ? 'высокую активность' : 'спокойствие'}. Объёмы торгов в среднем ${avgVolume.toFixed(2)}, что говорит о ${avgVolume > 0 ? 'преобладании покупателей' : 'преобладании продавцов или равновесии'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
+        const dominantTrend = trendCount.up > trendCount.down && trendCount.up > trendCount.flat ? 'uptrend' :
+            trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'downtrend' : 'sideways';
+        marketOverview = `Currently, the market overall shows a ${dominantTrend} character. Average volatility is ${avgVolatility.toFixed(4)}, indicating ${avgVolatility > 0.01 * (lastPrices[symbols[0]] || 0) ? 'high activity' : 'calmness'}. Average trading volumes are ${avgVolume.toFixed(2)}, suggesting ${avgVolume > 0 ? 'buyers dominating' : 'sellers dominating or balance'}. It’s recommended to monitor key levels and wait for clear breakout signals to enter trades.`;
 
         const serverLoad = getServerLoad();
         res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiSuggestions, marketOverview, serverLoad });
     } catch (error) {
-        console.error('Ошибка /data:', error);
-        res.status(500).json({ error: 'Ошибка сервера', details: error.message });
+        console.error('Error in /data:', error);
+        res.status(500).json({ error: 'Server error', details: error.message });
     }
 });
 
@@ -720,17 +720,17 @@ app.post('/reset-stats-test', async (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-    console.log(`Сервер запущен на порту ${port}`);
+    console.log(`Server started on port ${port}`);
 });
 
 process.on('SIGINT', async () => {
-    console.log('Сервер завершает работу, сохраняю данные...');
+    console.log('Server shutting down, saving data...');
     await saveData();
     process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-    console.log('Сервер завершает работу, сохраняю данные...');
+    console.log('Server shutting down, saving data...');
     await saveData();
     process.exit(0);
 });
