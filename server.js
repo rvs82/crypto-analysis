@@ -500,7 +500,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         tradeData.openCount--;
                         learningWeights[symbol].distance *= 0.95;
                         learningWeights[symbol].volume *= 0.95;
-                        aiLogs.push(`Error: ${symbol} ${tf} Short failed. Price ${currentPrice} exceeded ${stopLoss}. Conclusion: false signal. Impact: Reduced distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and賽learningWeights[symbol].volume.toFixed(2)}. Will account for false breakouts.`);
+                        aiLogs.push(`Error: ${symbol} ${tf} Short failed. Price ${currentPrice} exceeded ${stopLoss}. Conclusion: false signal. Impact: Reduced distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Will account for false breakouts.`);
                         const now = Date.now();
                         if (now - lastSuggestionTime >= 300000) {
                             aiSuggestions.push(`${getMoscowTime()} | Suggest adding RSI indicator with period 14, overbought 70, oversold 30 for timeframe ${tf}. Reason: frequent false upper boundary breakouts.`);
@@ -719,7 +719,7 @@ app.post('/reset-stats-test', async (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
     console.log(`Server started on port ${port}`);
 });
 
