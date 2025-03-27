@@ -1,4 +1,3 @@
-console.log('Running server.js as CommonJS, version: 1.1');
 const express = require('express');
 const WebSocket = require('ws');
 const fs = require('fs').promises;
@@ -109,7 +108,7 @@ function connectWebSocket() {
             console.log(`Subscribed to ${stream}`);
         });
     });
-    ws.on('message', async (data) => {
+    ws.on('message', (data) => {
         try {
             const msg = JSON.parse(data);
             if (msg.s && msg.c) {
@@ -118,9 +117,12 @@ function connectWebSocket() {
                 if (newPrice !== lastPrices[symbol]) {
                     lastPrices[symbol] = newPrice;
                     console.log(`Price updated via WebSocket for ${symbol}: ${lastPrices[symbol]} (@ticker)`);
-                    await saveData();
-                    await checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-                    await checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+                    fs.writeFile('trades.json', JSON.stringify({ tradesMain, tradesTest, aiLogs, aiSuggestions, lastChannelCross, learningWeights, klinesByTimeframe, lastPrices }, null, 2), 'utf8', (err) => {
+                        if (err) console.error('Error saving data:', err.message);
+                        else console.log('Data saved to trades.json:', lastPrices);
+                    });
+                    checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                    checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
                 }
             } else if (msg.e === 'kline' && msg.k) {
                 const symbol = msg.s.toUpperCase();
@@ -146,7 +148,10 @@ function connectWebSocket() {
                 TIMEFRAMES.filter(t => t !== '5m').forEach(tf => {
                     klinesByTimeframe[symbol][tf] = aggregateKlines(klinesByTimeframe[symbol]['5m'], tf);
                 });
-                await saveData();
+                fs.writeFile('trades.json', JSON.stringify({ tradesMain, tradesTest, aiLogs, aiSuggestions, lastChannelCross, learningWeights, klinesByTimeframe, lastPrices }, null, 2), 'utf8', (err) => {
+                    if (err) console.error('Error saving data:', err.message);
+                    else console.log('Data saved to trades.json:', lastPrices);
+                });
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
                 console.log('Sent pong in response to ping');
@@ -380,7 +385,7 @@ function detectFlat(klines, nw) {
     return { isFlat, flatLow, flatHigh };
 }
 
-async function checkTradeStatus(symbol, currentPrice, trades) {
+function checkTradeStatus(symbol, currentPrice, trades) {
     const tradeData = trades[symbol];
     if (trades === tradesMain && tradeData.active) {
         const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
@@ -403,7 +408,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 }
                 if (aiLogs.length > 100) aiLogs.shift();
                 tradeData.active = null;
-                await saveData();
+                saveData();
             } else if (currentPrice >= takeProfit) {
                 const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
                 const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -416,7 +421,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 aiLogs.push(`Success: ${symbol} ${timeframe} Long worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                 if (aiLogs.length > 100) aiLogs.shift();
                 tradeData.active = null;
-                await saveData();
+                saveData();
             }
         } else if (direction === 'Short') {
             if (currentPrice >= stopLoss) {
@@ -437,7 +442,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 }
                 if (aiLogs.length > 100) aiLogs.shift();
                 tradeData.active = null;
-                await saveData();
+                saveData();
             } else if (currentPrice <= takeProfit) {
                 const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
                 const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -450,7 +455,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                 aiLogs.push(`Success: ${symbol} ${timeframe} Short worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                 if (aiLogs.length > 100) aiLogs.shift();
                 tradeData.active = null;
-                await saveData();
+                saveData();
             }
         }
     } else if (trades === tradesTest) {
@@ -476,7 +481,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         }
                         if (aiLogs.length > 100) aiLogs.shift();
                         tradeData[tf] = null;
-                        await saveData();
+                        saveData();
                     } else if (currentPrice >= takeProfit) {
                         const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
                         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -489,7 +494,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         aiLogs.push(`Success: ${symbol} ${tf} Long worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                         if (aiLogs.length > 100) aiLogs.shift();
                         tradeData[tf] = null;
-                        await saveData();
+                        saveData();
                     }
                 } else if (direction === 'Short') {
                     if (currentPrice >= stopLoss) {
@@ -510,7 +515,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         }
                         if (aiLogs.length > 100) aiLogs.shift();
                         tradeData[tf] = null;
-                        await saveData();
+                        saveData();
                     } else if (currentPrice <= takeProfit) {
                         const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
                         const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
@@ -523,7 +528,7 @@ async function checkTradeStatus(symbol, currentPrice, trades) {
                         aiLogs.push(`Success: ${symbol} ${tf} Short worked. Price ${currentPrice} reached ${takeProfit}. Conclusion: accurate signal. Impact: Increased distance and volume weights to ${learningWeights[symbol].distance.toFixed(2)} and ${learningWeights[symbol].volume.toFixed(2)}. Strengthening trust in volume-backed breakouts.`);
                         if (aiLogs.length > 100) aiLogs.shift();
                         tradeData[tf] = null;
-                        await saveData();
+                        saveData();
                     }
                 }
             }
