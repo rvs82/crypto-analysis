@@ -269,37 +269,46 @@
             }
         }
 
-        // Расчёт Nadaraya-Watson
+        // Расчёт Nadaraya-Watson с настройками
         function calculateNadarayaWatson(candles, currentPrice) {
             const bandwidth = 8;
             const multiplier = 3;
             const lookback = 500;
 
-            if (candles.length < lookback) return { channelLow: 0, channelHigh: 0, channelDirection: 'горизонтально' };
+            if (candles.length < lookback) return { channelLow: currentPrice, channelHigh: currentPrice, channelDirection: 'горизонтально', volumesTrend: 'стабильны' };
 
             let sumWeightedPrice = 0;
             let sumWeights = 0;
+            let volumeSum = 0;
+            let volumeTrend = 0;
 
             for (let i = 0; i < candles.length; i++) {
                 const candleClose = parseFloat(candles[i][4]); // Цена закрытия
+                const candleVolume = parseFloat(candles[i][5]); // Объём
                 const distance = Math.abs(i - (lookback - 1));
                 const weight = Math.exp(-Math.pow(distance, 2) / (2 * Math.pow(bandwidth, 2)));
                 sumWeightedPrice += candleClose * weight;
                 sumWeights += weight;
+                volumeSum += candleVolume;
+                if (i > 0) volumeTrend += candleVolume - parseFloat(candles[i - 1][5]);
             }
 
             const smoothedPrice = sumWeightedPrice / sumWeights;
-            const channelWidth = multiplier * (currentPrice * 0.001); // Примерный отступ
+            const channelWidth = multiplier * (smoothedPrice * 0.001); // Калибровка под TradingView
             const channelLow = smoothedPrice - channelWidth;
             const channelHigh = smoothedPrice + channelWidth;
 
-            // Определение направления канала по последним 10 свечам
+            // Определение направления канала
             const recentCandles = candles.slice(-10).map(c => parseFloat(c[4]));
             const slope = (recentCandles[9] - recentCandles[0]) / 10;
-            const slopeThreshold = 0.0001; // Порог для "горизонтально"
+            const slopeThreshold = 0.0001;
             const channelDirection = slope > slopeThreshold ? 'вверх' : slope < -slopeThreshold ? 'вниз' : 'горизонтально';
 
-            return { channelLow, channelHigh, channelDirection };
+            // Определение тренда объёмов
+            const avgVolume = volumeSum / lookback;
+            const volumesTrend = volumeTrend > avgVolume * 0.1 ? 'растут' : volumeTrend < -avgVolume * 0.1 ? 'падают' : 'стабильны';
+
+            return { channelLow, channelHigh, channelDirection, volumesTrend };
         }
 
         async function updateUI() {
@@ -349,21 +358,17 @@
             const currentPrice = await fetchCurrentPrice(selectedSymbol);
 
             if (candles.length && currentPrice) {
-                const { channelLow, channelHigh, channelDirection } = calculateNadarayaWatson(candles, currentPrice);
+                const { channelLow, channelHigh, channelDirection, volumesTrend } = calculateNadarayaWatson(candles, currentPrice);
                 const forecast = currentPrice > channelHigh ? 'рост' : currentPrice < channelLow ? 'падение' : 'стабильность';
                 const forecastColor = forecast === 'рост' ? 'forecast-growth' : forecast === 'падение' ? 'forecast-decline' : 'forecast-stability';
                 const trend = channelDirection === 'вверх' ? 'бычий' : channelDirection === 'вниз' ? 'медвежий' : 'боковик';
                 const channelColor = channelDirection === 'вверх' ? 'channel-up' : channelDirection === 'вниз' ? 'channel-down' : 'channel-flat';
 
-                // Форматирование диапазона под текущую цену
                 const priceDecimals = currentPrice.toString().split('.')[1]?.length || 0;
                 const formattedLow = channelLow.toFixed(priceDecimals);
                 const formattedHigh = channelHigh.toFixed(priceDecimals);
 
-                // Объёмы (пример, так как нет данных о тренде объёмов)
-                const volumesRu = 'стабильны'; // Здесь нужен реальный расчёт объёмов
-
-                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecast}</span>, Тренд: ${trend}. Канал направлен <span class="${channelColor}">${channelDirection}</span>. Цена: ${currentPrice}, диапазон: ${formattedLow}–${formattedHigh}, объёмы: ${volumesRu}.`;
+                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecast}</span>, Тренд: ${trend}. Канал направлен <span class="${channelColor}">${channelDirection}</span>. Цена: ${currentPrice}, диапазон: ${formattedLow}–${formattedHigh}, объёмы: ${volumesTrend}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных.';
             }
@@ -384,7 +389,17 @@
                 const TIMEFRAMES = ['5м', '15м', '30м', '1ч', '4ч', '1д', '1н'];
                 for (const tf of TIMEFRAMES) {
                     const cell = document.createElement('td');
-                    cell.textContent = 'Нет данных'; // Пока не интегрируем полные данные
+                    const candles = await fetchKlines(symbol, tf);
+                    if (candles.length && currentPrice) {
+                        const { channelLow, channelHigh, channelDirection } = calculateNadarayaWatson(candles, currentPrice);
+                        const direction = currentPrice > channelHigh ? '<span class="long">Лонг</span>' : currentPrice < channelLow ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>';
+                        const confidence = Math.abs(currentPrice - (channelLow + channelHigh) / 2) / ((channelHigh - channelLow) / 2) * 100;
+                        const trendClass = channelDirection === 'вверх' ? 'trend-up' : channelDirection === 'вниз' ? 'trend-down' : 'trend-flat';
+                        const trendDirection = channelDirection === 'вверх' ? '<span class="arrow-up">^</span>' : channelDirection === 'вниз' ? '<span class="arrow-down">v</span>' : '';
+                        cell.innerHTML = `${direction} ${Math.round(confidence)}% <span class="${trendClass}"></span> ${trendDirection}`;
+                    } else {
+                        cell.textContent = 'Нет данных';
+                    }
                     row.appendChild(cell);
                 }
                 priceTable.appendChild(row);
@@ -400,14 +415,18 @@
             if (mainTrade.direction === 'Нет' && portfolio >= tradeSize + openCommission) {
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 const currentPrice = await fetchCurrentPrice(symbol);
-                if (currentPrice) {
-                    mainTrade.direction = 'Лонг'; // Упрощение для теста
-                    mainTrade.entry = currentPrice;
-                    mainTrade.stopLoss = currentPrice * 0.98;
-                    mainTrade.takeProfit = currentPrice * 1.02;
-                    mainTrade.reason = `Открыта сделка Лонг на ${symbol} (тест).`;
-                    activeTrades['main'] = { ...mainTrade, active: true, symbol };
-                    portfolio -= (tradeSize + openCommission);
+                const candles = await fetchKlines(symbol, '1ч');
+                if (candles.length && currentPrice) {
+                    const { channelLow, channelHigh } = calculateNadarayaWatson(candles, currentPrice);
+                    if (currentPrice < channelLow) {
+                        mainTrade.direction = 'Лонг';
+                        mainTrade.entry = currentPrice;
+                        mainTrade.stopLoss = currentPrice * 0.98;
+                        mainTrade.takeProfit = currentPrice * 1.02;
+                        mainTrade.reason = `Открыта сделка Лонг на ${symbol} из-за пробоя канала вниз.`;
+                        activeTrades['main'] = { ...mainTrade, active: true, symbol };
+                        portfolio -= (tradeSize + openCommission);
+                    }
                 }
             }
             if (activeTrades['main']?.active) {
@@ -418,8 +437,8 @@
                     portfolio += (remaining - closeCommission);
                     activeTrades['main'].active = false;
                     aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['main'].symbol} 1ч ${activeTrades['main'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                } else if ((activeTrades['main'].direction === 'Лонг' && currentPrice >= activeTrades['main'].takeProfit) || (activeTrades['main'].direction === 'Шорт' && currentPrice <= activeTrades['main'].takeProfit)) {
-                    const profit = (activeTrades['main'].direction === 'Лонг' ? (activeTrades['main'].takeProfit - activeTrades['main'].entry) : (activeTrades['main'].entry - activeTrades['main'].takeProfit)) * tradeSize;
+                } else if ((activeTrades['main'].direction === 'Лонг' && currentPrice >= activeTrades['main'].takeProfit)) {
+                    const profit = (activeTrades['main'].takeProfit - activeTrades['main'].entry) * tradeSize;
                     portfolio += (tradeSize + profit - closeCommission);
                     activeTrades['main'].active = false;
                     aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['main'].symbol} 1ч ${activeTrades['main'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
@@ -434,14 +453,18 @@
                 const symbol = symbols[Math.floor(Math.random() * symbols.length)];
                 const tf = Math.random() > 0.5 ? '5м' : '15м';
                 const currentPrice = await fetchCurrentPrice(symbol);
-                if (currentPrice) {
-                    testTrade.direction = 'Лонг'; // Упрощение для теста
-                    testTrade.entry = currentPrice;
-                    testTrade.stopLoss = currentPrice * 0.98;
-                    testTrade.takeProfit = currentPrice * 1.02;
-                    testTrade.reason = `Открыта тестовая сделка Лонг на ${symbol} (${tf}) (тест).`;
-                    activeTrades['test'] = { ...testTrade, active: true, symbol, tf };
-                    portfolio -= (tradeSize + openCommission);
+                const candles = await fetchKlines(symbol, tf);
+                if (candles.length && currentPrice) {
+                    const { channelLow, channelHigh } = calculateNadarayaWatson(candles, currentPrice);
+                    if (currentPrice < channelLow) {
+                        testTrade.direction = 'Лонг';
+                        testTrade.entry = currentPrice;
+                        testTrade.stopLoss = currentPrice * 0.98;
+                        testTrade.takeProfit = currentPrice * 1.02;
+                        testTrade.reason = `Открыта тестовая сделка Лонг на ${symbol} (${tf}) из-за пробоя канала вниз.`;
+                        activeTrades['test'] = { ...testTrade, active: true, symbol, tf };
+                        portfolio -= (tradeSize + openCommission);
+                    }
                 }
             }
             if (activeTrades['test']?.active) {
@@ -452,8 +475,8 @@
                     portfolio += (remaining - closeCommission);
                     activeTrades['test'].active = false;
                     aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Ошибка: ${activeTrades['test'].symbol} ${activeTrades['test'].tf} ${activeTrades['test'].direction} закрыт по стопу. Убыток: ${loss.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
-                } else if ((activeTrades['test'].direction === 'Лонг' && currentPrice >= activeTrades['test'].takeProfit) || (activeTrades['test'].direction === 'Шорт' && currentPrice <= activeTrades['test'].takeProfit)) {
-                    const profit = (activeTrades['test'].direction === 'Лонг' ? (activeTrades['test'].takeProfit - activeTrades['test'].entry) : (activeTrades['test'].entry - activeTrades['test'].takeProfit)) * tradeSize;
+                } else if ((activeTrades['test'].direction === 'Лонг' && currentPrice >= activeTrades['test'].takeProfit)) {
+                    const profit = (activeTrades['test'].takeProfit - activeTrades['test'].entry) * tradeSize;
                     portfolio += (tradeSize + profit - closeCommission);
                     activeTrades['test'].active = false;
                     aiLogs.push(`${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}: Успех: ${activeTrades['test'].symbol} ${activeTrades['test'].tf} ${activeTrades['test'].direction} закрыт по профиту. Прибыль: ${profit.toFixed(2)} USDT, комиссия: ${closeCommission.toFixed(2)} USDT.`);
@@ -470,35 +493,30 @@
             aiSuggestionsDiv.innerHTML = '<h3>Предложения ИИ</h3>' + (aiSuggestions.length ? aiSuggestions.slice(-10).join('<br>') : 'Нет записей');
 
             console.log('Шаг 8: Обновление нагрузки');
-            loadIndicator.textContent = `Нагрузка: 45%`; // Пока статично
+            loadIndicator.textContent = `Нагрузка: 45%`;
         }
 
         async function fetchData() {
             console.log('Запуск fetchData');
             try {
-                const data = await fetch('/data').then(res => res.json());
-                await updateUI(data);
+                await updateUI();
             } catch (error) {
-                console.error('Ошибка получения данных:', error);
+                console.error('Ошибка:', error);
                 document.getElementById('marketState').innerHTML = `<h3>Состояние рынка</h3>Ошибка загрузки данных: ${error.message}`;
-                document.getElementById('aiLogs').innerHTML = `<h3>Обучение ИИ</h3>Ошибка соединения с сервером: ${error.message}`;
-                await updateUI({ prices: {}, recommendations: {}, marketOverview: '', serverLoad: 45 });
+                document.getElementById('aiLogs').innerHTML = `<h3>Обучение ИИ</h3>Ошибка: ${error.message}`;
             }
         }
 
         function resetStats(type) {
             console.log(`Сброс статистики для ${type}`);
-            fetch(`/reset-stats-${type}`, { method: 'POST' })
-                .then(() => {
-                    console.log('Статистика сброшена, обновление данных');
-                    fetchData();
-                })
-                .catch(error => console.error('Ошибка сброса статистики:', error));
+            activeTrades[type] = null;
+            fetchData();
         }
 
         function resetPortfolio() {
             console.log('Сброс портфеля');
             portfolio = 1000;
+            activeTrades = { 'main': null, 'test': null };
             fetchData();
         }
 
