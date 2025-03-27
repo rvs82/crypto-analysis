@@ -227,7 +227,7 @@
             moodBar.textContent = `Лонги: ${longPercent}% Шорты: ${shortPercent}%`;
 
             marketState.textContent = `Состояние рынка: Текущий рынок в целом показывает ${data.marketOverview?.includes('sideways') ? 'боковой характер' : data.marketOverview?.includes('uptrend') ? 'восходящий характер' : 'нисходящий характер'}. Средняя волатильность ${data.marketOverview?.match(/Average volatility is (\d+\.\d+)/)?.[1] || 0}, указывает на ${data.marketOverview?.includes('high activity') ? 'высокую активность' : 'спокойствие'}. Средние объёмы торгов ${data.marketOverview?.match(/Average trading volumes are (\d+\.\d+)/)?.[1] || 0}, предполагают ${data.marketOverview?.includes('buyers dominating') ? 'преобладание покупателей' : 'преобладание продавцов или баланс'}. Рекомендуется следить за ключевыми уровнями и ждать чётких сигналов пробоя для входа в сделки.`;
-            marketReasoning.textContent = `Рассуждения ИИ о рынке:`;
+            marketReasoning.textContent = `Рассуждения ИИ о рынке: ${data.recommendations?.['LDOUSDT']?.['5m']?.reasoning?.replace('Market currently in Flat state', 'Рынок сейчас в боковом состоянии').replace('price', 'цена').replace('is inside channel', 'находится внутри канала').replace('Trend flat', 'Тренд боковой').replace('volumes rising', 'объёмы растут').replace('current volume', 'текущий объём').replace('vs average', 'против среднего').replace('volatility low', 'волатильность низкая').replace('buyers and sellers balanced', 'покупатели и продавцы в балансе').replace('candle wicks', 'хвосты свечей').replace('indicate high activity', 'указывают на высокую активность').replace('Resistance level', 'Уровень сопротивления').replace('and support', 'и поддержки').replace('limit movement', 'ограничивают движение').replace('Channel boundaries moving down', 'Границы канала движутся вниз').replace('Recommendation: wait for channel breakout for clear signal', 'Рекомендация: ждать пробоя канала для чёткого сигнала') || 'Нет данных'}`;
 
             priceTable.innerHTML = '';
             Object.keys(data.prices || {}).forEach(symbol => {
@@ -246,20 +246,18 @@
                     row.appendChild(priceCell);
                     const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                     TIMEFRAMES.forEach(tf => {
-                        if (timeframes.includes(tf)) {
-                            const cell = document.createElement('td');
-                            const rec = data.recommendations?.[symbol]?.[tf];
-                            if (rec) {
-                                cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
-                                if (rec.outsideChannel) {
-                                    cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
-                                    bellSound.play();
-                                }
-                            } else {
-                                cell.textContent = 'Нет данных';
+                        const cell = document.createElement('td');
+                        const rec = data.recommendations?.[symbol]?.[tf];
+                        if (rec) {
+                            cell.innerHTML = `${rec.direction === 'Long' ? '<span class="long">Лонг</span>' : rec.direction === 'Short' ? '<span class="short">Шорт</span>' : '<span class="none">Нет</span>'} ${rec.confidence}% <span class="${rec.trend === 'up' ? 'trend-up' : rec.trend === 'down' ? 'trend-down' : 'trend-flat'}"></span> ${rec.trendDirection === 'up' ? '<span class="arrow-up">^</span>' : rec.trendDirection === 'down' ? '<span class="arrow-down">v</span>' : ''}`;
+                            if (rec.outsideChannel) {
+                                cell.style.animation = rec.direction === 'Short' ? 'fadeGreen 2s' : 'fadeRed 2s';
+                                bellSound.play();
                             }
-                            row.appendChild(cell);
+                        } else {
+                            cell.textContent = 'Нет данных';
                         }
+                        row.appendChild(cell);
                     });
                     priceTable.appendChild(row);
                 }
@@ -280,13 +278,11 @@
                 forecast.innerHTML += `<strong>${symbol}</strong><br>`;
                 const TIMEFRAMES = ['5m', '15m', '30m', '1h', '4h', '1d', '1w'];
                 TIMEFRAMES.forEach(tf => {
-                    if (timeframes.includes(tf)) {
-                        const rec = data.recommendations[symbol][tf];
-                        if (rec) {
-                            forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning?.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace('volume', 'объём').replace('inside', 'внутри') || 'Нет данных'}<br>`;
-                        } else {
-                            forecast.innerHTML += `${tf}: Нет данных<br>`;
-                        }
+                    const rec = data.recommendations[symbol][tf];
+                    if (rec) {
+                        forecast.innerHTML += `${tf}: <span class="${rec.forecast === 'growth' ? 'forecast-growth' : rec.forecast === 'decline' ? 'forecast-decline' : 'forecast-stability'}">прогноз: ${rec.forecast === 'growth' ? 'рост' : rec.forecast === 'decline' ? 'падение' : 'стабильность'}</span>, ${rec.shortReasoning?.replace('Trend flat', 'Тренд боковой').replace('Price', 'Цена').replace('volume', 'объём').replace('inside', 'внутри') || 'Нет данных'}<br>`;
+                    } else {
+                        forecast.innerHTML += `${tf}: Нет данных<br>`;
                     }
                 });
             });
@@ -306,6 +302,7 @@
                 .catch(error => {
                     console.error('Ошибка получения данных:', error);
                     document.getElementById('marketState').textContent = `Состояние рынка: Ошибка загрузки данных: ${error.message}`;
+                    document.getElementById('aiLogs').innerHTML = '<h3>Обучение ИИ</h3>Ошибка соединения с сервером: ' + error.message;
                 });
         }
 
