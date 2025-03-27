@@ -369,8 +369,9 @@
                 const priceDecimals = currentPrice.toString().split('.')[1]?.length || 0;
                 const formattedLow = channelLow.toFixed(priceDecimals);
                 const formattedHigh = channelHigh.toFixed(priceDecimals);
+                const tfDisplay = selectedReasonTf.replace('m', 'м').replace('h', 'ч').replace('d', 'д').replace('w', 'н');
 
-                reasoningContent.innerHTML = `${selectedReasonTf}: прогноз: <span class="${forecastColor}">${forecast}</span>, Тренд: ${trend}. Канал направлен <span class="${channelColor}">${channelDirection}</span>. Цена: ${currentPrice}, диапазон: ${formattedLow}–${formattedHigh}, объёмы: ${volumesTrend}.`;
+                reasoningContent.innerHTML = `${tfDisplay}: прогноз: <span class="${forecastColor}">${forecast}</span>, Тренд: ${trend}. Канал направлен <span class="${channelColor}">${channelDirection}</span>. Цена: ${currentPrice}, диапазон: ${formattedLow}–${formattedHigh}, объёмы: ${volumesTrend}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных.';
             }
