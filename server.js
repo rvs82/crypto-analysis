@@ -124,8 +124,8 @@ function connectWebSocket() {
                 const symbol = msg.s.toUpperCase();
                 lastPrices[symbol] = parseFloat(msg.c);
                 console.log(`Price updated: ${symbol}: ${lastPrices[symbol]}`);
-                if (tradesMain[symbol]) checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
-                if (tradesTest[symbol]) checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
+                checkTradeStatus(symbol, lastPrices[symbol], tradesMain);
+                checkTradeStatus(symbol, lastPrices[symbol], tradesTest);
             } else if (msg.e === 'kline' && msg.k) {
                 const symbol = msg.s.toUpperCase();
                 const tf = msg.k.i;
@@ -375,156 +375,124 @@ function checkAccumulation(klines) {
     return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005;
 }
 
-async function aiTradeDecision(symbol) {
-    const price = lastPrices[symbol] || 0;
-    let recommendations = {};
-    const btcPrice = lastPrices['BTCUSDT'] || 0;
-    const ethPrice = lastPrices['ETHUSDT'] || 0;
-
-    for (const tf of TIMEFRAMES) {
-        const klines = klinesByTimeframe[symbol][tf] || [];
-        const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
-        const nw = calculateNadarayaWatsonEnvelope(closes);
-
-        const volume = calculateVolume(klines);
-        const ema50 = closes.length > 50 ? calculateEMA(closes.slice(-50), 50) : price;
-        const ema200 = closes.length > 200 ? calculateEMA(closes.slice(-200), 200) : price;
-        const fib = calculateFibonacci(klines);
-        const trend = getTrend(klines);
-        const wick = getWick(klines);
-        const spike = getSpike(klines);
-        const engulfing = getEngulfing(klines);
-        const levels = analyzeOrderBook(symbol);
-        const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'up' : 'down';
-        const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
-        const lowBtcEthCorr = await checkCorrelation(symbol);
-        const accumulation = checkAccumulation(klines);
-        const outsideChannel = price > nw.upper || price < nw.lower;
-        const retestLiquidity = klines.slice(-10).some(k => parseFloat(k[3]) <= levels.support || parseFloat(k[2]) >= levels.resistance);
-        const lastKline = klines[klines.length - 1] || [0, 0, 0, 0, price, 0];
-        const vol = parseFloat(lastKline[5]) || 0;
-        const avgVol = klines.slice(-5).reduce((a, k) => a + parseFloat(k[5]), 0) / 5 || 0;
-        const balance = Math.abs(volume) < avgVol * 0.1 ? 'balanced' : volume > 0 ? 'buyers' : 'sellers';
-
-        const forecast = outsideChannel ? (price > nw.upper ? 'decline' : 'growth') : 'stability';
-        let confidence = 0;
-
-        if (outsideChannel) {
-            confidence = Math.min(100, Math.round(Math.abs(price - (price > nw.upper ? nw.upper : nw.lower)) / price * 200));
-            if (volume > 0 && forecast === 'growth') confidence += 15;
-            if (volume < 0 && forecast === 'decline') confidence += 15;
-            if (price > ema200 && forecast === 'growth') confidence += 10;
-            if (price < ema200 && forecast === 'decline') confidence += 10;
-            if (Math.abs(price - fib[0.618]) < price * 0.005) confidence += 10;
-            if (!lowBtcEthCorr && ((btcPrice > lastPrices['BTCUSDT'] * 0.99 && forecast === 'growth') || (ethPrice < lastPrices['ETHUSDT'] * 1.01 && forecast === 'decline'))) confidence += 5;
-            if (trend === 'up' && forecast === 'growth') confidence += 10;
-            if (trend === 'down' && forecast === 'decline') confidence += 10;
-            if (wick.upper > wick.lower && forecast === 'decline') confidence += 8;
-            if (wick.lower > wick.upper && forecast === 'growth') confidence += 8;
-            if (spike > 0 && ((spike > 0 && forecast === 'growth') || (spike < 0 && forecast === 'decline'))) confidence += 8;
-            if (engulfing === 'bullish' && forecast === 'growth') confidence += 10;
-            if (engulfing === 'bearish' && forecast === 'decline') confidence += 10;
-            if (Math.abs(price - levels.resistance) < price * 0.005 && forecast === 'decline') confidence += 15;
-            if (Math.abs(price - levels.support) < price * 0.005 && forecast === 'growth') confidence += 15;
-            if (frequentExits && boundaryTrend === (forecast === 'decline' ? 'up' : 'down')) confidence += 15;
-            if (accumulation) confidence += 12;
-            if (retestLiquidity) confidence += 10;
-            if (balance === 'balanced') confidence -= 5;
-            confidence = Math.min(100, confidence);
-        }
-
-        if (confidence >= 50 && outsideChannel) {
-            if (!tradesMain[symbol].active) {
-                tradesMain[symbol].active = {
-                    direction: forecast === 'growth' ? 'Long' : 'Short',
-                    entry: price,
-                    stopLoss: forecast === 'growth' ? price * 0.995 : price * 1.005,
-                    takeProfit: forecast === 'growth' ? price * 1.01 : price * 0.99,
-                    timeframe: tf,
-                    reason: `${forecast === 'growth' ? 'Growth' : 'Decline'} predicted with ${confidence}% confidence. Support: ${levels.support}, Resistance: ${levels.resistance}.`
-                };
-                tradesMain[symbol].openCount++;
-                aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${tradesMain[symbol].active.direction} opened. Confidence: ${confidence}%.`);
+function checkTradeStatus(symbol, currentPrice, trades) {
+    const tradeData = trades[symbol];
+    if (trades === tradesMain && tradeData && tradeData.active) {
+        const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
+        if (direction === 'Long') {
+            if (currentPrice <= stopLoss) {
+                const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalLoss += loss + commission;
+                tradeData.stopCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 0.95;
+                learningWeights[symbol].volume *= 0.95;
+                aiLogs.push(`Error: ${symbol} ${timeframe} Long failed. Price ${currentPrice} dropped below ${stopLoss}.`);
+                tradeData.active = null;
+                saveDataThrottled();
+            } else if (currentPrice >= takeProfit) {
+                const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalProfit += profit - commission;
+                tradeData.profitCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 1.05;
+                learningWeights[symbol].volume *= 1.05;
+                aiLogs.push(`Success: ${symbol} ${timeframe} Long worked. Price ${currentPrice} reached ${takeProfit}.`);
+                tradeData.active = null;
+                saveDataThrottled();
             }
-            if ((tf === '5m' || tf === '15m') && !tradesTest[symbol][tf]) {
-                tradesTest[symbol][tf] = { ...tradesMain[symbol].active };
-                tradesTest[symbol].openCount++;
-                aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} Test ${tradesTest[symbol][tf].direction} opened. Confidence: ${confidence}%.`);
+        } else if (direction === 'Short') {
+            if (currentPrice >= stopLoss) {
+                const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalLoss += loss + commission;
+                tradeData.stopCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 0.95;
+                learningWeights[symbol].volume *= 0.95;
+                aiLogs.push(`Error: ${symbol} ${timeframe} Short failed. Price ${currentPrice} exceeded ${stopLoss}.`);
+                tradeData.active = null;
+                saveDataThrottled();
+            } else if (currentPrice <= takeProfit) {
+                const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalProfit += profit - commission;
+                tradeData.profitCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 1.05;
+                learningWeights[symbol].volume *= 1.05;
+                aiLogs.push(`Success: ${symbol} ${timeframe} Short worked. Price ${currentPrice} reached ${takeProfit}.`);
+                tradeData.active = null;
+                saveDataThrottled();
             }
         }
-
-        recommendations[tf] = {
-            forecast,
-            confidence,
-            outsideChannel,
-            trend,
-            ema50,
-            ema200,
-            support: levels.support,
-            resistance: levels.resistance,
-            volume,
-            lower: nw.lower,
-            upper: nw.upper,
-            reason: `Forecast: ${forecast}, Confidence: ${confidence}%. Price ${price}, Channel ${nw.lower}-${nw.upper}, Trend: ${trend}, Volume: ${volume}, EMA50: ${ema50}, EMA200: ${ema200}, Support: ${levels.support}, Resistance: ${levels.resistance}.`
-        };
-    }
-    lastRecommendations[symbol] = recommendations;
-    await saveDataThrottled();
-    return recommendations;
-}
-
-app.get('/data', async (req, res) => {
-    try {
-        const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
-        let recommendations = {};
-
-        for (const symbol of symbols) {
-            recommendations[symbol] = await aiTradeDecision(symbol);
-        }
-
-        let marketOverview = '';
-        let totalVolatility = 0;
-        let totalVolume = 0;
-        let trendCount = { up: 0, down: 0, flat: 0 };
-        symbols.forEach(symbol => {
-            TIMEFRAMES.forEach(tf => {
-                const rec = recommendations[symbol][tf];
-                totalVolatility += calculateVolatility(klinesByTimeframe[symbol][tf] || []);
-                totalVolume += rec.volume || 0;
-                if (rec.trend === 'up') trendCount.up++;
-                else if (rec.trend === 'down') trendCount.down++;
-                else trendCount.flat++;
-            });
+    } else if (trades === tradesTest && tradeData) {
+        ['5m', '15m'].forEach(tf => {
+            if (tradeData[tf]) {
+                const { entry, stopLoss, takeProfit, direction } = tradeData[tf];
+                if (direction === 'Long') {
+                    if (currentPrice <= stopLoss) {
+                        const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalLoss += loss + commission;
+                        tradeData.stopCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 0.95;
+                        learningWeights[symbol].volume *= 0.95;
+                        aiLogs.push(`Error: ${symbol} ${tf} Long failed. Price ${currentPrice} dropped below ${stopLoss}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    } else if (currentPrice >= takeProfit) {
+                        const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalProfit += profit - commission;
+                        tradeData.profitCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 1.05;
+                        learningWeights[symbol].volume *= 1.05;
+                        aiLogs.push(`Success: ${symbol} ${tf} Long worked. Price ${currentPrice} reached ${takeProfit}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    }
+                } else if (direction === 'Short') {
+                    if (currentPrice >= stopLoss) {
+                        const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalLoss += loss + commission;
+                        tradeData.stopCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 0.95;
+                        learningWeights[symbol].volume *= 0.95;
+                        aiLogs.push(`Error: ${symbol} ${tf} Short failed. Price ${currentPrice} exceeded ${stopLoss}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    } else if (currentPrice <= takeProfit) {
+                        const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalProfit += profit - commission;
+                        tradeData.profitCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 1.05;
+                        learningWeights[symbol].volume *= 1.05;
+                        aiLogs.push(`Success: ${symbol} ${tf} Short worked. Price ${currentPrice} reached ${takeProfit}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    }
+                }
+            }
         });
-        const avgVolatility = totalVolatility / (symbols.length * TIMEFRAMES.length);
-        const avgVolume = totalVolume / (symbols.length * TIMEFRAMES.length);
-        const dominantTrend = trendCount.up > trendCount.down && trendCount.up > trendCount.flat ? 'uptrend' :
-            trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'downtrend' : 'sideways';
-        marketOverview = `Currently, the market overall shows a ${dominantTrend} character. Average volatility is ${avgVolatility.toFixed(4)}, Average trading volumes are ${avgVolume.toFixed(2)}.`;
-
-        const serverLoad = getServerLoad();
-        res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiSuggestions, marketOverview, serverLoad });
-    } catch (error) {
-        console.error('Error in /data:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
     }
-});
-
-app.post('/reset-stats-main', async (req, res) => {
-    for (const symbol in tradesMain) {
-        tradesMain[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-    }
-    await saveDataThrottled();
-    res.sendStatus(200);
-});
-
-app.post('/reset-stats-test', async (req, res) => {
-    for (const symbol in tradesTest) {
-        tradesTest[symbol] = { '5m': null, '15m': null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
-    }
-    await saveDataThrottled();
-    res.sendStatus(200);
-});
+}
 
 connectWebSocket();
 connectOrderBookWebSocket();
