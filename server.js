@@ -34,7 +34,7 @@ let lastRecommendations = {};
 let learningWeights = {
     LDOUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 },
     AVAXUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 },
-    AAVEUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1, trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 }
+    AAVEUSDT: { distance: 1, volume: 1, ema: 1, fibo: 1, btcEth: 1,trend: 1, wick: 1, spike: 1, engulf: 1, reaction: 1, balance: 1, levels: 1, flat: 1 }
 };
 let klinesByTimeframe = { LDOUSDT: {}, AVAXUSDT: {}, AAVEUSDT: {}, BTCUSDT: {}, ETHUSDT: {} };
 
@@ -219,7 +219,7 @@ function aggregateKlines(baseKlines, targetTimeframe) {
 }
 
 function gauss(x, h) {
-    return Math.exp(-(Math.pow(x, 2) / (2 * h * h)));
+    return Math.exp(-(x * x) / (2 * h * h));
 }
 
 function calculateNadarayaWatsonEnvelope(closes) {
@@ -228,30 +228,22 @@ function calculateNadarayaWatsonEnvelope(closes) {
     
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
+
+    // Рассчитываем сглаженное значение для последней свечи (репейнтинг)
     let sum = 0, sumw = 0;
-    let nwe = [];
-
-    // Рассчитываем сглаженные значения для всех свечей
     for (let i = 0; i < n; i++) {
-        let localSum = 0, localSumw = 0;
-        for (let j = 0; j < n; j++) {
-            const w = gauss(i - j, h);
-            localSum += closes[j] * w;
-            localSumw += w;
-        }
-        const y = localSum / localSumw;
-        nwe.push(y);
+        const w = gauss(n - 1 - i, h); // Расстояние от последней свечи
+        sum += closes[i] * w;
+        sumw += w;
     }
+    const smooth = sum / sumw;
 
-    // Рассчитываем SAE для последних 499 свечей (исключая последнюю)
+    // Рассчитываем SAE на основе отклонений от сглаженной линии
     let sae = 0;
-    for (let i = 0; i < Math.min(n - 1, 499); i++) {
-        sae += Math.abs(closes[i] - nwe[i]);
+    for (let i = 0; i < n - 1; i++) {
+        sae += Math.abs(closes[i] - smooth);
     }
-    sae = (sae / Math.min(n - 1, 499)) * mult;
-
-    // Последнее сглаженное значение
-    const smooth = nwe[n - 1];
+    sae = (sae / (n - 1)) * mult;
 
     return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
 }
