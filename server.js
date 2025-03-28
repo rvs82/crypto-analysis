@@ -130,7 +130,7 @@ function connectWebSocket() {
                 const symbol = msg.s.toUpperCase();
                 const tf = msg.k.i;
                 if (!TIMEFRAMES.includes(tf)) return;
-                const kline = [msg.k.t, msg.k.o, msg.k.h, msg.k.l, msg.k.c, msg.k.v];
+                const kline = [msg.k.t, parseFloat(msg.k.o), parseFloat(msg.k.h), parseFloat(msg.k.l), parseFloat(msg.k.c), parseFloat(msg.k.v)];
                 const klineList = klinesByTimeframe[symbol][tf];
                 const existingIndex = klineList.findIndex(k => k[0] === kline[0]);
                 if (existingIndex >= 0) klineList[existingIndex] = kline;
@@ -206,12 +206,12 @@ function aggregateKlines(baseKlines, targetTimeframe) {
         if (start !== currentStart) {
             if (currentKline) aggregated.push(currentKline);
             currentStart = start;
-            currentKline = [start, kline[1], kline[2], kline[3], kline[4], parseFloat(kline[5])];
+            currentKline = [start, kline[1], kline[2], kline[3], kline[4], kline[5]];
         } else {
-            currentKline[2] = Math.max(parseFloat(currentKline[2]), parseFloat(kline[2]));
-            currentKline[3] = Math.min(parseFloat(currentKline[3]), parseFloat(kline[3]));
+            currentKline[2] = Math.max(currentKline[2], kline[2]);
+            currentKline[3] = Math.min(currentKline[3], kline[3]);
             currentKline[4] = kline[4];
-            currentKline[5] += parseFloat(kline[5]);
+            currentKline[5] += kline[5];
         }
     });
     if (currentKline) aggregated.push(currentKline);
@@ -229,18 +229,18 @@ function calculateNadarayaWatsonEnvelope(closes) {
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
 
-    // Рассчитываем сглаженное значение для последней свечи
+    // Сглаживание для последней свечи
     let sum = 0, sumw = 0;
     for (let i = 0; i < n; i++) {
-        const w = gauss(n - 1 - i, h); // Расстояние от последней свечи
+        const w = gauss(n - 1 - i, h);
         sum += closes[i] * w;
         sumw += w;
     }
     const smooth = sum / sumw;
 
-    // Рассчитываем SAE как среднее отклонение от сглаженной линии
+    // SAE как среднее отклонение от сглаженной линии
     let sae = 0;
-    for (let i = 0; i < n - 1; i++) {
+    for (let i = 0; i < n; i++) {
         let localSum = 0, localSumw = 0;
         for (let j = 0; j < n; j++) {
             const w = gauss(i - j, h);
@@ -250,9 +250,9 @@ function calculateNadarayaWatsonEnvelope(closes) {
         const y = localSum / localSumw;
         sae += Math.abs(closes[i] - y);
     }
-    sae = (sae / (n - 1)) * mult * 0.25; // Калибровка для ширины ~0.016
+    sae = (sae / n) * mult * 0.25; // Калибровка для ширины ~0.016
 
-    return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
+    return { upper: smooth + sae, lower: smooth - sae, smooth };
 }
 
 function calculateEMA(closes, period) {
@@ -267,24 +267,24 @@ function calculateEMA(closes, period) {
 function calculateVolume(klines) {
     let volume = 0;
     for (let i = 1; i < klines.length; i++) {
-        const prevClose = parseFloat(klines[i - 1][4]);
-        const currClose = parseFloat(klines[i][4]);
-        const vol = parseFloat(klines[i][5]);
+        const prevClose = klines[i - 1][4];
+        const currClose = klines[i][4];
+        const vol = klines[i][5];
         volume += (currClose > prevClose ? vol : currClose < prevClose ? -vol : 0);
     }
     return volume;
 }
 
 function calculateVolatility(klines) {
-    const last10 = klines.slice(-10).map(k => [parseFloat(k[2]), parseFloat(k[3])]);
+    const last10 = klines.slice(-10).map(k => [k[2], k[3]]);
     const highs = last10.map(k => k[0]);
     const lows = last10.map(k => k[1]);
     return Math.max(...highs) - Math.min(...lows);
 }
 
 function calculateFibonacci(klines) {
-    const highs = klines.map(k => parseFloat(k[2])).filter(h => !isNaN(h));
-    const lows = klines.map(k => parseFloat(k[3])).filter(l => !isNaN(l));
+    const highs = klines.map(k => k[2]).filter(h => !isNaN(h));
+    const lows = klines.map(k => k[3]).filter(l => !isNaN(l));
     const max = Math.max(...highs);
     const min = Math.min(...lows);
     const diff = max - min;
@@ -292,7 +292,7 @@ function calculateFibonacci(klines) {
 }
 
 function getTrend(klines) {
-    const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
+    const last50 = klines.slice(-50).map(k => k[4]);
     if (last50.length < 50) return 'sideways';
     const avgStart = last50.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
     const avgEnd = last50.slice(-5).reduce((a, b) => a + b, 0) / 5;
@@ -302,9 +302,9 @@ function getTrend(klines) {
 function getWick(klines) {
     if (!klines.length) return { upper: 0, lower: 0 };
     const last = klines[klines.length - 1];
-    const high = parseFloat(last[2]);
-    const low = parseFloat(last[3]);
-    const close = parseFloat(last[4]);
+    const high = last[2];
+    const low = last[3];
+    const close = last[4];
     return { upper: high - close, lower: close - low };
 }
 
@@ -312,7 +312,7 @@ function getSpike(klines) {
     if (klines.length < 2) return 0;
     const last = klines[klines.length - 1];
     const prev = klines[klines.length - 2];
-    const change = Math.abs(parseFloat(last[4]) - parseFloat(prev[4])) / parseFloat(prev[4]) * 100;
+    const change = Math.abs(last[4] - prev[4]) / prev[4] * 100;
     return change > 1 ? change : 0;
 }
 
@@ -320,10 +320,10 @@ function getEngulfing(klines) {
     if (klines.length < 2) return 'none';
     const last = klines[klines.length - 1];
     const prev = klines[klines.length - 2];
-    const lastOpen = parseFloat(last[1]);
-    const lastClose = parseFloat(last[4]);
-    const prevOpen = parseFloat(prev[1]);
-    const prevClose = parseFloat(prev[4]);
+    const lastOpen = last[1];
+    const lastClose = last[4];
+    const prevOpen = prev[1];
+    const prevClose = prev[4];
     if (lastClose > lastOpen && prevClose < prevOpen && lastClose > prevOpen && lastOpen < prevClose) return 'bullish';
     if (lastClose < lastOpen && prevClose > prevOpen && lastClose < prevOpen && lastOpen > prevClose) return 'bearish';
     return 'none';
@@ -350,14 +350,133 @@ function analyzeOrderBook(symbol) {
     return { support, resistance };
 }
 
+function checkTradeStatus(symbol, currentPrice, trades) {
+    const tradeData = trades[symbol];
+    if (trades === tradesMain && tradeData && tradeData.active) {
+        const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
+        if (direction === 'Long') {
+            if (currentPrice <= stopLoss) {
+                const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalLoss += loss + commission;
+                tradeData.stopCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 0.95;
+                learningWeights[symbol].volume *= 0.95;
+                aiLogs.push(`Error: ${symbol} ${timeframe} Long failed. Price ${currentPrice} dropped below ${stopLoss}.`);
+                tradeData.active = null;
+                saveDataThrottled();
+            } else if (currentPrice >= takeProfit) {
+                const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalProfit += profit - commission;
+                tradeData.profitCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 1.05;
+                learningWeights[symbol].volume *= 1.05;
+                aiLogs.push(`Success: ${symbol} ${timeframe} Long worked. Price ${currentPrice} reached ${takeProfit}.`);
+                tradeData.active = null;
+                saveDataThrottled();
+            }
+        } else if (direction === 'Short') {
+            if (currentPrice >= stopLoss) {
+                const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalLoss += loss + commission;
+                tradeData.stopCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 0.95;
+                learningWeights[symbol].volume *= 0.95;
+                aiLogs.push(`Error: ${symbol} ${timeframe} Short failed. Price ${currentPrice} exceeded ${stopLoss}.`);
+                tradeData.active = null;
+                saveDataThrottled();
+            } else if (currentPrice <= takeProfit) {
+                const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
+                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                tradeData.totalProfit += profit - commission;
+                tradeData.profitCount++;
+                tradeData.closedCount++;
+                tradeData.openCount--;
+                learningWeights[symbol].distance *= 1.05;
+                learningWeights[symbol].volume *= 1.05;
+                aiLogs.push(`Success: ${symbol} ${timeframe} Short worked. Price ${currentPrice} reached ${takeProfit}.`);
+                tradeData.active = null;
+                saveDataThrottled();
+            }
+        }
+    } else if (trades === tradesTest && tradeData) {
+        ['5m', '15m'].forEach(tf => {
+            if (tradeData[tf]) {
+                const { entry, stopLoss, takeProfit, direction } = tradeData[tf];
+                if (direction === 'Long') {
+                    if (currentPrice <= stopLoss) {
+                        const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalLoss += loss + commission;
+                        tradeData.stopCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 0.95;
+                        learningWeights[symbol].volume *= 0.95;
+                        aiLogs.push(`Error: ${symbol} ${tf} Long failed. Price ${currentPrice} dropped below ${stopLoss}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    } else if (currentPrice >= takeProfit) {
+                        const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalProfit += profit - commission;
+                        tradeData.profitCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 1.05;
+                        learningWeights[symbol].volume *= 1.05;
+                        aiLogs.push(`Success: ${symbol} ${tf} Long worked. Price ${currentPrice} reached ${takeProfit}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    }
+                } else if (direction === 'Short') {
+                    if (currentPrice >= stopLoss) {
+                        const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalLoss += loss + commission;
+                        tradeData.stopCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 0.95;
+                        learningWeights[symbol].volume *= 0.95;
+                        aiLogs.push(`Error: ${symbol} ${tf} Short failed. Price ${currentPrice} exceeded ${stopLoss}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    } else if (currentPrice <= takeProfit) {
+                        const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
+                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
+                        tradeData.totalProfit += profit - commission;
+                        tradeData.profitCount++;
+                        tradeData.closedCount++;
+                        tradeData.openCount--;
+                        learningWeights[symbol].distance *= 1.05;
+                        learningWeights[symbol].volume *= 1.05;
+                        aiLogs.push(`Success: ${symbol} ${tf} Short worked. Price ${currentPrice} reached ${takeProfit}.`);
+                        tradeData[tf] = null;
+                        saveDataThrottled();
+                    }
+                }
+            }
+        });
+    }
+}
+
 async function checkCorrelation(symbol) {
     const klines = klinesByTimeframe[symbol]['5m'] || [];
     try {
-        const last50 = klines.slice(-50).map(k => parseFloat(k[4]));
+        const last50 = klines.slice(-50).map(k => k[4]);
         const btcKlines = klinesByTimeframe['BTCUSDT']['5m'] || [];
         const ethKlines = klinesByTimeframe['ETHUSDT']['5m'] || [];
-        const btcLast50 = btcKlines.slice(-50).map(k => parseFloat(k[4]));
-        const ethLast50 = ethKlines.slice(-50).map(k => parseFloat(k[4]));
+        const btcLast50 = btcKlines.slice(-50).map(k => k[4]);
+        const ethLast50 = ethKlines.slice(-50).map(k => k[4]);
         const corrBtc = Math.abs(last50.reduce((a, b, i) => a + b * btcLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * btcLast50.reduce((a, b) => a + b, 0) / 2500);
         const corrEth = Math.abs(last50.reduce((a, b, i) => a + b * ethLast50[i], 0) / 50 - last50.reduce((a, b) => a + b, 0) * ethLast50.reduce((a, b) => a + b, 0) / 2500);
         return (corrBtc + corrEth) / 2 < 0.3;
@@ -369,9 +488,9 @@ async function checkCorrelation(symbol) {
 
 function checkAccumulation(klines) {
     const last10 = klines.slice(-10);
-    const volumes = last10.map(k => parseFloat(k[5]));
+    const volumes = last10.map(k => k[5]);
     const avgVolume = volumes.reduce((a, b) => a + b, 0) / 10;
-    const priceRange = last10.length ? Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))) : 0;
+    const priceRange = last10.length ? Math.max(...last10.map(k => k[2])) - Math.min(...last10.map(k => k[3])) : 0;
     return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005;
 }
 
@@ -383,7 +502,7 @@ async function aiTradeDecision(symbol) {
 
     for (const tf of TIMEFRAMES) {
         const klines = klinesByTimeframe[symbol][tf] || [];
-        const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
+        const closes = klines.length > 0 ? klines.map(k => k[4]).filter(c => !isNaN(c)) : [price];
         const nw = calculateNadarayaWatsonEnvelope(closes);
 
         const volume = calculateVolume(klines);
@@ -396,14 +515,14 @@ async function aiTradeDecision(symbol) {
         const engulfing = getEngulfing(klines);
         const levels = analyzeOrderBook(symbol);
         const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'up' : 'down';
-        const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
+        const frequentExits = klines.slice(-50).filter(k => k[4] > nw.upper || k[4] < nw.lower).length > 5;
         const lowBtcEthCorr = await checkCorrelation(symbol);
         const accumulation = checkAccumulation(klines);
         const outsideChannel = price > nw.upper || price < nw.lower;
-        const retestLiquidity = klines.slice(-10).some(k => parseFloat(k[3]) <= levels.support || parseFloat(k[2]) >= levels.resistance);
+        const retestLiquidity = klines.slice(-10).some(k => k[3] <= levels.support || k[2] >= levels.resistance);
         const lastKline = klines[klines.length - 1] || [0, 0, 0, 0, price, 0];
-        const vol = parseFloat(lastKline[5]) || 0;
-        const avgVol = klines.slice(-5).reduce((a, k) => a + parseFloat(k[5]), 0) / 5 || 0;
+        const vol = lastKline[5] || 0;
+        const avgVol = klines.slice(-5).reduce((a, k) => a + k[5], 0) / 5 || 0;
         const balance = Math.abs(volume) < avgVol * 0.1 ? 'balanced' : volume > 0 ? 'buyers' : 'sellers';
 
         const forecast = outsideChannel ? (price > nw.upper ? 'decline' : 'growth') : 'stability';
