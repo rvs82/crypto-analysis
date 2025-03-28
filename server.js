@@ -225,7 +225,7 @@ function connectWebSocket() {
         const streams = [];
         symbols.forEach(symbol => {
             streams.push(`${symbol}@ticker`);
-            streams.push(`${symbol}@kline_5m`);
+            TIMEFRAMES.forEach(tf => streams.push(`${symbol}@kline_${tf}`)); // Подписка на все таймфреймы
         });
         streams.forEach(stream => {
             ws.send(JSON.stringify({
@@ -257,9 +257,6 @@ function connectWebSocket() {
                     klineList.push(kline);
                     if (klineList.length > MAX_CANDLES) klineList.shift();
                 }
-                TIMEFRAMES.filter(t => t !== '5m').forEach(tf => {
-                    klinesByTimeframe[symbol][tf] = aggregateKlines(klinesByTimeframe[symbol]['5m'], tf).slice(-MAX_CANDLES);
-                });
                 saveDataThrottled();
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
@@ -381,7 +378,7 @@ function calculateNadarayaWatsonEnvelope(closes, timeframe) {
         '1d': 0.060   // Ширина канала для 1d
     };
     const targetWidth = timeframeWidths[timeframe] || 0.016;
-    const adjustedSae = (targetWidth / 2) * (mult / 3); // Делим на 2 для половины ширины
+    const adjustedSae = (targetWidth / 2) * (mult / 3); // Половина ширины
 
     return { upper: smooth + adjustedSae, lower: smooth - adjustedSae, smooth: smooth };
 }
