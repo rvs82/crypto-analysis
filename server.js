@@ -494,6 +494,157 @@ function checkTradeStatus(symbol, currentPrice, trades) {
     }
 }
 
+async function aiTradeDecision(symbol) {
+    const price = lastPrices[symbol] || 0;
+    let recommendations = {};
+    const btcPrice = lastPrices['BTCUSDT'] || 0;
+    const ethPrice = lastPrices['ETHUSDT'] || 0;
+
+    for (const tf of TIMEFRAMES) {
+        const klines = klinesByTimeframe[symbol][tf] || [];
+        const closes = klines.length > 0 ? klines.map(k => parseFloat(k[4])).filter(c => !isNaN(c)) : [price];
+        const nw = calculateNadarayaWatsonEnvelope(closes);
+
+        const volume = calculateVolume(klines);
+        const ema50 = closes.length > 50 ? calculateEMA(closes.slice(-50), 50) : price;
+        const ema200 = closes.length > 200 ? calculateEMA(closes.slice(-200), 200) : price;
+        const fib = calculateFibonacci(klines);
+        const trend = getTrend(klines);
+        const wick = getWick(klines);
+        const spike = getSpike(klines);
+        const engulfing = getEngulfing(klines);
+        const levels = analyzeOrderBook(symbol);
+        const boundaryTrend = nw.upper > nw.upper - (closes[closes.length - 50] || 0) ? 'up' : 'down';
+        const frequentExits = klines.slice(-50).filter(k => parseFloat(k[4]) > nw.upper || parseFloat(k[4]) < nw.lower).length > 5;
+        const lowBtcEthCorr = await checkCorrelation(symbol);
+        const accumulation = checkAccumulation(klines);
+        const outsideChannel = price > nw.upper || price < nw.lower;
+        const retestLiquidity = klines.slice(-10).some(k => parseFloat(k[3]) <= levels.support || parseFloat(k[2]) >= levels.resistance);
+        const lastKline = klines[klines.length - 1] || [0, 0, 0, 0, price, 0];
+        const vol = parseFloat(lastKline[5]) || 0;
+        const avgVol = klines.slice(-5).reduce((a, k) => a + parseFloat(k[5]), 0) / 5 || 0;
+        const balance = Math.abs(volume) < avgVol * 0.1 ? 'balanced' : volume > 0 ? 'buyers' : 'sellers';
+
+        const forecast = outsideChannel ? (price > nw.upper ? 'decline' : 'growth') : 'stability';
+        let confidence = 0;
+
+        if (outsideChannel) {
+            confidence = Math.min(100, Math.round(Math.abs(price - (price > nw.upper ? nw.upper : nw.lower)) / price * 200));
+            if (volume > 0 && forecast === 'growth') confidence += 15;
+            if (volume < 0 && forecast === 'decline') confidence += 15;
+            if (price > ema200 && forecast === 'growth') confidence += 10;
+            if (price < ema200 && forecast === 'decline') confidence += 10;
+            if (Math.abs(price - fib[0.618]) < price * 0.005) confidence += 10;
+            if (!lowBtcEthCorr && ((btcPrice > lastPrices['BTCUSDT'] * 0.99 && forecast === 'growth') || (ethPrice < lastPrices['ETHUSDT'] * 1.01 && forecast === 'decline'))) confidence += 5;
+            if (trend === 'up' && forecast === 'growth') confidence += 10;
+            if (trend === 'down' && forecast === 'decline') confidence += 10;
+            if (wick.upper > wick.lower && forecast === 'decline') confidence += 8;
+            if (wick.lower > wick.upper && forecast === 'growth') confidence += 8;
+            if (spike > 0 && ((spike > 0 && forecast === 'growth') || (spike < 0 && forecast === 'decline'))) confidence += 8;
+            if (engulfing === 'bullish' && forecast === 'growth') confidence += 10;
+            if (engulfing === 'bearish' && forecast === 'decline') confidence += 10;
+            if (Math.abs(price - levels.resistance) < price * 0.005 && forecast === 'decline') confidence += 15;
+            if (Math.abs(price - levels.support) < price * 0.005 && forecast === 'growth') confidence += 15;
+            if (frequentExits && boundaryTrend === (forecast === 'decline' ? 'up' : 'down')) confidence += 15;
+            if (accumulation) confidence += 12;
+            if (retestLiquidity) confidence += 10;
+            if (balance === 'balanced') confidence -= 5;
+            confidence = Math.min(100, confidence);
+        }
+
+        if (confidence >= 50 && outsideChannel) {
+            if (!tradesMain[symbol].active) {
+                tradesMain[symbol].active = {
+                    direction: forecast === 'growth' ? 'Long' : 'Short',
+                    entry: price,
+                    stopLoss: forecast === 'growth' ? price * 0.995 : price * 1.005,
+                    takeProfit: forecast === 'growth' ? price * 1.01 : price * 0.99,
+                    timeframe: tf,
+                    reason: `${forecast === 'growth' ? 'Growth' : 'Decline'} predicted with ${confidence}% confidence. Support: ${levels.support}, Resistance: ${levels.resistance}.`
+                };
+                tradesMain[symbol].openCount++;
+                aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} ${tradesMain[symbol].active.direction} opened. Confidence: ${confidence}%.`);
+            }
+            if ((tf === '5m' || tf === '15m') && !tradesTest[symbol][tf]) {
+                tradesTest[symbol][tf] = { ...tradesMain[symbol].active };
+                tradesTest[symbol].openCount++;
+                aiLogs.push(`${getMoscowTime()} | ${symbol} ${tf} Test ${tradesTest[symbol][tf].direction} opened. Confidence: ${confidence}%.`);
+            }
+        }
+
+        recommendations[tf] = {
+            forecast,
+            confidence,
+            outsideChannel,
+            trend,
+            ema50,
+            ema200,
+            support: levels.support,
+            resistance: levels.resistance,
+            volume,
+            lower: nw.lower,
+            upper: nw.upper,
+            reason: `Forecast: ${forecast}, Confidence: ${confidence}%. Price ${price}, Channel ${nw.lower}-${nw.upper}, Trend: ${trend}, Volume: ${volume}, EMA50: ${ema50}, EMA200: ${ema200}, Support: ${levels.support}, Resistance: ${levels.resistance}.`
+        };
+    }
+    lastRecommendations[symbol] = recommendations;
+    await saveDataThrottled();
+    return recommendations;
+}
+
+app.get('/data', async (req, res) => {
+    try {
+        const symbols = ['LDOUSDT', 'AVAXUSDT', 'AAVEUSDT'];
+        let recommendations = {};
+
+        for (const symbol of symbols) {
+            recommendations[symbol] = await aiTradeDecision(symbol);
+        }
+
+        let marketOverview = '';
+        let totalVolatility = 0;
+        let totalVolume = 0;
+        let trendCount = { up: 0, down: 0, flat: 0 };
+        symbols.forEach(symbol => {
+            TIMEFRAMES.forEach(tf => {
+                const rec = recommendations[symbol][tf];
+                totalVolatility += calculateVolatility(klinesByTimeframe[symbol][tf] || []);
+                totalVolume += rec.volume || 0;
+                if (rec.trend === 'up') trendCount.up++;
+                else if (rec.trend === 'down') trendCount.down++;
+                else trendCount.flat++;
+            });
+        });
+        const avgVolatility = totalVolatility / (symbols.length * TIMEFRAMES.length);
+        const avgVolume = totalVolume / (symbols.length * TIMEFRAMES.length);
+        const dominantTrend = trendCount.up > trendCount.down && trendCount.up > trendCount.flat ? 'uptrend' :
+            trendCount.down > trendCount.up && trendCount.down > trendCount.flat ? 'downtrend' : 'sideways';
+        marketOverview = `Currently, the market overall shows a ${dominantTrend} character. Average volatility is ${avgVolatility.toFixed(4)}, Average trading volumes are ${avgVolume.toFixed(2)}.`;
+
+        const serverLoad = getServerLoad();
+        res.json({ prices: lastPrices, recommendations, tradesMain, tradesTest, aiLogs, aiSuggestions, marketOverview, serverLoad });
+    } catch (error) {
+        console.error('Error in /data:', error);
+        res.status(500).json({ error: 'Server error', details: error.message });
+    }
+});
+
+app.post('/reset-stats-main', async (req, res) => {
+    for (const symbol in tradesMain) {
+        tradesMain[symbol] = { active: null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+    }
+    await saveDataThrottled();
+    res.sendStatus(200);
+});
+
+app.post('/reset-stats-test', async (req, res) => {
+    for (const symbol in tradesTest) {
+        tradesTest[symbol] = { '5m': null, '15m': null, openCount: 0, closedCount: 0, stopCount: 0, profitCount: 0, totalProfit: 0, totalLoss: 0 };
+    }
+    await saveDataThrottled();
+    res.sendStatus(200);
+});
+
 connectWebSocket();
 connectOrderBookWebSocket();
 
