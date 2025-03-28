@@ -283,7 +283,7 @@
                 const trendText = rec.trend === 'up' ? 'восходящий' : rec.trend === 'down' ? 'нисходящий' : 'боковой';
                 const price = data.prices[selectedSymbol] || 'нет данных';
                 const volume = rec.volume !== undefined ? rec.volume : 'нет данных';
-                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${price}, Канал: нижняя ${rec.lower.toFixed(4)} - верхняя ${rec.upper.toFixed(4)}, Тренд: ${trendText}, Объем: ${volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
+                reasoningContent.innerHTML = `Прогноз: ${forecastText}, Уверенность: ${rec.confidence}%. Цена: ${price}, Канал: нижняя ${rec.lower.toFixed(3)} - верхняя ${rec.upper.toFixed(3)}, Тренд: ${trendText}, Объем: ${volume}, EMA50: ${rec.ema50}, EMA200: ${rec.ema200}, Поддержка: ${rec.support}, Сопротивление: ${rec.resistance}.`;
             } else {
                 reasoningContent.innerHTML = 'Нет данных';
             }
