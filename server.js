@@ -341,12 +341,20 @@ function gauss(x, h) {
     return Math.exp(-(x * x) / (2 * h * h));
 }
 
-function calculateNadarayaWatsonEnvelope(closes) {
+function calculateNadarayaWatsonEnvelope(closes, timeframe) {
     const n = Math.min(closes.length, MAX_CANDLES);
     if (n < 2) return { upper: closes[0] * 1.05, lower: closes[0] * 0.95, smooth: closes[0] };
     
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
+    const timeframeFactor = {
+        '5m': 1,
+        '15m': 1.5,
+        '30m': 2,
+        '1h': 2.5,
+        '4h': 3,
+        '1d': 4
+    }[timeframe] || 1; // Увеличение ширины для больших таймфреймов
 
     // Сглаживание для последней свечи
     let sum = 0, sumw = 0;
@@ -369,7 +377,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
         const y = localSum / localSumw;
         sae += Math.abs(closes[i] - y);
     }
-    sae = (sae / n) * mult * 0.15; // Калибровка для ширины ~0.016
+    sae = (sae / n) * mult * 0.15 * timeframeFactor; // Калибровка с учётом таймфрейма
 
     return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
 }
@@ -503,7 +511,7 @@ async function aiTradeDecision(symbol) {
     for (const tf of TIMEFRAMES) {
         const klines = klinesByTimeframe[symbol][tf] || [];
         const closes = klines.length > 0 ? klines.map(k => k[4]).filter(c => !isNaN(c)) : [price];
-        const nw = calculateNadarayaWatsonEnvelope(closes);
+        const nw = calculateNadarayaWatsonEnvelope(closes, tf);
 
         const volume = calculateVolume(klines);
         const ema50 = closes.length > 50 ? calculateEMA(closes.slice(-50), 50) : price;
