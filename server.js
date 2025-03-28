@@ -231,22 +231,26 @@ function calculateNadarayaWatsonEnvelope(closes) {
     let nwe = [];
     let sae = 0;
 
-    // Репейнтинг (пересчет для каждой свечи), как в TradingView
+    // Репейнтинг как в TradingView (LuxAlgo)
     for (let i = 0; i < n; i++) {
-        let sum = 0, sumw = 0;
+        let sum = 0;
+        let sumw = 0;
         for (let j = 0; j < n; j++) {
             const w = gauss(i - j, h);
-            sum += closes[n - 1 - j] * w;
+            sum += closes[j] * w; // Используем прямой порядок, как в Pine Script
             sumw += w;
         }
         const y = sum / sumw;
         nwe.push(y);
-        if (i < Math.min(499, n)) sae += Math.abs(closes[n - 1 - i] - y);
     }
 
-    sae = (sae / Math.min(499, n)) * mult || closes[0] * 0.05;
-    const latestSmooth = nwe[0];
+    // Рассчитываем SAE для последних 499 свечей
+    for (let i = 0; i < Math.min(499, n - 1); i++) {
+        sae += Math.abs(closes[i] - nwe[i]);
+    }
+    sae = sae / Math.min(499, n - 1) * mult;
 
+    const latestSmooth = nwe[n - 1];
     return { upper: latestSmooth + sae, lower: latestSmooth - sae, smooth: latestSmooth };
 }
 
