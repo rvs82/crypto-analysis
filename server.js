@@ -231,17 +231,17 @@ function calculateNadarayaWatsonEnvelope(closes) {
     let nwe = [];
     let sae = 0;
 
-    // Repainting Smoothing как в TradingView
-    for (let i = 0; i < Math.min(499, n); i++) {
+    // Репейнтинг (пересчет для каждой свечи), как в TradingView
+    for (let i = 0; i < n; i++) {
         let sum = 0, sumw = 0;
-        for (let j = 0; j < Math.min(499, n); j++) {
+        for (let j = 0; j < n; j++) {
             const w = gauss(i - j, h);
             sum += closes[n - 1 - j] * w;
             sumw += w;
         }
         const y = sum / sumw;
         nwe.push(y);
-        sae += Math.abs(closes[n - 1 - i] - y);
+        if (i < Math.min(499, n)) sae += Math.abs(closes[n - 1 - i] - y);
     }
 
     sae = (sae / Math.min(499, n)) * mult || closes[0] * 0.05;
