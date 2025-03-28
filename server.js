@@ -348,13 +348,13 @@ function calculateNadarayaWatsonEnvelope(closes, timeframe) {
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
     const timeframeFactor = {
-        '5m': 1,
-        '15m': 1.5,
-        '30m': 2,
-        '1h': 2.5,
-        '4h': 3,
-        '1d': 4
-    }[timeframe] || 1; // Увеличение ширины для больших таймфреймов
+        '5m': 0.33,  // Для ширины ~0.016
+        '15m': 0.5,  // Для ширины ~0.022
+        '30m': 0.67, // Для ширины ~0.026
+        '1h': 0.75,  // Для ширины ~0.030
+        '4h': 1.0,   // Для ширины ~0.040
+        '1d': 1.5    // Для ширины ~0.060
+    }[timeframe] || 0.33; // Фактор для точного соответствия TradingView
 
     // Сглаживание для последней свечи
     let sum = 0, sumw = 0;
@@ -377,7 +377,7 @@ function calculateNadarayaWatsonEnvelope(closes, timeframe) {
         const y = localSum / localSumw;
         sae += Math.abs(closes[i] - y);
     }
-    sae = (sae / n) * mult * 0.15 * timeframeFactor; // Калибровка с учётом таймфрейма
+    sae = (sae / n) * mult * timeframeFactor; // Точная калибровка для TradingView
 
     return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
 }
