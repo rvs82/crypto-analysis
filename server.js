@@ -229,18 +229,10 @@ function calculateNadarayaWatsonEnvelope(closes) {
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
     let sum = 0, sumw = 0;
+    let nwe = [];
 
-    // Рассчитываем только последнее значение (репейнтинг)
+    // Рассчитываем сглаженные значения для всех свечей
     for (let i = 0; i < n; i++) {
-        const w = gauss(n - 1 - i, h);
-        sum += closes[i] * w;
-        sumw += w;
-    }
-    const smooth = sum / sumw;
-
-    // Рассчитываем SAE для канала
-    let sae = 0;
-    for (let i = 0; i < n - 1; i++) {
         let localSum = 0, localSumw = 0;
         for (let j = 0; j < n; j++) {
             const w = gauss(i - j, h);
@@ -248,9 +240,18 @@ function calculateNadarayaWatsonEnvelope(closes) {
             localSumw += w;
         }
         const y = localSum / localSumw;
-        sae += Math.abs(closes[i] - y);
+        nwe.push(y);
     }
-    sae = (sae / (n - 1)) * mult;
+
+    // Рассчитываем SAE для последних 499 свечей (исключая последнюю)
+    let sae = 0;
+    for (let i = 0; i < Math.min(n - 1, 499); i++) {
+        sae += Math.abs(closes[i] - nwe[i]);
+    }
+    sae = (sae / Math.min(n - 1, 499)) * mult;
+
+    // Последнее сглаженное значение
+    const smooth = nwe[n - 1];
 
     return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
 }
