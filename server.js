@@ -250,7 +250,7 @@ function calculateNadarayaWatsonEnvelope(closes) {
         const y = localSum / localSumw;
         sae += Math.abs(closes[i] - y);
     }
-    sae = (sae / n) * mult * 0.2; // Калибровка для ширины ~0.016
+    sae = (sae / n) * mult * 0.15; // Калибровка для ширины ~0.016
 
     return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
 }
