@@ -219,7 +219,7 @@ function aggregateKlines(baseKlines, targetTimeframe) {
 }
 
 function gauss(x, h) {
-    return Math.exp(-(Math.pow(x, 2) / (h * h * 2)));
+    return Math.exp(-(Math.pow(x, 2) / (2 * h * h)));
 }
 
 function calculateNadarayaWatsonEnvelope(closes) {
@@ -228,30 +228,31 @@ function calculateNadarayaWatsonEnvelope(closes) {
     
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
-    let nwe = [];
-    let sae = 0;
+    let sum = 0, sumw = 0;
 
-    // Репейнтинг как в TradingView (LuxAlgo)
+    // Рассчитываем только последнее значение (репейнтинг)
     for (let i = 0; i < n; i++) {
-        let sum = 0;
-        let sumw = 0;
+        const w = gauss(n - 1 - i, h);
+        sum += closes[i] * w;
+        sumw += w;
+    }
+    const smooth = sum / sumw;
+
+    // Рассчитываем SAE для канала
+    let sae = 0;
+    for (let i = 0; i < n - 1; i++) {
+        let localSum = 0, localSumw = 0;
         for (let j = 0; j < n; j++) {
             const w = gauss(i - j, h);
-            sum += closes[j] * w; // Используем прямой порядок, как в Pine Script
-            sumw += w;
+            localSum += closes[j] * w;
+            localSumw += w;
         }
-        const y = sum / sumw;
-        nwe.push(y);
+        const y = localSum / localSumw;
+        sae += Math.abs(closes[i] - y);
     }
+    sae = (sae / (n - 1)) * mult;
 
-    // Рассчитываем SAE для последних 499 свечей
-    for (let i = 0; i < Math.min(499, n - 1); i++) {
-        sae += Math.abs(closes[i] - nwe[i]);
-    }
-    sae = sae / Math.min(499, n - 1) * mult;
-
-    const latestSmooth = nwe[n - 1];
-    return { upper: latestSmooth + sae, lower: latestSmooth - sae, smooth: latestSmooth };
+    return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
 }
 
 function calculateEMA(closes, period) {
@@ -372,125 +373,6 @@ function checkAccumulation(klines) {
     const avgVolume = volumes.reduce((a, b) => a + b, 0) / 10;
     const priceRange = last10.length ? Math.max(...last10.map(k => parseFloat(k[2]))) - Math.min(...last10.map(k => parseFloat(k[3]))) : 0;
     return volumes.slice(-3).every(v => v > avgVolume * 1.2) && priceRange < (lastPrices[klines[0]?.[0]] || 0) * 0.005;
-}
-
-function checkTradeStatus(symbol, currentPrice, trades) {
-    const tradeData = trades[symbol];
-    if (trades === tradesMain && tradeData && tradeData.active) {
-        const { entry, stopLoss, takeProfit, direction, timeframe } = tradeData.active;
-        if (direction === 'Long') {
-            if (currentPrice <= stopLoss) {
-                const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
-                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                tradeData.totalLoss += loss + commission;
-                tradeData.stopCount++;
-                tradeData.closedCount++;
-                tradeData.openCount--;
-                learningWeights[symbol].distance *= 0.95;
-                learningWeights[symbol].volume *= 0.95;
-                aiLogs.push(`Error: ${symbol} ${timeframe} Long failed. Price ${currentPrice} dropped below ${stopLoss}.`);
-                tradeData.active = null;
-                saveDataThrottled();
-            } else if (currentPrice >= takeProfit) {
-                const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
-                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                tradeData.totalProfit += profit - commission;
-                tradeData.profitCount++;
-                tradeData.closedCount++;
-                tradeData.openCount--;
-                learningWeights[symbol].distance *= 1.05;
-                learningWeights[symbol].volume *= 1.05;
-                aiLogs.push(`Success: ${symbol} ${timeframe} Long worked. Price ${currentPrice} reached ${takeProfit}.`);
-                tradeData.active = null;
-                saveDataThrottled();
-            }
-        } else if (direction === 'Short') {
-            if (currentPrice >= stopLoss) {
-                const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
-                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                tradeData.totalLoss += loss + commission;
-                tradeData.stopCount++;
-                tradeData.closedCount++;
-                tradeData.openCount--;
-                learningWeights[symbol].distance *= 0.95;
-                learningWeights[symbol].volume *= 0.95;
-                aiLogs.push(`Error: ${symbol} ${timeframe} Short failed. Price ${currentPrice} exceeded ${stopLoss}.`);
-                tradeData.active = null;
-                saveDataThrottled();
-            } else if (currentPrice <= takeProfit) {
-                const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
-                const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                tradeData.totalProfit += profit - commission;
-                tradeData.profitCount++;
-                tradeData.closedCount++;
-                tradeData.openCount--;
-                learningWeights[symbol].distance *= 1.05;
-                learningWeights[symbol].volume *= 1.05;
-                aiLogs.push(`Success: ${symbol} ${timeframe} Short worked. Price ${currentPrice} reached ${takeProfit}.`);
-                tradeData.active = null;
-                saveDataThrottled();
-            }
-        }
-    } else if (trades === tradesTest && tradeData) {
-        ['5m', '15m'].forEach(tf => {
-            if (tradeData[tf]) {
-                const { entry, stopLoss, takeProfit, direction } = tradeData[tf];
-                if (direction === 'Long') {
-                    if (currentPrice <= stopLoss) {
-                        const loss = TRADE_AMOUNT * (entry - stopLoss) / entry;
-                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                        tradeData.totalLoss += loss + commission;
-                        tradeData.stopCount++;
-                        tradeData.closedCount++;
-                        tradeData.openCount--;
-                        learningWeights[symbol].distance *= 0.95;
-                        learningWeights[symbol].volume *= 0.95;
-                        aiLogs.push(`Error: ${symbol} ${tf} Long failed. Price ${currentPrice} dropped below ${stopLoss}.`);
-                        tradeData[tf] = null;
-                        saveDataThrottled();
-                    } else if (currentPrice >= takeProfit) {
-                        const profit = TRADE_AMOUNT * (takeProfit - entry) / entry;
-                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                        tradeData.totalProfit += profit - commission;
-                        tradeData.profitCount++;
-                        tradeData.closedCount++;
-                        tradeData.openCount--;
-                        learningWeights[symbol].distance *= 1.05;
-                        learningWeights[symbol].volume *= 1.05;
-                        aiLogs.push(`Success: ${symbol} ${tf} Long worked. Price ${currentPrice} reached ${takeProfit}.`);
-                        tradeData[tf] = null;
-                        saveDataThrottled();
-                    }
-                } else if (direction === 'Short') {
-                    if (currentPrice >= stopLoss) {
-                        const loss = TRADE_AMOUNT * (stopLoss - entry) / entry;
-                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                        tradeData.totalLoss += loss + commission;
-                        tradeData.stopCount++;
-                        tradeData.closedCount++;
-                        tradeData.openCount--;
-                        learningWeights[symbol].distance *= 0.95;
-                        learningWeights[symbol].volume *= 0.95;
-                        aiLogs.push(`Error: ${symbol} ${tf} Short failed. Price ${currentPrice} exceeded ${stopLoss}.`);
-                        tradeData[tf] = null;
-                        saveDataThrottled();
-                    } else if (currentPrice <= takeProfit) {
-                        const profit = TRADE_AMOUNT * (entry - takeProfit) / entry;
-                        const commission = TRADE_AMOUNT * BINANCE_FEE * 2;
-                        tradeData.totalProfit += profit - commission;
-                        tradeData.profitCount++;
-                        tradeData.closedCount++;
-                        tradeData.openCount--;
-                        learningWeights[symbol].distance *= 1.05;
-                        learningWeights[symbol].volume *= 1.05;
-                        aiLogs.push(`Success: ${symbol} ${tf} Short worked. Price ${currentPrice} reached ${takeProfit}.`);
-                        tradeData[tf] = null;
-                        saveDataThrottled();
-                    }
-                }
-            }
-        });
-    }
 }
 
 async function aiTradeDecision(symbol) {
