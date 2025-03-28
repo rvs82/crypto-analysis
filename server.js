@@ -347,14 +347,6 @@ function calculateNadarayaWatsonEnvelope(closes, timeframe) {
     
     const h = 8; // Bandwidth из TradingView
     const mult = 3; // Multiplier из TradingView
-    const timeframeFactor = {
-        '5m': 0.33,  // Для ширины ~0.016
-        '15m': 0.5,  // Для ширины ~0.022
-        '30m': 0.67, // Для ширины ~0.026
-        '1h': 0.75,  // Для ширины ~0.030
-        '4h': 1.0,   // Для ширины ~0.040
-        '1d': 1.5    // Для ширины ~0.060
-    }[timeframe] || 0.33; // Фактор для точного соответствия TradingView
 
     // Сглаживание для последней свечи
     let sum = 0, sumw = 0;
@@ -377,9 +369,21 @@ function calculateNadarayaWatsonEnvelope(closes, timeframe) {
         const y = localSum / localSumw;
         sae += Math.abs(closes[i] - y);
     }
-    sae = (sae / n) * mult * timeframeFactor; // Точная калибровка для TradingView
+    sae = (sae / n); // Базовое отклонение
 
-    return { upper: smooth + sae, lower: smooth - sae, smooth: smooth };
+    // Точная калибровка ширины канала для TradingView
+    const timeframeWidths = {
+        '5m': 0.016,  // Ширина канала для 5m
+        '15m': 0.022, // Ширина канала для 15m
+        '30m': 0.026, // Ширина канала для 30m
+        '1h': 0.030,  // Ширина канала для 1h
+        '4h': 0.040,  // Ширина канала для 4h
+        '1d': 0.060   // Ширина канала для 1d
+    };
+    const targetWidth = timeframeWidths[timeframe] || 0.016;
+    const adjustedSae = (targetWidth / 2) * (mult / 3); // Делим на 2 для половины ширины
+
+    return { upper: smooth + adjustedSae, lower: smooth - adjustedSae, smooth: smooth };
 }
 
 function calculateEMA(closes, period) {
