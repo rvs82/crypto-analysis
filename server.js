@@ -225,7 +225,7 @@ function connectWebSocket() {
         const streams = [];
         symbols.forEach(symbol => {
             streams.push(`${symbol}@ticker`);
-            TIMEFRAMES.forEach(tf => streams.push(`${symbol}@kline_${tf}`)); // Подписка на все таймфреймы
+            TIMEFRAMES.forEach(tf => streams.push(`${symbol}@kline_${tf}`));
         });
         streams.forEach(stream => {
             ws.send(JSON.stringify({
@@ -257,6 +257,7 @@ function connectWebSocket() {
                     klineList.push(kline);
                     if (klineList.length > MAX_CANDLES) klineList.shift();
                 }
+                console.log(`Kline updated: ${symbol} ${tf} - Close: ${kline[4]}`);
                 saveDataThrottled();
             } else if (msg.ping) {
                 ws.send(JSON.stringify({ pong: msg.ping }));
@@ -304,34 +305,6 @@ function connectOrderBookWebSocket() {
         console.log('Order Book WebSocket closed, reconnecting...');
         setTimeout(connectOrderBookWebSocket, 1000 + Math.random() * 1000);
     });
-}
-
-function aggregateKlines(baseKlines, targetTimeframe) {
-    const timeframeMs = {
-        '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000, '30m': 30 * 60 * 1000,
-        '1h': 60 * 60 * 1000, '4h': 4 * 60 * 60 * 1000, '1d': 24 * 60 * 60 * 1000
-    };
-    const targetMs = timeframeMs[targetTimeframe];
-    const aggregated = [];
-    let currentStart = null;
-    let currentKline = null;
-
-    baseKlines.forEach(kline => {
-        const timestamp = kline[0];
-        const start = Math.floor(timestamp / targetMs) * targetMs;
-        if (start !== currentStart) {
-            if (currentKline) aggregated.push(currentKline);
-            currentStart = start;
-            currentKline = [start, kline[1], kline[2], kline[3], kline[4], kline[5]];
-        } else {
-            currentKline[2] = Math.max(currentKline[2], kline[2]);
-            currentKline[3] = Math.min(currentKline[3], kline[3]);
-            currentKline[4] = kline[4];
-            currentKline[5] += kline[5];
-        }
-    });
-    if (currentKline) aggregated.push(currentKline);
-    return aggregated.slice(-MAX_CANDLES);
 }
 
 function gauss(x, h) {
